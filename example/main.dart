@@ -1,6 +1,6 @@
 import 'package:ensemble_llama/ensemble_llama.dart';
 
 void main() {
-  LlamaCpp llama = LlamaCpp();
+  _LlamaCpp llama = _LlamaCpp();
   print(llama.systemInfo());
 }
