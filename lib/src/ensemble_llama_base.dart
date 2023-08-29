@@ -1,10 +1,20 @@
+// ignore_for_file: non_constant_identifier_names
+
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
 
-import 'bindings.dart';
+typedef BackendInitC = Void Function(Bool numa);
+typedef BackendInit = void Function(bool isNuma);
+
+typedef BackendFreeC = Void Function();
+typedef BackendFree = void Function();
+
+typedef PrintSystemInfo = Pointer<Utf8> Function();
+
+typedef ContextDefaultParams = ContextParams Function();
 
 // Internal singleton for managing llama.cpp globally
 class _LlamaCpp {
@@ -41,7 +51,13 @@ String systemInfo() {
       .toDartString();
 }
 
-typedef ModelLoadingProgressCallback = Future<void> Function(double progress);
+ContextParams contextDefaultParams() {
+  return _LlamaCpp()
+      ._libllama
+      .lookupFunction<ContextDefaultParams, ContextDefaultParams>(
+          isLeaf: true, 'llama_context_default_params')
+      .call();
+}
 
 typedef LlamaProgressCallback = Void Function(
     Float progress, Pointer<Void> ctx);
@@ -119,7 +135,7 @@ class LlamaCppModel {
 
     // TODO idk about this
     Pointer<Float>? cudaTensorSplit,
-    ModelLoadingProgressCallback? progressCallback,
+    // ModelLoadingProgressCallback? progressCallback,
     bool useMmap = false,
     ropeFreqBase = 10000.0,
     ropeFreqScale = 1.0,
