@@ -1,10 +1,9 @@
 import 'dart:ffi';
 
-import 'dart:io' show Directory;
-import 'package:ensemble_llama/ensemble_llama_cpp.dart';
-import 'package:test/test.dart' as t;
-import 'package:path/path.dart' as path;
 import 'package:ffi/ffi.dart';
+import 'package:test/test.dart' as t;
+
+import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
 void mycb(double progress, Pointer<Void> ctx) {
   print(progress);
