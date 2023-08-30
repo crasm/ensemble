@@ -1,6 +1,6 @@
 import 'dart:ffi';
 
-import 'package:ensemble_llama/src/llama_ffi.dart';
+import 'package:ensemble_llama/src/llama_cpp_base.dart';
 import 'package:test/test.dart' as t;
 
 void mycb(double progress, Pointer<Void> ctx) {
