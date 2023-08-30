@@ -132,6 +132,6 @@ String systemInfo() {
 void logSet(LlamaLogCallback logCallback, Pointer<Void> userData) {
   _LlamaCpp()
       ._libllama
-      .lookupFunction<LlamaLogSet, LlamaLogSet>(isLeaf: true, 'llama_log_set')
+      .lookupFunction<LlamaLogSetC, LlamaLogSet>(isLeaf: true, 'llama_log_set')
       .call(logCallback, userData);
 }
