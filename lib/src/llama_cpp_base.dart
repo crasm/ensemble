@@ -1,10 +1,17 @@
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, constant_identifier_names
 
 import 'dart:ffi';
 import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 import 'package:path/path.dart' as path;
+
+const LlamaLogLevelError = 2;
+const LlamaLogLevelWarn = 3;
+const LlamaLogLevelInfo = 4;
+
+typedef LlamaProgressCallback = Void Function(
+    Float progress, Pointer<Void> ctx);
 
 final class LlamaContextParams extends Struct {
   @Uint32()
@@ -57,10 +64,17 @@ typedef LlamaModel = Pointer;
 typedef LlamaLoadModelFromFile = LlamaModel Function(
     Pointer<Utf8> pathModel, LlamaContextParams params);
 
+typedef LlamaLogCallbackC = Void Function(
+    Int32 level, Pointer<Utf8> text, Pointer<Void> userData);
+typedef LlamaLogCallback = void Function(
+    int level, Pointer<Utf8> text, Pointer<Void> userData);
+
 typedef LlamaPrintSystemInfo = Pointer<Utf8> Function();
 
-typedef LlamaProgressCallback = Void Function(
-    Float progress, Pointer<Void> ctx);
+typedef LlamaLogSetC = Void Function(
+    LlamaLogCallbackC logCallback, Pointer<Void> userData);
+typedef LlamaLogSet = Void Function(
+    LlamaLogCallback logCallback, Pointer<Void> userData);
 
 // Internal singleton for managing llama.cpp globally
 class _LlamaCpp {
@@ -113,4 +127,11 @@ String systemInfo() {
       )
       .call()
       .toDartString();
+}
+
+void logSet(LlamaLogCallback logCallback, Pointer<Void> userData) {
+  _LlamaCpp()
+      ._libllama
+      .lookupFunction<LlamaLogSet, LlamaLogSet>(isLeaf: true, 'llama_log_set')
+      .call(logCallback, userData);
 }
