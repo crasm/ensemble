@@ -1,18 +1,13 @@
 import 'dart:ffi';
-import 'dart:io' show Directory;
 
-import 'package:ensemble_llama/src/generated.dart';
+import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 import 'package:ffi/ffi.dart';
-import 'package:path/path.dart' as path;
 import 'package:console/console.dart';
 
 final _pbar = ProgressBar(complete: 100);
 void onModelLoadProgress(double progress, Pointer<Void> ctx) {
   _pbar.update((progress * 100).floor());
 }
-
-final NativeLibrary libllama = NativeLibrary(DynamicLibrary.open(
-    path.join(Directory.current.path, 'llama', 'libllama.so')));
 
 void main() {
   Console.init();

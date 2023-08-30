@@ -1,7 +1,7 @@
 import 'dart:ffi';
 
 import 'dart:io' show Directory;
-import 'package:ensemble_llama/src/generated.dart';
+import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 import 'package:test/test.dart' as t;
 import 'package:path/path.dart' as path;
 import 'package:ffi/ffi.dart';
@@ -9,9 +9,6 @@ import 'package:ffi/ffi.dart';
 void mycb(double progress, Pointer<Void> ctx) {
   print(progress);
 }
-
-final NativeLibrary libllama = NativeLibrary(DynamicLibrary.open(
-    path.join(Directory.current.path, 'llama', 'libllama.so')));
 
 void main() {
   t.group('A group of tests', () {
@@ -26,7 +23,7 @@ void main() {
     });
 
     t.test('load model', () {
-      llama_context_params params = libllama.llama_context_default_params();
+      var params = libllama.llama_context_default_params();
       params.progress_callback = Pointer.fromFunction(mycb);
 
       libllama.llama_load_model_from_file(
