@@ -10,8 +10,9 @@ void onModelLoadProgress(double progress, Pointer<Void> ctx) {
   _pbar.update((progress * 100).floor());
 }
 
-void onLlamaLog(int level, String text, Pointer<Void> userData) {
-  print("$level: $text");
+void onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) {
+  String msgText = text.cast<Utf8>().toDartString().trimRight();
+  print("$level: $msgText");
 }
 
 typedef LlamaLogger = Void Function(Int32, Pointer<Char>, Pointer<Void>);
