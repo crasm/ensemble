@@ -18,7 +18,13 @@ dev_dependencies:
   test: ^1.21.0
 
 ffigen:
+  name: LlamaCpp 
+  description: 'FFI bindings for llama.cpp'
   output: lib/src/libllama.ffigen.dart
   headers:
     entry-points:
       - 'llama/llama.h'
+  exclude-all-by-default: true
+  functions:
+    include:
+      - 'llama_.*'
