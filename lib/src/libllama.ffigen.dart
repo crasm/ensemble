@@ -192,6 +192,20 @@ class LlamaCpp {
   late final _llama_n_ctx =
       _llama_n_ctxPtr.asFunction<int Function(ffi.Pointer<llama_context>)>();
 
+  int llama_n_ctx_train(
+    ffi.Pointer<llama_context> ctx,
+  ) {
+    return _llama_n_ctx_train(
+      ctx,
+    );
+  }
+
+  late final _llama_n_ctx_trainPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_context>)>>(
+          'llama_n_ctx_train');
+  late final _llama_n_ctx_train = _llama_n_ctx_trainPtr
+      .asFunction<int Function(ffi.Pointer<llama_context>)>();
+
   int llama_n_embd(
     ffi.Pointer<llama_context> ctx,
   ) {
@@ -246,6 +260,20 @@ class LlamaCpp {
       _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_model>)>>(
           'llama_model_n_ctx');
   late final _llama_model_n_ctx = _llama_model_n_ctxPtr
+      .asFunction<int Function(ffi.Pointer<llama_model>)>();
+
+  int llama_model_n_ctx_train(
+    ffi.Pointer<llama_model> model,
+  ) {
+    return _llama_model_n_ctx_train(
+      model,
+    );
+  }
+
+  late final _llama_model_n_ctx_trainPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_model>)>>(
+          'llama_model_n_ctx_train');
+  late final _llama_model_n_ctx_train = _llama_model_n_ctx_trainPtr
       .asFunction<int Function(ffi.Pointer<llama_model>)>();
 
   int llama_model_n_embd(
@@ -834,6 +862,21 @@ class LlamaCpp {
   late final _llama_grammar_free = _llama_grammar_freePtr
       .asFunction<void Function(ffi.Pointer<llama_grammar>)>();
 
+  ffi.Pointer<llama_grammar> llama_grammar_copy(
+    ffi.Pointer<llama_grammar> grammar,
+  ) {
+    return _llama_grammar_copy(
+      grammar,
+    );
+  }
+
+  late final _llama_grammar_copyPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Pointer<llama_grammar> Function(
+              ffi.Pointer<llama_grammar>)>>('llama_grammar_copy');
+  late final _llama_grammar_copy = _llama_grammar_copyPtr.asFunction<
+      ffi.Pointer<llama_grammar> Function(ffi.Pointer<llama_grammar>)>();
+
   /// @details Repetition penalty described in CTRL academic paper https://arxiv.org/abs/1909.05858, with negative logit fix.
   void llama_sample_repetition_penalty(
     ffi.Pointer<llama_context> ctx,
@@ -1265,7 +1308,7 @@ class LlamaCpp {
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<
             ffi.NativeFunction<
-                ffi.Void Function(ffi.Pointer<ffi.Void>, ffi.Int)>>
+                ffi.Void Function(ffi.Pointer<ffi.Void>, llama_beams_state)>>
         callback,
     ffi.Pointer<ffi.Void> callback_data,
     int n_beams,
@@ -1290,7 +1333,8 @@ class LlamaCpp {
               ffi.Pointer<llama_context>,
               ffi.Pointer<
                   ffi.NativeFunction<
-                      ffi.Void Function(ffi.Pointer<ffi.Void>, ffi.Int)>>,
+                      ffi.Void Function(
+                          ffi.Pointer<ffi.Void>, llama_beams_state)>>,
               ffi.Pointer<ffi.Void>,
               ffi.Size,
               ffi.Int,
@@ -1301,7 +1345,7 @@ class LlamaCpp {
           ffi.Pointer<llama_context>,
           ffi.Pointer<
               ffi.NativeFunction<
-                  ffi.Void Function(ffi.Pointer<ffi.Void>, ffi.Int)>>,
+                  ffi.Void Function(ffi.Pointer<ffi.Void>, llama_beams_state)>>,
           ffi.Pointer<ffi.Void>,
           int,
           int,
@@ -1390,6 +1434,24 @@ class LlamaCpp {
                   ffi.Void Function(ffi.Int32, ffi.Pointer<ffi.Char>,
                       ffi.Pointer<ffi.Void>)>>,
           ffi.Pointer<ffi.Void>)>();
+
+  void llama_dump_timing_info_yaml(
+    ffi.Pointer<__sFILE> stream,
+    ffi.Pointer<llama_context> ctx,
+  ) {
+    return _llama_dump_timing_info_yaml(
+      stream,
+      ctx,
+    );
+  }
+
+  late final _llama_dump_timing_info_yamlPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<__sFILE>,
+              ffi.Pointer<llama_context>)>>('llama_dump_timing_info_yaml');
+  late final _llama_dump_timing_info_yaml =
+      _llama_dump_timing_info_yamlPtr.asFunction<
+          void Function(ffi.Pointer<__sFILE>, ffi.Pointer<llama_context>)>();
 }
 
 final class llama_context_params extends ffi.Struct {
@@ -1460,6 +1522,9 @@ final class llama_model_quantize_params extends ffi.Struct {
 
   @ffi.Bool()
   external bool quantize_output_tensor;
+
+  @ffi.Bool()
+  external bool only_copy;
 }
 
 abstract class llama_ftype {
@@ -1543,6 +1608,32 @@ final class llama_token_data extends ffi.Struct {
   external double p;
 }
 
+final class llama_beams_state extends ffi.Struct {
+  external ffi.Pointer<llama_beam_view> beam_views;
+
+  @ffi.Size()
+  external int n_beams;
+
+  @ffi.Size()
+  external int common_prefix_length;
+
+  @ffi.Bool()
+  external bool last_call;
+}
+
+final class llama_beam_view extends ffi.Struct {
+  external ffi.Pointer<ffi.Int> tokens;
+
+  @ffi.Size()
+  external int n_tokens;
+
+  @ffi.Float()
+  external double p;
+
+  @ffi.Bool()
+  external bool eob;
+}
+
 final class llama_timings extends ffi.Struct {
   @ffi.Double()
   external double t_start_ms;
@@ -1577,3 +1668,75 @@ abstract class llama_log_level {
   static const int LLAMA_LOG_LEVEL_WARN = 3;
   static const int LLAMA_LOG_LEVEL_INFO = 4;
 }
+
+final class __sFILE extends ffi.Struct {
+  external ffi.Pointer<ffi.UnsignedChar> _p;
+
+  @ffi.Int()
+  external int _r;
+
+  @ffi.Int()
+  external int _w;
+
+  @ffi.Short()
+  external int _flags;
+
+  @ffi.Short()
+  external int _file;
+
+  external __sbuf _bf;
+
+  @ffi.Int()
+  external int _lbfsize;
+
+  external ffi.Pointer<ffi.Void> _cookie;
+
+  external ffi
+          .Pointer<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>
+      _close;
+
+  external ffi.Pointer<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, ffi.Int)>> _read;
+
+  external ffi.Pointer<
+      ffi.NativeFunction<
+          ffi.LongLong Function(
+              ffi.Pointer<ffi.Void>, ffi.LongLong, ffi.Int)>> _seek;
+
+  external ffi.Pointer<
+      ffi.NativeFunction<
+          ffi.Int Function(
+              ffi.Pointer<ffi.Void>, ffi.Pointer<ffi.Char>, ffi.Int)>> _write;
+
+  external __sbuf _ub;
+
+  external ffi.Pointer<__sFILEX> _extra;
+
+  @ffi.Int()
+  external int _ur;
+
+  @ffi.Array.multi([3])
+  external ffi.Array<ffi.UnsignedChar> _ubuf;
+
+  @ffi.Array.multi([1])
+  external ffi.Array<ffi.UnsignedChar> _nbuf;
+
+  external __sbuf _lb;
+
+  @ffi.Int()
+  external int _blksize;
+
+  @ffi.LongLong()
+  external int _offset;
+}
+
+final class __sbuf extends ffi.Struct {
+  external ffi.Pointer<ffi.UnsignedChar> _base;
+
+  @ffi.Int()
+  external int _size;
+}
+
+final class __sFILEX extends ffi.Opaque {}

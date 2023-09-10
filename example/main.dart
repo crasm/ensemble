@@ -27,7 +27,7 @@ void main() {
       Pointer.fromFunction(onLlamaLog), Pointer.fromAddress(0));
 
   var model = libllama.llama_load_model_from_file(
-      "/Users/vczf/llm/models/airoboros-l2-70b-2.1.Q5_K_M.gguf"
+      "/Users/vczf/models/default/ggml-model-f16.gguf"
           .toNativeUtf8()
           .cast<Char>(),
       params);
@@ -36,24 +36,35 @@ void main() {
 
   var maxTokens = 10;
   Pointer<Int> tokens = calloc.allocate(maxTokens * sizeOf<Int>());
-  int n = libllama.llama_tokenize(
+  int nTokens = libllama.llama_tokenize(
       ctx,
       "My name is Slim Shady ".toNativeUtf8().cast<Char>(),
       tokens,
       maxTokens,
       true);
 
-  if (n < 1) throw Exception();
+  if (nTokens < 1) throw Exception();
 
-  for (var i = 0; i < n; i++) {
+  for (var i = 0; i < nTokens; i++) {
     Pointer<Char> tokPiece = calloc.allocate(10 * sizeOf<Char>());
-    int n2 = libllama.llama_token_to_piece(
+    int err = libllama.llama_token_to_piece(
         ctx, tokens.elementAt(i).value, tokPiece, 10);
-    if (n2 < 0) throw Exception();
-    print(tokPiece.cast<Utf8>().toDartString(length: n2));
+    if (err < 0) throw Exception();
   }
 
-  // libllama.llama_eval(ctx, tokens, n_tokens, n_past, n_threads)
+  if (libllama.llama_eval(ctx, tokens, nTokens, 0, 1) != 0) throw Exception();
+
+  Pointer<Float> logits = libllama.llama_get_logits(ctx);
+  int nVocab = libllama.llama_n_vocab(ctx);
+
+  Pointer<llama_token_data> data =
+      calloc.allocate(nVocab * sizeOf<llama_token_data>());
+
+  for (var i = 0; i < nVocab; i++) {
+    data[i].id = i;
+    data[i].logit = logits[i];
+    data[i].p = 0.0;
+  }
 
   Console.write("done!");
 }
