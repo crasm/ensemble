@@ -37,11 +37,7 @@ void main() {
   var maxTokens = 10;
   Pointer<Int> tokens = calloc.allocate(maxTokens * sizeOf<Int>());
   int nTokens = libllama.llama_tokenize(
-      ctx,
-      "My name is Slim Shady ".toNativeUtf8().cast<Char>(),
-      tokens,
-      maxTokens,
-      true);
+      ctx, "We".toNativeUtf8().cast<Char>(), tokens, maxTokens, true);
 
   if (nTokens < 1) throw Exception();
 
@@ -66,5 +62,17 @@ void main() {
     data[i].p = 0.0;
   }
 
-  Console.write("done!");
+  Pointer<llama_token_data_array> candidates =
+      calloc.allocate(sizeOf<llama_token_data_array>());
+
+  candidates.ref.data = data;
+  candidates.ref.size = nVocab;
+  candidates.ref.sorted = false;
+
+  int token = libllama.llama_sample_token_greedy(ctx, candidates);
+  Console.write("token: $token\n");
+  Pointer<Char> tokenStr = calloc(10);
+  var err = libllama.llama_token_to_piece(ctx, token, tokenStr, 10);
+  Console.write("sample_token_greedy: $err\n");
+  Console.write("first token is: ${tokenStr.cast<Utf8>().toDartString()}\n");
 }
