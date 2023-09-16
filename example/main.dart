@@ -75,4 +75,7 @@ void main() {
   var err = libllama.llama_token_to_piece(ctx, token, tokenStr, 10);
   Console.write("sample_token_greedy: $err\n");
   Console.write("first token is: ${tokenStr.cast<Utf8>().toDartString()}\n");
+
+  calloc.free(data);
+  calloc.free(candidates);
 }
