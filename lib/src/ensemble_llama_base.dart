@@ -3,8 +3,8 @@ import 'dart:isolate';
 
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
-void main() {
-  var llama = Llama();
+void main() async {
+  var llama = await Llama.create();
   llama.log.listen((event) {
     print(event);
   });
@@ -16,9 +16,8 @@ void main() {
     stdout.write("${(a.progress * 100).floor()}\r");
   });
 
-  llama
-      .loadModel("/Users/vczf/models/default/ggml-model-f16.gguf")
-      .then((_) => progressListener.cancel());
+  await llama.loadModel("/Users/vczf/models/default/ggml-model-f16.gguf");
+  progressListener.cancel();
   // llama.dispose();
 }
 
@@ -26,35 +25,36 @@ class Llama {
   late final Stream<LogMessage> log;
   late final Stream<ResponseMessage> response;
 
-  late final Set<ReceivePort> _receivePorts = {};
+  final _logPort = ReceivePort();
+  final _responsePort = ReceivePort();
 
-  late final Future<SendPort> _controlPort;
+  late final SendPort _controlPort;
 
-  Llama() {
-    final logPort = ReceivePort();
-    final responsePort = ReceivePort();
-    _receivePorts.addAll([logPort, responsePort]);
-    log = logPort.asBroadcastStream().cast<LogMessage>();
-    response = responsePort.asBroadcastStream().cast<ResponseMessage>();
+  Llama._() {
+    log = _logPort.asBroadcastStream().cast<LogMessage>();
+    response = _responsePort.asBroadcastStream().cast<ResponseMessage>();
+  }
+
+  static Future<Llama> create() async {
+    final llama = Llama._();
 
     Isolate.spawn(
         init,
         EntryArgs(
-            log: logPort.sendPort,
-            response: responsePort.sendPort));
+            log: llama._logPort.sendPort,
+            response: llama._responsePort.sendPort));
 
-    _controlPort = response.first.then((sp) {
-      assert(sp is HandshakeResp);
-      return (sp as HandshakeResp).controlPort;
-    });
+    final resp = await llama.response.first as HandshakeResp;
+    llama._controlPort = resp.controlPort;
+
+    return llama;
   }
 
   Future<void> dispose() async {
     (await _controlPort).send(ExitCtl());
     await response.firstWhere((a) => a is ExitResp);
-    for (var p in _receivePorts) {
-      p.close();
-    }
+    _logPort.close();
+    _responsePort.close();
   }
 
   Future<void> loadModel(String path) async {
