@@ -1,25 +1,24 @@
+import 'dart:io';
 import 'dart:isolate';
-
-import 'package:console/console.dart';
 
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
 void main() {
-  Console.init();
-  final pbar = ProgressBar(complete: 100);
-
-  var llama = Llama("/Users/vczf/models/default/ggml-model-f16.gguf");
+  var llama = Llama();
   llama.log.listen((event) {
     print(event);
   });
 
-  llama.response
-      .where((event) => event is ModelLoadProgressResp)
-      .cast<ModelLoadProgressResp>()
+  final progressListener = llama.response
+      .where((event) => event is LoadModelProgressResp)
+      .cast<LoadModelProgressResp>()
       .listen((a) {
-    pbar.update((a.progress * 100).floor());
+    stdout.write("${(a.progress * 100).floor()}\r");
   });
 
+  llama
+      .loadModel("/Users/vczf/models/default/ggml-model-f16.gguf")
+      .then((_) => progressListener.cancel());
   // llama.dispose();
 }
 
@@ -31,22 +30,12 @@ class Llama {
 
   late final Future<SendPort> _controlPort;
 
-  Llama(String path) {
+  Llama() {
     final logPort = ReceivePort();
     final responsePort = ReceivePort();
     _receivePorts.addAll([logPort, responsePort]);
-    log = logPort
-        .asBroadcastStream(
-          onCancel: (s) => s.pause(),
-          onListen: (s) => s.resume(), // if paused, resumes
-        )
-        .cast<LogMessage>();
-    response = responsePort
-        .asBroadcastStream(
-          onCancel: (s) => s.pause(),
-          onListen: (s) => s.resume(), // if paused, resumes
-        )
-        .cast<ResponseMessage>();
+    log = logPort.asBroadcastStream().cast<LogMessage>();
+    response = responsePort.asBroadcastStream().cast<ResponseMessage>();
 
     Isolate.spawn(
         init,
@@ -58,8 +47,6 @@ class Llama {
       assert(sp is HandshakeResp);
       return (sp as HandshakeResp).controlPort;
     });
-
-    _controlPort.then((ctl) => ctl.send(LoadModelCtl(path)));
   }
 
   Future<void> dispose() async {
@@ -68,5 +55,10 @@ class Llama {
     for (var p in _receivePorts) {
       p.close();
     }
+  }
+
+  Future<void> loadModel(String path) async {
+    (await _controlPort).send(LoadModelCtl(path));
+    await response.firstWhere((a) => a is LoadModelResp);
   }
 }

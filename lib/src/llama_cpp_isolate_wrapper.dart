@@ -42,9 +42,12 @@ class HandshakeResp extends ResponseMessage {
 
 class ExitResp extends ResponseMessage {}
 
-class ModelLoadProgressResp extends ResponseMessage {
+// TODO: include mem used, model details?
+class LoadModelResp extends ResponseMessage {}
+
+class LoadModelProgressResp extends ResponseMessage {
   final double progress;
-  ModelLoadProgressResp(this.progress);
+  LoadModelProgressResp(this.progress);
 }
 
 class EntryArgs {
@@ -84,7 +87,7 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
 void _onModelLoadProgress(double progress, Pointer<Void> ctx) {
-  _response.send(ModelLoadProgressResp(progress));
+  _response.send(LoadModelProgressResp(progress));
 }
 
 void _onControl(ControlMessage ctl) {
@@ -100,6 +103,7 @@ void _onControl(ControlMessage ctl) {
       params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
       libllama.llama_load_model_from_file(
           ctl.path.toNativeUtf8().cast<Char>(), params);
+      _response.send(LoadModelResp());
   }
 }
 
