@@ -4,6 +4,27 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
+class LogMessage {
+  final int level;
+  final String text;
+  LogMessage({
+    required this.level,
+    required this.text,
+  });
+
+  @override
+  String toString() {
+    String levelStr = switch (level) {
+      llama_log_level.LLAMA_LOG_LEVEL_ERROR => 'ERROR',
+      llama_log_level.LLAMA_LOG_LEVEL_WARN => 'WARN',
+      llama_log_level.LLAMA_LOG_LEVEL_INFO => 'INFO',
+      _ => throw Exception("Unknown log level: $level"),
+    };
+
+    return "$levelStr: $text";
+  }
+}
+
 sealed class ControlMessage {}
 
 class ExitCtl extends ControlMessage {}
@@ -29,6 +50,7 @@ class LlamaCpp {
   }
 
   late final ReceivePort _control;
+  // TODO: this needs to be a static function
   void entryPoint(Map values) {
     _control = ReceivePort()..listen(_onControl);
     _controlResponse.send(HandshakeResp(_control.sendPort));
@@ -50,10 +72,9 @@ class LlamaCpp {
     }
   }
 
-  void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) {
-    String msgText = text.cast<Utf8>().toDartString().trimRight();
-    print("$level: $msgText");
-  }
+  void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
+      _log.send(LogMessage(
+          level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
   void _dispose() {
     libllama.llama_backend_free();
