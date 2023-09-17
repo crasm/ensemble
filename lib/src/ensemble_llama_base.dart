@@ -40,7 +40,7 @@ class Llama {
   //       - avoid creating temp ReceivePorts by making a ctlresponse broadcast stream
   Future<void> dispose() async {
     final ack = ReceivePort();
-    (await _controlPort).send({'msg': "hello from main", 'ack': ack.sendPort});
+    (await _controlPort).send(ExitMessage(ack.sendPort));
     print(await ack.first);
     ack.close();
     for (var p in _receivePorts) {

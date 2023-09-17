@@ -4,6 +4,13 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
+sealed class ControlMessage {}
+
+class ExitMessage extends ControlMessage {
+  final SendPort ackPort;
+  ExitMessage(this.ackPort);
+}
+
 class LlamaCpp {
   late final SendPort _log;
   late final SendPort _controlHelper;
@@ -24,10 +31,14 @@ class LlamaCpp {
     _log.send("Hello from LLamaCpp");
   }
 
-  void _onControl(dynamic ctl) {
-    print("got control message: ${ctl['msg']}");
-    (ctl['ack'] as SendPort).send("ok");
-    _dispose();
+  void _onControl(dynamic msg) {
+    switch (msg) {
+      case ExitMessage():
+        _dispose();
+        msg.ackPort.send(1);
+      default:
+        print("unknown ControlMessage: $msg");
+    }
   }
 
   void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) {
