@@ -1,11 +1,23 @@
 import 'dart:isolate';
 
+import 'package:console/console.dart';
+
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
 void main() {
+  Console.init();
+  final pbar = ProgressBar(complete: 100);
+
   var llama = Llama("/Users/vczf/models/default/ggml-model-f16.gguf");
   llama.log.listen((event) {
     print(event);
+  });
+
+  llama.response
+      .where((event) => event is ModelLoadProgressResp)
+      .cast<ModelLoadProgressResp>()
+      .listen((a) {
+    pbar.update((a.progress * 100).floor());
   });
 
   // llama.dispose();
@@ -13,7 +25,7 @@ void main() {
 
 class Llama {
   late final Stream<LogMessage> log;
-  late final Stream<ResponseMessage> _controlResponse;
+  late final Stream<ResponseMessage> response;
 
   late final Set<ReceivePort> _receivePorts = {};
 
@@ -21,15 +33,15 @@ class Llama {
 
   Llama(String path) {
     final logPort = ReceivePort();
-    final controlResponsePort = ReceivePort();
-    _receivePorts.addAll([logPort, controlResponsePort]);
+    final responsePort = ReceivePort();
+    _receivePorts.addAll([logPort, responsePort]);
     log = logPort
         .asBroadcastStream(
           onCancel: (s) => s.pause(),
           onListen: (s) => s.resume(), // if paused, resumes
         )
         .cast<LogMessage>();
-    _controlResponse = controlResponsePort
+    response = responsePort
         .asBroadcastStream(
           onCancel: (s) => s.pause(),
           onListen: (s) => s.resume(), // if paused, resumes
@@ -37,12 +49,12 @@ class Llama {
         .cast<ResponseMessage>();
 
     Isolate.spawn(
-        entry,
+        init,
         EntryArgs(
             log: logPort.sendPort,
-            controlResponse: controlResponsePort.sendPort));
+            response: responsePort.sendPort));
 
-    _controlPort = _controlResponse.first.then((sp) {
+    _controlPort = response.first.then((sp) {
       assert(sp is HandshakeResp);
       return (sp as HandshakeResp).controlPort;
     });
@@ -52,7 +64,7 @@ class Llama {
 
   Future<void> dispose() async {
     (await _controlPort).send(ExitCtl());
-    await _controlResponse.firstWhere((a) => a is ExitResp);
+    await response.firstWhere((a) => a is ExitResp);
     for (var p in _receivePorts) {
       p.close();
     }

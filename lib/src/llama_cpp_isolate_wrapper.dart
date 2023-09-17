@@ -42,60 +42,64 @@ class HandshakeResp extends ResponseMessage {
 
 class ExitResp extends ResponseMessage {}
 
-class _LlamaCpp {
-
-  late final SendPort controlResponse;
-  late final Stream<ControlMessage> control;
-  late final ReceivePort controlPort;
-
-  _LlamaCpp(this.controlResponse) {
-    controlPort = ReceivePort();
-    control = controlPort.cast<ControlMessage>()..listen(onControl);
-    controlResponse.send(HandshakeResp(controlPort.sendPort));
-
-    libllama.llama_backend_init(false);
-    libllama.llama_log_set(
-      Pointer.fromFunction(_onLlamaLog),
-      Pointer.fromAddress(0), // not used
-    );
-  }
-
-  void onControl(ControlMessage ctl) {
-    switch (ctl) {
-      case ExitCtl():
-        dispose();
-        controlResponse.send(ExitResp());
-
-      case LoadModelCtl():
-        var params = libllama.llama_context_default_params();
-        params.n_gpu_layers = 1;
-        // TODO NEXT:
-        // params.progress_callback = Pointer.fromFunction(onModelLoadProgress);
-        libllama.llama_load_model_from_file(
-            ctl.path.toNativeUtf8().cast<Char>(), params);
-    }
-  }
-
-  void dispose() {
-    controlPort.close();
-    libllama.llama_backend_free();
-  }
+class ModelLoadProgressResp extends ResponseMessage {
+  final double progress;
+  ModelLoadProgressResp(this.progress);
 }
 
 class EntryArgs {
-  final SendPort log, controlResponse;
+  final SendPort log, response;
   EntryArgs({
     required this.log,
-    required this.controlResponse,
+    required this.response,
   });
 }
 
-SendPort? _log;
-void entry(EntryArgs args) {
+late final SendPort _log;
+late final SendPort _response;
+
+final ReceivePort _controlPort = ReceivePort();
+final Stream<ControlMessage> _control = _controlPort.cast<ControlMessage>();
+void init(EntryArgs args) {
   _log = args.log;
-  _LlamaCpp(args.controlResponse);
+  _response = args.response;
+
+  _control.listen(_onControl);
+  _response.send(HandshakeResp(_controlPort.sendPort));
+
+  libllama.llama_backend_init(false);
+  libllama.llama_log_set(
+    Pointer.fromFunction(_onLlamaLog),
+    Pointer.fromAddress(0), // not used
+  );
+}
+
+void _free() {
+  _controlPort.close();
+  libllama.llama_backend_free();
 }
 
 void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
-    _log?.send(LogMessage(
+    _log.send(LogMessage(
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
+
+void _onModelLoadProgress(double progress, Pointer<Void> ctx) {
+  _response.send(ModelLoadProgressResp(progress));
+}
+
+void _onControl(ControlMessage ctl) {
+  switch (ctl) {
+    case ExitCtl():
+      _free();
+      _response.send(ExitResp());
+
+    case LoadModelCtl():
+      var params = libllama.llama_context_default_params();
+      params.n_gpu_layers = 1;
+      params.use_mmap = false;
+      params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+      libllama.llama_load_model_from_file(
+          ctl.path.toNativeUtf8().cast<Char>(), params);
+  }
+}
+
