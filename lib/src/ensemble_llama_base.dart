@@ -13,36 +13,43 @@ void main() {
 
 class Llama {
   late final Stream<String> log;
+  late final Stream<ResponseMessage> _controlResponse;
 
   late final Set<ReceivePort> _receivePorts = {};
-  final ReceivePort _logPort = ReceivePort();
 
   late final Future<SendPort> _controlPort;
 
   late final LlamaCpp _isolateWrapper;
   Llama() {
-    _receivePorts.add(_logPort);
-    log = _logPort.cast<String>();
+    final logPort = ReceivePort();
+    final controlResponsePort = ReceivePort();
+    _receivePorts.addAll([logPort, controlResponsePort]);
+    log = logPort
+        .asBroadcastStream(
+          onCancel: (s) => s.pause(),
+          onListen: (s) => s.resume(), // if paused, resumes
+        )
+        .cast<String>();
+    _controlResponse = controlResponsePort
+        .asBroadcastStream(
+          onCancel: (s) => s.pause(),
+          onListen: (s) => s.resume(), // if paused, resumes
+        )
+        .cast<ResponseMessage>();
 
-    final controlHelper = ReceivePort();
-    _isolateWrapper =
-        LlamaCpp(log: _logPort.sendPort, controlHelper: controlHelper.sendPort);
+    _isolateWrapper = LlamaCpp(
+        log: logPort.sendPort, controlResponse: controlResponsePort.sendPort);
     Isolate.spawn(_isolateWrapper.entryPoint, {});
 
-    _controlPort = controlHelper.first.then((sp) {
-      controlHelper.close();
-      print("got controller from isolate");
-      return sp;
+    _controlPort = _controlResponse.first.then((sp) {
+      assert(sp is HandshakeResp);
+      return (sp as HandshakeResp).controlPort;
     });
   }
 
-  // TODO: - define control message types as enum or something
-  //       - avoid creating temp ReceivePorts by making a ctlresponse broadcast stream
   Future<void> dispose() async {
-    final ack = ReceivePort();
-    (await _controlPort).send(ExitMessage(ack.sendPort));
-    print(await ack.first);
-    ack.close();
+    (await _controlPort).send(ExitCtl());
+    await _controlResponse.firstWhere((a) => a is ExitResp);
     for (var p in _receivePorts) {
       p.close();
     }

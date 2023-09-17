@@ -6,38 +6,47 @@ import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
 sealed class ControlMessage {}
 
-class ExitMessage extends ControlMessage {
-  final SendPort ackPort;
-  ExitMessage(this.ackPort);
+class ExitCtl extends ControlMessage {}
+
+sealed class ResponseMessage {}
+
+class HandshakeResp extends ResponseMessage {
+  final SendPort controlPort;
+  HandshakeResp(this.controlPort);
 }
+
+class ExitResp extends ResponseMessage {}
 
 class LlamaCpp {
   late final SendPort _log;
-  late final SendPort _controlHelper;
+  late final SendPort _controlResponse;
   LlamaCpp({
     required SendPort log,
-    required SendPort controlHelper,
+    required SendPort controlResponse,
   }) {
     _log = log;
-    _controlHelper = controlHelper;
+    _controlResponse = controlResponse;
   }
 
   late final ReceivePort _control;
   void entryPoint(Map values) {
     _control = ReceivePort()..listen(_onControl);
-    _controlHelper.send(_control.sendPort);
+    _controlResponse.send(HandshakeResp(_control.sendPort));
 
     libllama.llama_backend_init(false);
-    _log.send("Hello from LLamaCpp");
+    libllama.llama_log_set(
+      Pointer.fromFunction(_onLlamaLog),
+      Pointer.fromAddress(0), // not used
+    );
   }
 
   void _onControl(dynamic msg) {
     switch (msg) {
-      case ExitMessage():
+      case ExitCtl():
         _dispose();
-        msg.ackPort.send(1);
+        _controlResponse.send(ExitResp());
       default:
-        print("unknown ControlMessage: $msg");
+        throw Exception("unknown ControlMessage: $msg");
     }
   }
 
