@@ -5,8 +5,11 @@ import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
 void main() async {
   var llama = await Llama.create();
-  llama.log.listen((event) {
-    print(event);
+  llama.log.listen((msg) {
+    final msgText = msg.toString();
+    if (!msgText.contains("llama_model_loader: - tensor")) {
+      print(msgText);
+    }
   });
 
   final progressListener = llama.response
@@ -23,7 +26,7 @@ void main() async {
         useMmap: false,
       ));
   progressListener.cancel();
-  // llama.dispose();
+  llama.dispose();
 }
 
 class Llama {

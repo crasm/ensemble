@@ -162,6 +162,10 @@ void _onControl(ControlMessage ctl) {
       pc.use_mlock = pd.useMlock;
       pc.embedding = pd.willUseEmbedding;
 
+      // TODO NEXT: don't discard the llama_model
+      // - Go ahead and create and load a context? or...
+      // - Write NewContextCtl?
+      // - LoadModelResp extends NewContextResp?
       libllama.llama_load_model_from_file(
           ctl.path.toNativeUtf8().cast<Char>(), pc);
       _response.send(LoadModelResp());
