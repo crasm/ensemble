@@ -4,6 +4,44 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
+class ContextParams {
+  final int seed;
+  final int contextSizeTokens;
+  final int batchSizeTokens;
+  final int gpuLayers;
+  final int cudaMainGpu;
+  // final List<double> cudaTensorSplits;
+  final double ropeFreqBase;
+  final double ropeFreqScale;
+  final bool useLessVram;
+  final bool cudaUseMulMatQ;
+  final bool useFloat16KVCache;
+  final bool calculateAllLogits;
+  final bool loadOnlyVocabSkipTensors;
+  final bool useMmap;
+  final bool useMlock;
+  final bool willUseEmbedding;
+
+  ContextParams({
+    this.seed = 0xFFFFFFFF,
+    this.contextSizeTokens = 512,
+    this.batchSizeTokens = 512,
+    this.gpuLayers = 0,
+    this.cudaMainGpu = 0,
+    // this.cudaTensorSplits = const [0.0],
+    this.ropeFreqBase = 10000.0,
+    this.ropeFreqScale = 1.0,
+    this.useLessVram = false,
+    this.cudaUseMulMatQ = true,
+    this.useFloat16KVCache = true,
+    this.calculateAllLogits = false,
+    this.loadOnlyVocabSkipTensors = false,
+    this.useMmap = true,
+    this.useMlock = false,
+    this.willUseEmbedding = false,
+  });
+}
+
 class LogMessage {
   final int level;
   final String text;
@@ -30,7 +68,8 @@ sealed class ControlMessage {}
 class ExitCtl extends ControlMessage {}
 class LoadModelCtl extends ControlMessage {
   final String path;
-  LoadModelCtl(this.path);
+  final ContextParams ctxParams;
+  LoadModelCtl(this.path, this.ctxParams);
 }
 
 sealed class ResponseMessage {}
@@ -97,13 +136,34 @@ void _onControl(ControlMessage ctl) {
       _response.send(ExitResp());
 
     case LoadModelCtl():
-      var params = libllama.llama_context_default_params();
-      params.n_gpu_layers = 1;
-      params.use_mmap = false;
-      params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+      final pd = ctl.ctxParams;
+      final pc = libllama.llama_context_default_params();
+
+      pc.seed = pd.seed;
+      pc.n_ctx = pd.contextSizeTokens;
+      pc.n_batch = pd.batchSizeTokens;
+      pc.n_gpu_layers = pd.gpuLayers;
+      pc.main_gpu = pd.cudaMainGpu;
+
+      // TODO: can't do this until we track contexts to manage memory allocation
+      // pc.tensor_split
+
+      pc.rope_freq_base = pd.ropeFreqBase;
+      pc.rope_freq_scale = pd.ropeFreqScale;
+
+      pc.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+
+      pc.low_vram = pd.useLessVram;
+      pc.mul_mat_q = pd.cudaUseMulMatQ;
+      pc.f16_kv = pd.useFloat16KVCache;
+      pc.logits_all = pd.calculateAllLogits;
+      pc.vocab_only = pd.loadOnlyVocabSkipTensors;
+      pc.use_mmap = pd.useMmap;
+      pc.use_mlock = pd.useMlock;
+      pc.embedding = pd.willUseEmbedding;
+
       libllama.llama_load_model_from_file(
-          ctl.path.toNativeUtf8().cast<Char>(), params);
+          ctl.path.toNativeUtf8().cast<Char>(), pc);
       _response.send(LoadModelResp());
   }
 }
-

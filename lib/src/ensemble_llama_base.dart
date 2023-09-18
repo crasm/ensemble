@@ -16,7 +16,12 @@ void main() async {
     stdout.write("${(a.progress * 100).floor()}\r");
   });
 
-  await llama.loadModel("/Users/vczf/models/default/ggml-model-f16.gguf");
+  await llama.loadModel(
+      "/Users/vczf/models/default/ggml-model-f16.gguf",
+      ContextParams(
+        gpuLayers: 1,
+        useMmap: false,
+      ));
   progressListener.cancel();
   // llama.dispose();
 }
@@ -51,14 +56,14 @@ class Llama {
   }
 
   Future<void> dispose() async {
-    (await _controlPort).send(ExitCtl());
+    _controlPort.send(ExitCtl());
     await response.firstWhere((a) => a is ExitResp);
     _logPort.close();
     _responsePort.close();
   }
 
-  Future<void> loadModel(String path) async {
-    (await _controlPort).send(LoadModelCtl(path));
+  Future<void> loadModel(String path, ContextParams ctxParams) async {
+    _controlPort.send(LoadModelCtl(path, ctxParams));
     await response.firstWhere((a) => a is LoadModelResp);
   }
 }
