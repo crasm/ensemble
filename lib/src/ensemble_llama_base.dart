@@ -19,6 +19,8 @@ void main() async {
   );
 
   print(model.rawPointer);
+
+  // await llama.freeModel(model);
   llama.dispose();
 }
 
@@ -46,14 +48,17 @@ class Llama {
             response: llama._responsePort.sendPort));
 
     final resp = await llama._response.first as HandshakeResp;
-    llama._controlPort = resp.controlPort;
+    assert(resp.id == 0);
+    assert(resp.err == null);
 
+    llama._controlPort = resp.controlPort;
     return llama;
   }
 
   Future<void> dispose() async {
-    _controlPort.send(ExitCtl());
-    await _response.firstWhere((a) => a is ExitResp);
+    final ctl = ExitCtl();
+    _controlPort.send(ctl);
+    await _response.firstWhere((e) => e is ExitResp && e.id == ctl.id);
     _logPort.close();
     _responsePort.close();
   }
@@ -63,17 +68,25 @@ class Llama {
     void Function(double progress)? progressCallback,
     ContextParams params = const ContextParams(),
   }) async {
+    final ctl = LoadModelCtl(path, params);
     final progressListener = _response
-        .where((event) => event is LoadModelProgressResp)
+        .where((e) => e is LoadModelProgressResp && e.id == ctl.id)
         .cast<LoadModelProgressResp>()
-        .listen((a) => progressCallback?.call(a.progress));
+        .listen((e) => progressCallback?.call(e.progress));
 
-    _controlPort.send(LoadModelCtl(path, params));
-    final resp = (await _response.firstWhere((a) => a is LoadModelResp))
+    _controlPort.send(ctl);
+    final resp = (await _response.firstWhere(
+        (e) => e is LoadModelResp && e.id == ctl.id))
         as LoadModelResp;
 
     progressListener.cancel();
     resp.throwIfErr();
     return resp.model!;
   }
+
+  // Future<void> freeModel(Model model) async {
+  //   final ctl = FreeModelCtl(model);
+  //   _controlPort.send(FreeModelCtl(model));
+  //   await _response.firstWhere
+  // }
 }

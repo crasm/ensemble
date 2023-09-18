@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
@@ -64,21 +65,37 @@ class LogMessage {
 }
 
 sealed class ControlMessage {
-  const ControlMessage();
+  final id = Random().nextInt(1 << 32);
+  ControlMessage();
 }
 
 class ExitCtl extends ControlMessage {
-  const ExitCtl();
+  ExitResp done() {
+    return ExitResp(id);
+  }
 }
 class LoadModelCtl extends ControlMessage {
   final String path;
   final ContextParams ctxParams;
-  const LoadModelCtl(this.path, this.ctxParams);
+  LoadModelCtl(this.path, this.ctxParams);
+
+  LoadModelResp done(Model model) {
+    return LoadModelResp(id, model: model);
+  }
+
+  LoadModelResp error(Object err) {
+    return LoadModelResp(id, err: err);
+  }
+
+  LoadModelProgressResp progress(double progress) {
+    return LoadModelProgressResp(id, progress);
+  }
 }
 
 sealed class ResponseMessage {
+  final int id;
   final Object? err;
-  const ResponseMessage({this.err});
+  const ResponseMessage(this.id, {this.err});
   void throwIfErr() {
     if (err != null) {
       throw err!;
@@ -88,25 +105,25 @@ sealed class ResponseMessage {
 
 class HandshakeResp extends ResponseMessage {
   final SendPort controlPort;
-  const HandshakeResp(this.controlPort);
+  const HandshakeResp(this.controlPort, [super.id = 0]);
 }
 
 class ExitResp extends ResponseMessage {
-  const ExitResp();
+  const ExitResp(super.id);
 }
 
 // TODO: include mem used, model details?
 class LoadModelResp extends ResponseMessage {
   final Model? model;
-  const LoadModelResp({
+  const LoadModelResp(super.id, {
     super.err,
-    this.model,
+    this.model
   });
 }
 
 class LoadModelProgressResp extends ResponseMessage {
   final double progress;
-  const LoadModelProgressResp(this.progress);
+  const LoadModelProgressResp(super.id, this.progress);
 }
 
 class EntryArgs {
@@ -130,8 +147,6 @@ late final SendPort _response;
 
 final ReceivePort _controlPort = ReceivePort();
 final Stream<ControlMessage> _control = _controlPort.cast<ControlMessage>();
-
-
 
 void init(EntryArgs args) {
   _log = args.log;
@@ -157,14 +172,15 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
 void _onModelLoadProgress(double progress, Pointer<Void> ctx) {
-  _response.send(LoadModelProgressResp(progress));
+  // TODO: need to know the ID of this LoadModelControlMessage
+  _response.send(LoadModelProgressResp(0, progress));
 }
 
 void _onControl(ControlMessage ctl) {
   switch (ctl) {
     case ExitCtl():
       _free();
-      _response.send(ExitResp());
+      _response.send(ctl.done());
 
     case LoadModelCtl():
       final pd = ctl.ctxParams;
@@ -201,14 +217,15 @@ void _onControl(ControlMessage ctl) {
           .address;
 
       if (rawModelPointer == 0) {
-        _response.send(
-            LoadModelResp(err: Exception("failed loading model: ${ctl.path}")));
+        _response.send(ctl.error(
+          Exception("failed loading model: ${ctl.path}"),
+        ));
         return;
       }
 
       final model = Model._(rawModelPointer);
       _models[rawModelPointer] = model;
 
-      _response.send(LoadModelResp(model: model));
+      _response.send(ctl.done(model));
   }
 }
