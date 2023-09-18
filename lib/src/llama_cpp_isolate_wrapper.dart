@@ -22,7 +22,7 @@ class ContextParams {
   final bool useMlock;
   final bool willUseEmbedding;
 
-  ContextParams({
+  const ContextParams({
     this.seed = 0xFFFFFFFF,
     this.contextSizeTokens = 512,
     this.batchSizeTokens = 512,
@@ -45,7 +45,7 @@ class ContextParams {
 class LogMessage {
   final int level;
   final String text;
-  LogMessage({
+  const LogMessage({
     required this.level,
     required this.text,
   });
@@ -63,38 +63,66 @@ class LogMessage {
   }
 }
 
-sealed class ControlMessage {}
+sealed class ControlMessage {
+  const ControlMessage();
+}
 
-class ExitCtl extends ControlMessage {}
+class ExitCtl extends ControlMessage {
+  const ExitCtl();
+}
 class LoadModelCtl extends ControlMessage {
   final String path;
   final ContextParams ctxParams;
-  LoadModelCtl(this.path, this.ctxParams);
+  const LoadModelCtl(this.path, this.ctxParams);
 }
 
-sealed class ResponseMessage {}
+sealed class ResponseMessage {
+  final Object? err;
+  const ResponseMessage({this.err});
+  void throwIfErr() {
+    if (err != null) {
+      throw err!;
+    }
+  }
+}
 
 class HandshakeResp extends ResponseMessage {
   final SendPort controlPort;
-  HandshakeResp(this.controlPort);
+  const HandshakeResp(this.controlPort);
 }
 
-class ExitResp extends ResponseMessage {}
+class ExitResp extends ResponseMessage {
+  const ExitResp();
+}
 
 // TODO: include mem used, model details?
-class LoadModelResp extends ResponseMessage {}
+class LoadModelResp extends ResponseMessage {
+  final Model? model;
+  const LoadModelResp({
+    super.err,
+    this.model,
+  });
+}
 
 class LoadModelProgressResp extends ResponseMessage {
   final double progress;
-  LoadModelProgressResp(this.progress);
+  const LoadModelProgressResp(this.progress);
 }
 
 class EntryArgs {
   final SendPort log, response;
-  EntryArgs({
+  const EntryArgs({
     required this.log,
     required this.response,
   });
+}
+
+// Map from raw pointer to the Model object we pass back to the main isolate.
+final Map<int, Model> _models = {};
+
+class Model {
+  final int rawPointer;
+  const Model._(this.rawPointer);
 }
 
 late final SendPort _log;
@@ -102,6 +130,9 @@ late final SendPort _response;
 
 final ReceivePort _controlPort = ReceivePort();
 final Stream<ControlMessage> _control = _controlPort.cast<ControlMessage>();
+
+
+
 void init(EntryArgs args) {
   _log = args.log;
   _response = args.response;
@@ -162,12 +193,22 @@ void _onControl(ControlMessage ctl) {
       pc.use_mlock = pd.useMlock;
       pc.embedding = pd.willUseEmbedding;
 
-      // TODO NEXT: don't discard the llama_model
-      // - Go ahead and create and load a context? or...
-      // - Write NewContextCtl?
-      // - LoadModelResp extends NewContextResp?
-      libllama.llama_load_model_from_file(
-          ctl.path.toNativeUtf8().cast<Char>(), pc);
-      _response.send(LoadModelResp());
+      final rawModelPointer = libllama
+          .llama_load_model_from_file(
+            ctl.path.toNativeUtf8().cast<Char>(),
+            pc,
+          )
+          .address;
+
+      if (rawModelPointer == 0) {
+        _response.send(
+            LoadModelResp(err: Exception("failed loading model: ${ctl.path}")));
+        return;
+      }
+
+      final model = Model._(rawModelPointer);
+      _models[rawModelPointer] = model;
+
+      _response.send(LoadModelResp(model: model));
   }
 }

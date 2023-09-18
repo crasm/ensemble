@@ -12,26 +12,19 @@ void main() async {
     }
   });
 
-  final progressListener = llama.response
-      .where((event) => event is LoadModelProgressResp)
-      .cast<LoadModelProgressResp>()
-      .listen((a) {
-    stdout.write("${(a.progress * 100).floor()}\r");
-  });
-
-  await llama.loadModel(
+  final model = await llama.loadModel(
       "/Users/vczf/models/default/ggml-model-f16.gguf",
-      ContextParams(
-        gpuLayers: 1,
-        useMmap: false,
-      ));
-  progressListener.cancel();
+    params: ContextParams(gpuLayers: 1, useMmap: false),
+    progressCallback: (p) => stdout.write("${(p * 100).floor()}\r"),
+  );
+
+  print(model.rawPointer);
   llama.dispose();
 }
 
 class Llama {
   late final Stream<LogMessage> log;
-  late final Stream<ResponseMessage> response;
+  late final Stream<ResponseMessage> _response;
 
   final _logPort = ReceivePort();
   final _responsePort = ReceivePort();
@@ -40,7 +33,7 @@ class Llama {
 
   Llama._() {
     log = _logPort.asBroadcastStream().cast<LogMessage>();
-    response = _responsePort.asBroadcastStream().cast<ResponseMessage>();
+    _response = _responsePort.asBroadcastStream().cast<ResponseMessage>();
   }
 
   static Future<Llama> create() async {
@@ -52,7 +45,7 @@ class Llama {
             log: llama._logPort.sendPort,
             response: llama._responsePort.sendPort));
 
-    final resp = await llama.response.first as HandshakeResp;
+    final resp = await llama._response.first as HandshakeResp;
     llama._controlPort = resp.controlPort;
 
     return llama;
@@ -60,13 +53,27 @@ class Llama {
 
   Future<void> dispose() async {
     _controlPort.send(ExitCtl());
-    await response.firstWhere((a) => a is ExitResp);
+    await _response.firstWhere((a) => a is ExitResp);
     _logPort.close();
     _responsePort.close();
   }
 
-  Future<void> loadModel(String path, ContextParams ctxParams) async {
-    _controlPort.send(LoadModelCtl(path, ctxParams));
-    await response.firstWhere((a) => a is LoadModelResp);
+  Future<Model> loadModel(
+    String path, {
+    void Function(double progress)? progressCallback,
+    ContextParams params = const ContextParams(),
+  }) async {
+    final progressListener = _response
+        .where((event) => event is LoadModelProgressResp)
+        .cast<LoadModelProgressResp>()
+        .listen((a) => progressCallback?.call(a.progress));
+
+    _controlPort.send(LoadModelCtl(path, params));
+    final resp = (await _response.firstWhere((a) => a is LoadModelResp))
+        as LoadModelResp;
+
+    progressListener.cancel();
+    resp.throwIfErr();
+    return resp.model!;
   }
 }
