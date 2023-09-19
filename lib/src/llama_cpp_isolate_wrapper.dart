@@ -107,8 +107,8 @@ class ExitCtl extends ControlMessage {
 
 class LoadModelCtl extends ControlMessage {
   final String path;
-  final ContextParams ctxParams;
-  LoadModelCtl(this.path, this.ctxParams);
+  final ContextParams params;
+  LoadModelCtl(this.path, this.params);
 
   LoadModelResp done(Model model) => LoadModelResp(id, model: model);
 
@@ -219,9 +219,8 @@ class _Allocations<E> {
   }
 }
 
-// key: rawModelPointer
 final _modelAllocs = _Allocations<int>();
-final _ctxAllocs = _Allocations<int>();
+// final _ctxAllocs = _Allocations<int>();
 
 late final SendPort _log;
 late final SendPort _response;
@@ -259,34 +258,33 @@ void _onControl(ControlMessage ctl) {
 
     case LoadModelCtl():
       final Set<Pointer> allocs = {}; 
-      final pd = ctl.ctxParams;
-      final pc = libllama.llama_context_default_params()..setSimpleFrom(pd);
+      final params = libllama.llama_context_default_params()
+        ..setSimpleFrom(ctl.params);
 
       // TODO: can't do this until we track contexts to manage memory allocation
       // pc.tensor_split
 
-      pc.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+      params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
       final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());
       allocs.add(idPointer);
       idPointer.value = ctl.id;
-      pc.progress_callback_user_data = idPointer.cast<Void>();
+      params.progress_callback_user_data = idPointer.cast<Void>();
 
-      final rawModelPointer = libllama
+      final rawModel = libllama
           .llama_load_model_from_file(
             ctl.path.toNativeUtf8().cast<Char>(),
-            pc,
+            params,
           )
           .address;
 
-      if (rawModelPointer == 0) {
-        _response.send(ctl.error(
-          Exception("failed loading model: ${ctl.path}"),
-        ));
+      if (rawModel == 0) {
+        _response
+            .send(ctl.error(Exception("failed loading model: ${ctl.path}")));
         return;
       }
 
-      _modelAllocs[rawModelPointer] = allocs;
-      _response.send(ctl.done(Model._(rawModelPointer)));
+      _modelAllocs[rawModel] = allocs;
+      _response.send(ctl.done(Model._(rawModel)));
 
     case FreeModelCtl():
       assert(ctl.model._rawPointer != 0);
@@ -300,7 +298,19 @@ void _onControl(ControlMessage ctl) {
 
     case NewContextCtl():
       assert(ctl.model._rawPointer != 0);
-    // libllama.llama_new_context_with_model(model, params)
+      final params = libllama.llama_context_default_params()
+        ..setSimpleFrom(ctl.params);
+
+      final rawCtx = libllama
+          .llama_new_context_with_model(ctl.model._ffiPointer, params)
+          .address;
+
+      if (rawCtx == 0) {
+        _response.send(ctl.error(Exception("failed creating context")));
+        return;
+      }
+
+      _response.send(ctl.done(Context._(rawCtx)));
 
     case FreeContextCtl():
   }

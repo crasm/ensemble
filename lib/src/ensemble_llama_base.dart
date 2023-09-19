@@ -99,8 +99,9 @@ class Llama {
     _controlPort.send(ctl);
     final resp =
         await _response.firstWhere((e) => e is NewContextResp && e.id == ctl.id)
-            as NewContextResp;
-    return resp.ctx!; // TODO
+            as NewContextResp
+      ..throwIfErr();
+    return resp.ctx!;
   }
 
   // Future<void> freeContext(Context ctx) async {
