@@ -12,13 +12,17 @@ void main() async {
     }
   });
 
+  final params = ContextParams(gpuLayers: 1, useMmap: false);
   final model = await llama.loadModel(
       "/Users/vczf/models/default/ggml-model-f16.gguf",
-    params: ContextParams(gpuLayers: 1, useMmap: false),
+    params: params,
     progressCallback: (p) => stdout.write("."),
   );
 
   print(model.rawPointer);
+
+  // final ctx = await llama.newContext(model, params);
+  // await llama.freeContext(ctx);
 
   await llama.freeModel(model);
   llama.dispose();
@@ -89,4 +93,18 @@ class Llama {
     _controlPort.send(ctl);
     await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
   }
+
+  // Future<Context> newContext(Model model, ContextParams params) async {
+  //   final ctl = NewContextCtl(model, params);
+  //   _controlPort.send(ctl);
+  //   final resp =
+  //       await _response.firstWhere((e) => e is NewContextResp && e.id == ctl.id)
+  //           as NewContextResp;
+  // }
+
+  // Future<void> freeContext(Context ctx) async {
+  //   final ctl = FreeContextCtl(ctx);
+  //   _controlPort.send(ctl);
+  //   await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
+  // }
 }

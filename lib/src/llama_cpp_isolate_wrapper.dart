@@ -9,6 +9,33 @@ import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 // -1 (32 bit signed)
 const _int32Max = 0xFFFFFFFF;
 
+extension on llama_context_params {
+  // Sets most of the context parameters, such as int, double, bool.
+  // Does not set callbacks or pointers to allocated memory.
+  void setSimpleFrom(ContextParams p) {
+    seed = p.seed;
+    n_ctx = p.contextSizeTokens;
+    n_batch = p.batchSizeTokens;
+    n_gpu_layers = p.gpuLayers;
+    main_gpu = p.cudaMainGpu;
+
+    // Skipping: tensor_split
+
+    rope_freq_base = p.ropeFreqBase;
+    rope_freq_scale = p.ropeFreqScale;
+
+    // Skipping: progress_callback{,_user_data}
+
+    low_vram = p.useLessVram;
+    mul_mat_q = p.cudaUseMulMatQ;
+    f16_kv = p.useFloat16KVCache;
+    logits_all = p.calculateAllLogits;
+    vocab_only = p.loadOnlyVocabSkipTensors;
+    use_mmap = p.useMmap;
+    use_mlock = p.useMlock;
+    embedding = p.willUseEmbedding;
+  }
+}
 class ContextParams {
   final int seed;
   final int contextSizeTokens;
@@ -97,6 +124,23 @@ class FreeModelCtl extends ControlMessage {
   FreeModelResp done() => FreeModelResp(id);
 }
 
+class NewContextCtl extends ControlMessage {
+  final Model model;
+  final ContextParams params;
+  NewContextCtl(this.model, this.params);
+
+  NewContextResp done(Context ctx) => NewContextResp(id, ctx: ctx);
+
+  NewContextResp error(Object err) => NewContextResp(id, err: err);
+}
+
+class FreeContextCtl extends ControlMessage {
+  final Context ctx;
+  FreeContextCtl(this.ctx);
+
+  FreeContextResp done() => FreeContextResp(id);
+}
+
 sealed class ResponseMessage {
   final int id;
   final Object? err;
@@ -132,6 +176,15 @@ class FreeModelResp extends ResponseMessage {
   const FreeModelResp(super.id);
 }
 
+class NewContextResp extends ResponseMessage {
+  final Context? ctx;
+  const NewContextResp(super.id, {super.err, this.ctx});
+}
+
+class FreeContextResp extends ResponseMessage {
+  const FreeContextResp(super.id);
+}
+
 class EntryArgs {
   final SendPort log, response;
   const EntryArgs({required this.log, required this.response});
@@ -142,20 +195,28 @@ class Model {
   const Model._(this.rawPointer);
 }
 
-class _Allocations {
-  final Map<int, Set<Pointer>> _map = {};
+class Context {
+  final int rawPointer;
+  const Context._(this.rawPointer);
+}
 
-  Set<Pointer>? get(int id) => _map[id];
+class _Allocations<E> {
+  final Map<E, Set<Pointer>> _map = {};
 
-  void remove(int id) => _map.remove(id);
+  Set<Pointer>? operator [](E key) => _map[key];
+  void operator []=(E key, Set<Pointer> allocs) => _map[key] = allocs;
 
-  void add(int id, Pointer p) {
-    _map[id] ??= {}..add(p);
-    _map[id]!.add(p);
+  void clear(E key) => _map.remove(key);
+
+  void add(E key, Pointer p) {
+    _map[key] ??= {}..add(p);
+    _map[key]!.add(p);
   }
 }
 
-final _Allocations _allocs = _Allocations();
+// key: rawModelPointer
+final _modelAllocs = _Allocations<int>();
+final _ctxAllocs = _Allocations<int>();
 
 late final SendPort _log;
 late final SendPort _response;
@@ -192,35 +253,18 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done());
 
     case LoadModelCtl():
+      final Set<Pointer> allocs = {}; 
       final pd = ctl.ctxParams;
-      final pc = libllama.llama_context_default_params();
-
-      pc.seed = pd.seed;
-      pc.n_ctx = pd.contextSizeTokens;
-      pc.n_batch = pd.batchSizeTokens;
-      pc.n_gpu_layers = pd.gpuLayers;
-      pc.main_gpu = pd.cudaMainGpu;
+      final pc = libllama.llama_context_default_params()..setSimpleFrom(pd);
 
       // TODO: can't do this until we track contexts to manage memory allocation
       // pc.tensor_split
 
-      pc.rope_freq_base = pd.ropeFreqBase;
-      pc.rope_freq_scale = pd.ropeFreqScale;
-
       pc.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
       final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());
-      _allocs.add(ctl.id, idPointer);
+      allocs.add(idPointer);
       idPointer.value = ctl.id;
       pc.progress_callback_user_data = idPointer.cast<Void>();
-
-      pc.low_vram = pd.useLessVram;
-      pc.mul_mat_q = pd.cudaUseMulMatQ;
-      pc.f16_kv = pd.useFloat16KVCache;
-      pc.logits_all = pd.calculateAllLogits;
-      pc.vocab_only = pd.loadOnlyVocabSkipTensors;
-      pc.use_mmap = pd.useMmap;
-      pc.use_mlock = pd.useMlock;
-      pc.embedding = pd.willUseEmbedding;
 
       final rawModelPointer = libllama
           .llama_load_model_from_file(
@@ -236,19 +280,25 @@ void _onControl(ControlMessage ctl) {
         return;
       }
 
+      _modelAllocs[rawModelPointer] = allocs;
       _response.send(ctl.done(Model._(rawModelPointer)));
 
     case FreeModelCtl():
       assert(ctl.model.rawPointer != 0);
-      _allocs.get(ctl.id)?.forEach((p) {
+      _modelAllocs[ctl.model.rawPointer]?.forEach((p) {
         calloc.free(p);
       });
-      _allocs.remove(ctl.id);
+      _modelAllocs.clear(ctl.model.rawPointer);
 
-      final rawModelPointer =
+      final modelPointer =
           Pointer.fromAddress(ctl.model.rawPointer).cast<llama_model>();
-      libllama.llama_free_model(rawModelPointer);
+      libllama.llama_free_model(modelPointer);
 
       _response.send(ctl.done());
+
+    case NewContextCtl():
+      assert(ctl.model.rawPointer != 0);
+
+    case FreeContextCtl():
   }
 }
