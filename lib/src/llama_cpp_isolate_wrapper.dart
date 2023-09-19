@@ -74,26 +74,27 @@ sealed class ControlMessage {
 }
 
 class ExitCtl extends ControlMessage {
-  ExitResp done() {
-    return ExitResp(id);
-  }
+  ExitResp done() => ExitResp(id);
 }
+
 class LoadModelCtl extends ControlMessage {
   final String path;
   final ContextParams ctxParams;
   LoadModelCtl(this.path, this.ctxParams);
 
-  LoadModelResp done(Model model) {
-    return LoadModelResp(id, model: model);
-  }
+  LoadModelResp done(Model model) => LoadModelResp(id, model: model);
 
-  LoadModelResp error(Object err) {
-    return LoadModelResp(id, err: err);
-  }
+  LoadModelResp error(Object err) => LoadModelResp(id, err: err);
 
-  LoadModelProgressResp progress(double progress) {
-    return LoadModelProgressResp(id, progress);
-  }
+  LoadModelProgressResp progress(double progress) =>
+      LoadModelProgressResp(id, progress);
+}
+
+class FreeModelCtl extends ControlMessage {
+  final Model model;
+  FreeModelCtl(this.model);
+
+  FreeModelResp done() => FreeModelResp(id);
 }
 
 sealed class ResponseMessage {
@@ -119,10 +120,7 @@ class ExitResp extends ResponseMessage {
 // TODO: include mem used, model details?
 class LoadModelResp extends ResponseMessage {
   final Model? model;
-  const LoadModelResp(super.id, {
-    super.err,
-    this.model
-  });
+  const LoadModelResp(super.id, {super.err, this.model});
 }
 
 class LoadModelProgressResp extends ResponseMessage {
@@ -130,21 +128,34 @@ class LoadModelProgressResp extends ResponseMessage {
   const LoadModelProgressResp(super.id, this.progress);
 }
 
-class EntryArgs {
-  final SendPort log, response;
-  const EntryArgs({
-    required this.log,
-    required this.response,
-  });
+class FreeModelResp extends ResponseMessage {
+  const FreeModelResp(super.id);
 }
 
-// Map from raw pointer to the Model object we pass back to the main isolate.
-final Map<int, Model> _models = {};
+class EntryArgs {
+  final SendPort log, response;
+  const EntryArgs({required this.log, required this.response});
+}
 
 class Model {
   final int rawPointer;
   const Model._(this.rawPointer);
 }
+
+class _Allocations {
+  final Map<int, Set<Pointer>> _map = {};
+
+  Set<Pointer>? get(int id) => _map[id];
+
+  void remove(int id) => _map.remove(id);
+
+  void add(int id, Pointer p) {
+    _map[id] ??= {}..add(p);
+    _map[id]!.add(p);
+  }
+}
+
+final _Allocations _allocs = _Allocations();
 
 late final SendPort _log;
 late final SendPort _response;
@@ -166,23 +177,18 @@ void init(EntryArgs args) {
   );
 }
 
-void _free() {
-  _controlPort.close();
-  libllama.llama_backend_free();
-}
-
 void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
     _log.send(LogMessage(
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
-void _onModelLoadProgress(double progress, Pointer<Void> id) {
-  _response.send(LoadModelProgressResp(id.cast<Uint32>().value, progress));
-}
+void _onModelLoadProgress(double progress, Pointer<Void> id) =>
+    _response.send(LoadModelProgressResp(id.cast<Uint32>().value, progress));
 
 void _onControl(ControlMessage ctl) {
   switch (ctl) {
     case ExitCtl():
-      _free();
+      _controlPort.close();
+      libllama.llama_backend_free();
       _response.send(ctl.done());
 
     case LoadModelCtl():
@@ -203,6 +209,7 @@ void _onControl(ControlMessage ctl) {
 
       pc.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
       final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());
+      _allocs.add(ctl.id, idPointer);
       idPointer.value = ctl.id;
       pc.progress_callback_user_data = idPointer.cast<Void>();
 
@@ -229,9 +236,19 @@ void _onControl(ControlMessage ctl) {
         return;
       }
 
-      final model = Model._(rawModelPointer);
-      _models[rawModelPointer] = model;
+      _response.send(ctl.done(Model._(rawModelPointer)));
 
-      _response.send(ctl.done(model));
+    case FreeModelCtl():
+      assert(ctl.model.rawPointer != 0);
+      _allocs.get(ctl.id)?.forEach((p) {
+        calloc.free(p);
+      });
+      _allocs.remove(ctl.id);
+
+      final rawModelPointer =
+          Pointer.fromAddress(ctl.model.rawPointer).cast<llama_model>();
+      libllama.llama_free_model(rawModelPointer);
+
+      _response.send(ctl.done());
   }
 }

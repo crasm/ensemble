@@ -20,7 +20,7 @@ void main() async {
 
   print(model.rawPointer);
 
-  // await llama.freeModel(model);
+  await llama.freeModel(model);
   llama.dispose();
 }
 
@@ -84,9 +84,9 @@ class Llama {
     return resp.model!;
   }
 
-  // Future<void> freeModel(Model model) async {
-  //   final ctl = FreeModelCtl(model);
-  //   _controlPort.send(FreeModelCtl(model));
-  //   await _response.firstWhere
-  // }
+  Future<void> freeModel(Model model) async {
+    final ctl = FreeModelCtl(model);
+    _controlPort.send(ctl);
+    await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
+  }
 }
