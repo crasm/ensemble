@@ -4,10 +4,11 @@ import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
+import 'package:ensemble_llama/src/ensemble_llama_base.dart' show ContextParams;
 
 // 4294967295 (32 bit unsigned)
 // -1 (32 bit signed)
-const _int32Max = 0xFFFFFFFF;
+const int32Max = 0xFFFFFFFF;
 
 extension on llama_context_params {
   // Sets most of the context parameters, such as int, double, bool.
@@ -37,42 +38,20 @@ extension on llama_context_params {
   }
 }
 
-class ContextParams {
-  final int seed;
-  final int contextSizeTokens;
-  final int batchSizeTokens;
-  final int gpuLayers;
-  final int cudaMainGpu;
-  // final List<double> cudaTensorSplits;
-  final double ropeFreqBase;
-  final double ropeFreqScale;
-  final bool useLessVram;
-  final bool cudaUseMulMatQ;
-  final bool useFloat16KVCache;
-  final bool calculateAllLogits;
-  final bool loadOnlyVocabSkipTensors;
-  final bool useMmap;
-  final bool useMlock;
-  final bool willUseEmbedding;
+class Model {
+  final int _rawPointer;
+  const Model._(this._rawPointer);
+  Pointer<llama_model> get _ffiPointer =>
+      Pointer.fromAddress(_rawPointer).cast<llama_model>();
+  @override
+  String toString() => "Model{$_rawPointer}";
+}
 
-  const ContextParams({
-    this.seed = _int32Max,
-    this.contextSizeTokens = 512,
-    this.batchSizeTokens = 512,
-    this.gpuLayers = 0,
-    this.cudaMainGpu = 0,
-    // this.cudaTensorSplits = const [0.0],
-    this.ropeFreqBase = 10000.0,
-    this.ropeFreqScale = 1.0,
-    this.useLessVram = false,
-    this.cudaUseMulMatQ = true,
-    this.useFloat16KVCache = true,
-    this.calculateAllLogits = false,
-    this.loadOnlyVocabSkipTensors = false,
-    this.useMmap = true,
-    this.useMlock = false,
-    this.willUseEmbedding = false,
-  }) : assert(seed <= _int32Max);
+class Context {
+  final int _rawPointer;
+  const Context._(this._rawPointer);
+  Pointer<llama_context> get _ffiPointer =>
+      Pointer.fromAddress(_rawPointer).cast<llama_context>();
 }
 
 class LogMessage {
@@ -97,7 +76,7 @@ class LogMessage {
 }
 
 sealed class ControlMessage {
-  final id = Random().nextInt(_int32Max);
+  final id = Random().nextInt(int32Max);
   ControlMessage();
 }
 
@@ -145,7 +124,7 @@ class FreeContextCtl extends ControlMessage {
 sealed class ResponseMessage {
   final int id;
   final Object? err;
-  const ResponseMessage(this.id, {this.err}) : assert(id <= _int32Max);
+  const ResponseMessage(this.id, {this.err}) : assert(id <= int32Max);
   void throwIfErr() {
     if (err != null) {
       throw err!;
@@ -189,22 +168,6 @@ class FreeContextResp extends ResponseMessage {
 class EntryArgs {
   final SendPort log, response;
   const EntryArgs({required this.log, required this.response});
-}
-
-class Model {
-  final int _rawPointer;
-  const Model._(this._rawPointer);
-  Pointer<llama_model> get _ffiPointer =>
-      Pointer.fromAddress(_rawPointer).cast<llama_model>();
-  @override
-  String toString() => "Model{$_rawPointer}";
-}
-
-class Context {
-  final int _rawPointer;
-  const Context._(this._rawPointer);
-  Pointer<llama_context> get _ffiPointer =>
-      Pointer.fromAddress(_rawPointer).cast<llama_context>();
 }
 
 class _Allocations<E> {
@@ -262,9 +225,6 @@ void _onControl(ControlMessage ctl) {
       final Set<Pointer> allocs = {}; 
       final params = libllama.llama_context_default_params()
         ..setSimpleFrom(ctl.params);
-
-      // TODO: can't do this until we track contexts to manage memory allocation
-      // pc.tensor_split
 
       params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
       final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());

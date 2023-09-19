@@ -1,31 +1,43 @@
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
-void main() async {
-  var llama = await Llama.create();
-  llama.log.listen((msg) {
-    final msgText = msg.toString();
-    if (!msgText.contains("llama_model_loader: - tensor")) {
-      print(msgText);
-    }
-  });
+class ContextParams {
+  final int seed;
+  final int contextSizeTokens;
+  final int batchSizeTokens;
+  final int gpuLayers;
+  final int cudaMainGpu;
+  // final List<double> cudaTensorSplits;
+  final double ropeFreqBase;
+  final double ropeFreqScale;
+  final bool useLessVram;
+  final bool cudaUseMulMatQ;
+  final bool useFloat16KVCache;
+  final bool calculateAllLogits;
+  final bool loadOnlyVocabSkipTensors;
+  final bool useMmap;
+  final bool useMlock;
+  final bool willUseEmbedding;
 
-  final params = ContextParams(gpuLayers: 1, useMmap: false);
-  final model = await llama.loadModel(
-      "/Users/vczf/models/default/ggml-model-f16.gguf",
-    params: params,
-    progressCallback: (p) => stdout.write("."),
-  );
-
-  print(model);
-
-  final ctx = await llama.newContext(model, params);
-  await llama.freeContext(ctx);
-
-  await llama.freeModel(model);
-  llama.dispose();
+  const ContextParams({
+    this.seed = int32Max,
+    this.contextSizeTokens = 512,
+    this.batchSizeTokens = 512,
+    this.gpuLayers = 0,
+    this.cudaMainGpu = 0,
+    // this.cudaTensorSplits = const [0.0],
+    this.ropeFreqBase = 10000.0,
+    this.ropeFreqScale = 1.0,
+    this.useLessVram = false,
+    this.cudaUseMulMatQ = true,
+    this.useFloat16KVCache = true,
+    this.calculateAllLogits = false,
+    this.loadOnlyVocabSkipTensors = false,
+    this.useMmap = true,
+    this.useMlock = false,
+    this.willUseEmbedding = false,
+  }) : assert(seed <= int32Max);
 }
 
 class Llama {
