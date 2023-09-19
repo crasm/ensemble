@@ -22,7 +22,7 @@ void main() async {
   print(model);
 
   final ctx = await llama.newContext(model, params);
-  // await llama.freeContext(ctx);
+  await llama.freeContext(ctx);
 
   await llama.freeModel(model);
   llama.dispose();
@@ -104,9 +104,9 @@ class Llama {
     return resp.ctx!;
   }
 
-  // Future<void> freeContext(Context ctx) async {
-  //   final ctl = FreeContextCtl(ctx);
-  //   _controlPort.send(ctl);
-  //   await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
-  // }
+  Future<void> freeContext(Context ctx) async {
+    final ctl = FreeContextCtl(ctx);
+    _controlPort.send(ctl);
+    await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
+  }
 }

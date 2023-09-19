@@ -201,8 +201,10 @@ class Model {
 }
 
 class Context {
-  final int rawPointer;
-  const Context._(this.rawPointer);
+  final int _rawPointer;
+  const Context._(this._rawPointer);
+  Pointer<llama_context> get _ffiPointer =>
+      Pointer.fromAddress(_rawPointer).cast<llama_context>();
 }
 
 class _Allocations<E> {
@@ -313,5 +315,7 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done(Context._(rawCtx)));
 
     case FreeContextCtl():
+      libllama.llama_free(ctl.ctx._ffiPointer);
+      _response.send(ctl.done());
   }
 }
