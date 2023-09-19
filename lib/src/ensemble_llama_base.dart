@@ -19,9 +19,9 @@ void main() async {
     progressCallback: (p) => stdout.write("."),
   );
 
-  print(model.rawPointer);
+  print(model);
 
-  // final ctx = await llama.newContext(model, params);
+  final ctx = await llama.newContext(model, params);
   // await llama.freeContext(ctx);
 
   await llama.freeModel(model);
@@ -94,13 +94,14 @@ class Llama {
     await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
   }
 
-  // Future<Context> newContext(Model model, ContextParams params) async {
-  //   final ctl = NewContextCtl(model, params);
-  //   _controlPort.send(ctl);
-  //   final resp =
-  //       await _response.firstWhere((e) => e is NewContextResp && e.id == ctl.id)
-  //           as NewContextResp;
-  // }
+  Future<Context> newContext(Model model, ContextParams params) async {
+    final ctl = NewContextCtl(model, params);
+    _controlPort.send(ctl);
+    final resp =
+        await _response.firstWhere((e) => e is NewContextResp && e.id == ctl.id)
+            as NewContextResp;
+    return resp.ctx!; // TODO
+  }
 
   // Future<void> freeContext(Context ctx) async {
   //   final ctl = FreeContextCtl(ctx);

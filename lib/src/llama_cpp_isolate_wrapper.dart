@@ -36,6 +36,7 @@ extension on llama_context_params {
     embedding = p.willUseEmbedding;
   }
 }
+
 class ContextParams {
   final int seed;
   final int contextSizeTokens;
@@ -191,8 +192,12 @@ class EntryArgs {
 }
 
 class Model {
-  final int rawPointer;
-  const Model._(this.rawPointer);
+  final int _rawPointer;
+  const Model._(this._rawPointer);
+  Pointer<llama_model> get _ffiPointer =>
+      Pointer.fromAddress(_rawPointer).cast<llama_model>();
+  @override
+  String toString() => "Model{$_rawPointer}";
 }
 
 class Context {
@@ -284,20 +289,18 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done(Model._(rawModelPointer)));
 
     case FreeModelCtl():
-      assert(ctl.model.rawPointer != 0);
-      _modelAllocs[ctl.model.rawPointer]?.forEach((p) {
+      assert(ctl.model._rawPointer != 0);
+      _modelAllocs[ctl.model._rawPointer]?.forEach((p) {
         calloc.free(p);
       });
-      _modelAllocs.clear(ctl.model.rawPointer);
+      _modelAllocs.clear(ctl.model._rawPointer);
 
-      final modelPointer =
-          Pointer.fromAddress(ctl.model.rawPointer).cast<llama_model>();
-      libllama.llama_free_model(modelPointer);
-
+      libllama.llama_free_model(ctl.model._ffiPointer);
       _response.send(ctl.done());
 
     case NewContextCtl():
-      assert(ctl.model.rawPointer != 0);
+      assert(ctl.model._rawPointer != 0);
+    // libllama.llama_new_context_with_model(model, params)
 
     case FreeContextCtl():
   }
