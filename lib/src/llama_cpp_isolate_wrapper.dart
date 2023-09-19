@@ -5,6 +5,10 @@ import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 
+// 4294967295 (32 bit unsigned)
+// -1 (32 bit signed)
+const _int32Max = 0xFFFFFFFF;
+
 class ContextParams {
   final int seed;
   final int contextSizeTokens;
@@ -24,7 +28,7 @@ class ContextParams {
   final bool willUseEmbedding;
 
   const ContextParams({
-    this.seed = 0xFFFFFFFF,
+    this.seed = _int32Max,
     this.contextSizeTokens = 512,
     this.batchSizeTokens = 512,
     this.gpuLayers = 0,
@@ -40,7 +44,7 @@ class ContextParams {
     this.useMmap = true,
     this.useMlock = false,
     this.willUseEmbedding = false,
-  });
+  }) : assert(seed <= _int32Max);
 }
 
 class LogMessage {
@@ -65,7 +69,7 @@ class LogMessage {
 }
 
 sealed class ControlMessage {
-  final id = Random().nextInt(1 << 32);
+  final id = Random().nextInt(_int32Max);
   ControlMessage();
 }
 
@@ -95,7 +99,7 @@ class LoadModelCtl extends ControlMessage {
 sealed class ResponseMessage {
   final int id;
   final Object? err;
-  const ResponseMessage(this.id, {this.err});
+  const ResponseMessage(this.id, {this.err}) : assert(id <= _int32Max);
   void throwIfErr() {
     if (err != null) {
       throw err!;
@@ -171,9 +175,8 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
     _log.send(LogMessage(
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
-void _onModelLoadProgress(double progress, Pointer<Void> ctx) {
-  // TODO: need to know the ID of this LoadModelControlMessage
-  _response.send(LoadModelProgressResp(0, progress));
+void _onModelLoadProgress(double progress, Pointer<Void> id) {
+  _response.send(LoadModelProgressResp(id.cast<Uint32>().value, progress));
 }
 
 void _onControl(ControlMessage ctl) {
@@ -199,6 +202,9 @@ void _onControl(ControlMessage ctl) {
       pc.rope_freq_scale = pd.ropeFreqScale;
 
       pc.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+      final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());
+      idPointer.value = ctl.id;
+      pc.progress_callback_user_data = idPointer.cast<Void>();
 
       pc.low_vram = pd.useLessVram;
       pc.mul_mat_q = pd.cudaUseMulMatQ;

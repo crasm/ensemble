@@ -15,7 +15,7 @@ void main() async {
   final model = await llama.loadModel(
       "/Users/vczf/models/default/ggml-model-f16.gguf",
     params: ContextParams(gpuLayers: 1, useMmap: false),
-    progressCallback: (p) => stdout.write("${(p * 100).floor()}\r"),
+    progressCallback: (p) => stdout.write("."),
   );
 
   print(model.rawPointer);
