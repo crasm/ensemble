@@ -222,7 +222,7 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done());
 
     case LoadModelCtl():
-      final Set<Pointer> allocs = {}; 
+      final Set<Pointer> allocs = {};
       final params = libllama.llama_context_default_params()
         ..setSimpleFrom(ctl.params);
 

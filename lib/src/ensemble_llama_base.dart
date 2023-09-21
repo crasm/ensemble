@@ -92,8 +92,7 @@ class Llama {
 
     _controlPort.send(ctl);
     final resp = (await _response.firstWhere(
-        (e) => e is LoadModelResp && e.id == ctl.id))
-        as LoadModelResp;
+        (e) => e is LoadModelResp && e.id == ctl.id)) as LoadModelResp;
 
     progressListener.cancel();
     resp.throwIfErr();
@@ -109,9 +108,8 @@ class Llama {
   Future<Context> newContext(Model model, ContextParams params) async {
     final ctl = NewContextCtl(model, params);
     _controlPort.send(ctl);
-    final resp =
-        await _response.firstWhere((e) => e is NewContextResp && e.id == ctl.id)
-            as NewContextResp
+    final resp = await _response.firstWhere(
+        (e) => e is NewContextResp && e.id == ctl.id) as NewContextResp
       ..throwIfErr();
     return resp.ctx!;
   }
