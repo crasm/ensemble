@@ -14,11 +14,11 @@ class ContextParams {
   final bool useLessVram;
   final bool cudaUseMulMatQ;
   final bool useFloat16KVCache;
-  final bool calculateAllLogits;
+  final bool computeAllLogits;
   final bool loadOnlyVocabSkipTensors;
   final bool useMmap;
   final bool useMlock;
-  final bool willUseEmbedding;
+  final bool embeddingModeOnly;
 
   const ContextParams({
     this.seed = int32Max,
@@ -32,11 +32,11 @@ class ContextParams {
     this.useLessVram = false,
     this.cudaUseMulMatQ = true,
     this.useFloat16KVCache = true,
-    this.calculateAllLogits = false,
+    this.computeAllLogits = false,
     this.loadOnlyVocabSkipTensors = false,
     this.useMmap = true,
     this.useMlock = false,
-    this.willUseEmbedding = false,
+    this.embeddingModeOnly = false,
   }) : assert(seed <= int32Max);
 }
 

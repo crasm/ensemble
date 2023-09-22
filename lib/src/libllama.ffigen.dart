@@ -422,22 +422,109 @@ class LlamaCpp {
       _llama_get_kv_cache_token_countPtr
           .asFunction<int Function(ffi.Pointer<llama_context>)>();
 
-  void llama_set_rng_seed(
+  void llama_kv_cache_tokens_rm(
     ffi.Pointer<llama_context> ctx,
-    int seed,
+    int c0,
+    int c1,
   ) {
-    return _llama_set_rng_seed(
+    return _llama_kv_cache_tokens_rm(
       ctx,
-      seed,
+      c0,
+      c1,
     );
   }
 
-  late final _llama_set_rng_seedPtr = _lookup<
+  late final _llama_kv_cache_tokens_rmPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-              ffi.Pointer<llama_context>, ffi.Uint32)>>('llama_set_rng_seed');
-  late final _llama_set_rng_seed = _llama_set_rng_seedPtr
+          ffi.Void Function(ffi.Pointer<llama_context>, ffi.Int32,
+              ffi.Int32)>>('llama_kv_cache_tokens_rm');
+  late final _llama_kv_cache_tokens_rm = _llama_kv_cache_tokens_rmPtr
+      .asFunction<void Function(ffi.Pointer<llama_context>, int, int)>();
+
+  void llama_kv_cache_seq_rm(
+    ffi.Pointer<llama_context> ctx,
+    int seq_id,
+    int p0,
+    int p1,
+  ) {
+    return _llama_kv_cache_seq_rm(
+      ctx,
+      seq_id,
+      p0,
+      p1,
+    );
+  }
+
+  late final _llama_kv_cache_seq_rmPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<llama_context>, ffi.Int32, ffi.Int32,
+              ffi.Int32)>>('llama_kv_cache_seq_rm');
+  late final _llama_kv_cache_seq_rm = _llama_kv_cache_seq_rmPtr
+      .asFunction<void Function(ffi.Pointer<llama_context>, int, int, int)>();
+
+  void llama_kv_cache_seq_cp(
+    ffi.Pointer<llama_context> ctx,
+    int seq_id_src,
+    int seq_id_dst,
+    int p0,
+    int p1,
+  ) {
+    return _llama_kv_cache_seq_cp(
+      ctx,
+      seq_id_src,
+      seq_id_dst,
+      p0,
+      p1,
+    );
+  }
+
+  late final _llama_kv_cache_seq_cpPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<llama_context>, ffi.Int32, ffi.Int32,
+              ffi.Int32, ffi.Int32)>>('llama_kv_cache_seq_cp');
+  late final _llama_kv_cache_seq_cp = _llama_kv_cache_seq_cpPtr.asFunction<
+      void Function(ffi.Pointer<llama_context>, int, int, int, int)>();
+
+  void llama_kv_cache_seq_keep(
+    ffi.Pointer<llama_context> ctx,
+    int seq_id,
+  ) {
+    return _llama_kv_cache_seq_keep(
+      ctx,
+      seq_id,
+    );
+  }
+
+  late final _llama_kv_cache_seq_keepPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<llama_context>,
+              ffi.Int32)>>('llama_kv_cache_seq_keep');
+  late final _llama_kv_cache_seq_keep = _llama_kv_cache_seq_keepPtr
       .asFunction<void Function(ffi.Pointer<llama_context>, int)>();
+
+  void llama_kv_cache_seq_shift(
+    ffi.Pointer<llama_context> ctx,
+    int seq_id,
+    int p0,
+    int p1,
+    int delta,
+  ) {
+    return _llama_kv_cache_seq_shift(
+      ctx,
+      seq_id,
+      p0,
+      p1,
+      delta,
+    );
+  }
+
+  late final _llama_kv_cache_seq_shiftPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(ffi.Pointer<llama_context>, ffi.Int32, ffi.Int32,
+              ffi.Int32, ffi.Int32)>>('llama_kv_cache_seq_shift');
+  late final _llama_kv_cache_seq_shift =
+      _llama_kv_cache_seq_shiftPtr.asFunction<
+          void Function(ffi.Pointer<llama_context>, int, int, int, int)>();
 
   int llama_get_state_size(
     ffi.Pointer<llama_context> ctx,
@@ -490,7 +577,7 @@ class LlamaCpp {
   bool llama_load_session_file(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<ffi.Char> path_session,
-    ffi.Pointer<ffi.Int> tokens_out,
+    ffi.Pointer<ffi.Int32> tokens_out,
     int n_token_capacity,
     ffi.Pointer<ffi.Size> n_token_count_out,
   ) {
@@ -508,17 +595,17 @@ class LlamaCpp {
           ffi.Bool Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int32>,
               ffi.Size,
               ffi.Pointer<ffi.Size>)>>('llama_load_session_file');
   late final _llama_load_session_file = _llama_load_session_filePtr.asFunction<
       bool Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Int>, int, ffi.Pointer<ffi.Size>)>();
+          ffi.Pointer<ffi.Int32>, int, ffi.Pointer<ffi.Size>)>();
 
   bool llama_save_session_file(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<ffi.Char> path_session,
-    ffi.Pointer<ffi.Int> tokens,
+    ffi.Pointer<ffi.Int32> tokens,
     int n_token_count,
   ) {
     return _llama_save_session_file(
@@ -532,14 +619,14 @@ class LlamaCpp {
   late final _llama_save_session_filePtr = _lookup<
       ffi.NativeFunction<
           ffi.Bool Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>, ffi.Size)>>('llama_save_session_file');
+              ffi.Pointer<ffi.Int32>, ffi.Size)>>('llama_save_session_file');
   late final _llama_save_session_file = _llama_save_session_filePtr.asFunction<
       bool Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Int>, int)>();
+          ffi.Pointer<ffi.Int32>, int)>();
 
   int llama_eval(
     ffi.Pointer<llama_context> ctx,
-    ffi.Pointer<ffi.Int> tokens,
+    ffi.Pointer<ffi.Int32> tokens,
     int n_tokens,
     int n_past,
     int n_threads,
@@ -555,11 +642,11 @@ class LlamaCpp {
 
   late final _llama_evalPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Int>,
-              ffi.Int, ffi.Int, ffi.Int)>>('llama_eval');
+          ffi.Int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Int32>,
+              ffi.Int32, ffi.Int, ffi.Int)>>('llama_eval');
   late final _llama_eval = _llama_evalPtr.asFunction<
       int Function(
-          ffi.Pointer<llama_context>, ffi.Pointer<ffi.Int>, int, int, int)>();
+          ffi.Pointer<llama_context>, ffi.Pointer<ffi.Int32>, int, int, int)>();
 
   int llama_eval_embd(
     ffi.Pointer<llama_context> ctx,
@@ -580,27 +667,80 @@ class LlamaCpp {
   late final _llama_eval_embdPtr = _lookup<
       ffi.NativeFunction<
           ffi.Int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Float>,
-              ffi.Int, ffi.Int, ffi.Int)>>('llama_eval_embd');
+              ffi.Int32, ffi.Int, ffi.Int)>>('llama_eval_embd');
   late final _llama_eval_embd = _llama_eval_embdPtr.asFunction<
       int Function(
           ffi.Pointer<llama_context>, ffi.Pointer<ffi.Float>, int, int, int)>();
 
-  int llama_eval_export(
-    ffi.Pointer<llama_context> ctx,
-    ffi.Pointer<ffi.Char> fname,
+  llama_batch llama_batch_get_one(
+    ffi.Pointer<ffi.Int32> tokens,
+    int n_tokens,
+    int pos_0,
+    int seq_id,
   ) {
-    return _llama_eval_export(
-      ctx,
-      fname,
+    return _llama_batch_get_one(
+      tokens,
+      n_tokens,
+      pos_0,
+      seq_id,
     );
   }
 
-  late final _llama_eval_exportPtr = _lookup<
+  late final _llama_batch_get_onePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<llama_context>,
-              ffi.Pointer<ffi.Char>)>>('llama_eval_export');
-  late final _llama_eval_export = _llama_eval_exportPtr.asFunction<
-      int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>)>();
+          llama_batch Function(ffi.Pointer<ffi.Int32>, ffi.Int32, ffi.Int32,
+              ffi.Int32)>>('llama_batch_get_one');
+  late final _llama_batch_get_one = _llama_batch_get_onePtr.asFunction<
+      llama_batch Function(ffi.Pointer<ffi.Int32>, int, int, int)>();
+
+  llama_batch llama_batch_init(
+    int n_tokens,
+    int embd,
+  ) {
+    return _llama_batch_init(
+      n_tokens,
+      embd,
+    );
+  }
+
+  late final _llama_batch_initPtr =
+      _lookup<ffi.NativeFunction<llama_batch Function(ffi.Int32, ffi.Int32)>>(
+          'llama_batch_init');
+  late final _llama_batch_init =
+      _llama_batch_initPtr.asFunction<llama_batch Function(int, int)>();
+
+  void llama_batch_free(
+    llama_batch batch,
+  ) {
+    return _llama_batch_free(
+      batch,
+    );
+  }
+
+  late final _llama_batch_freePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(llama_batch)>>(
+          'llama_batch_free');
+  late final _llama_batch_free =
+      _llama_batch_freePtr.asFunction<void Function(llama_batch)>();
+
+  int llama_decode(
+    ffi.Pointer<llama_context> ctx,
+    llama_batch batch,
+    int n_threads,
+  ) {
+    return _llama_decode(
+      ctx,
+      batch,
+      n_threads,
+    );
+  }
+
+  late final _llama_decodePtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<llama_context>, llama_batch,
+              ffi.Int)>>('llama_decode');
+  late final _llama_decode = _llama_decodePtr
+      .asFunction<int Function(ffi.Pointer<llama_context>, llama_batch, int)>();
 
   ffi.Pointer<ffi.Float> llama_get_logits(
     ffi.Pointer<llama_context> ctx,
@@ -645,7 +785,7 @@ class LlamaCpp {
   late final _llama_token_get_textPtr = _lookup<
       ffi.NativeFunction<
           ffi.Pointer<ffi.Char> Function(
-              ffi.Pointer<llama_context>, ffi.Int)>>('llama_token_get_text');
+              ffi.Pointer<llama_context>, ffi.Int32)>>('llama_token_get_text');
   late final _llama_token_get_text = _llama_token_get_textPtr.asFunction<
       ffi.Pointer<ffi.Char> Function(ffi.Pointer<llama_context>, int)>();
 
@@ -662,7 +802,7 @@ class LlamaCpp {
   late final _llama_token_get_scorePtr = _lookup<
       ffi.NativeFunction<
           ffi.Float Function(
-              ffi.Pointer<llama_context>, ffi.Int)>>('llama_token_get_score');
+              ffi.Pointer<llama_context>, ffi.Int32)>>('llama_token_get_score');
   late final _llama_token_get_score = _llama_token_get_scorePtr
       .asFunction<double Function(ffi.Pointer<llama_context>, int)>();
 
@@ -679,7 +819,7 @@ class LlamaCpp {
   late final _llama_token_get_typePtr = _lookup<
       ffi.NativeFunction<
           ffi.Int32 Function(
-              ffi.Pointer<llama_context>, ffi.Int)>>('llama_token_get_type');
+              ffi.Pointer<llama_context>, ffi.Int32)>>('llama_token_get_type');
   late final _llama_token_get_type = _llama_token_get_typePtr
       .asFunction<int Function(ffi.Pointer<llama_context>, int)>();
 
@@ -691,9 +831,9 @@ class LlamaCpp {
     );
   }
 
-  late final _llama_token_bosPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_context>)>>(
-          'llama_token_bos');
+  late final _llama_token_bosPtr = _lookup<
+          ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<llama_context>)>>(
+      'llama_token_bos');
   late final _llama_token_bos = _llama_token_bosPtr
       .asFunction<int Function(ffi.Pointer<llama_context>)>();
 
@@ -705,9 +845,9 @@ class LlamaCpp {
     );
   }
 
-  late final _llama_token_eosPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_context>)>>(
-          'llama_token_eos');
+  late final _llama_token_eosPtr = _lookup<
+          ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<llama_context>)>>(
+      'llama_token_eos');
   late final _llama_token_eos = _llama_token_eosPtr
       .asFunction<int Function(ffi.Pointer<llama_context>)>();
 
@@ -719,22 +859,24 @@ class LlamaCpp {
     );
   }
 
-  late final _llama_token_nlPtr =
-      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<llama_context>)>>(
-          'llama_token_nl');
+  late final _llama_token_nlPtr = _lookup<
+          ffi.NativeFunction<ffi.Int32 Function(ffi.Pointer<llama_context>)>>(
+      'llama_token_nl');
   late final _llama_token_nl =
       _llama_token_nlPtr.asFunction<int Function(ffi.Pointer<llama_context>)>();
 
   int llama_tokenize(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<ffi.Char> text,
-    ffi.Pointer<ffi.Int> tokens,
+    int text_len,
+    ffi.Pointer<ffi.Int32> tokens,
     int n_max_tokens,
     bool add_bos,
   ) {
     return _llama_tokenize(
       ctx,
       text,
+      text_len,
       tokens,
       n_max_tokens,
       add_bos,
@@ -743,22 +885,29 @@ class LlamaCpp {
 
   late final _llama_tokenizePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>, ffi.Int, ffi.Bool)>>('llama_tokenize');
+          ffi.Int Function(
+              ffi.Pointer<llama_context>,
+              ffi.Pointer<ffi.Char>,
+              ffi.Int,
+              ffi.Pointer<ffi.Int32>,
+              ffi.Int,
+              ffi.Bool)>>('llama_tokenize');
   late final _llama_tokenize = _llama_tokenizePtr.asFunction<
-      int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>,
-          ffi.Pointer<ffi.Int>, int, bool)>();
+      int Function(ffi.Pointer<llama_context>, ffi.Pointer<ffi.Char>, int,
+          ffi.Pointer<ffi.Int32>, int, bool)>();
 
   int llama_tokenize_with_model(
     ffi.Pointer<llama_model> model,
     ffi.Pointer<ffi.Char> text,
-    ffi.Pointer<ffi.Int> tokens,
+    int text_len,
+    ffi.Pointer<ffi.Int32> tokens,
     int n_max_tokens,
     bool add_bos,
   ) {
     return _llama_tokenize_with_model(
       model,
       text,
+      text_len,
       tokens,
       n_max_tokens,
       add_bos,
@@ -770,13 +919,14 @@ class LlamaCpp {
           ffi.Int Function(
               ffi.Pointer<llama_model>,
               ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Int,
+              ffi.Pointer<ffi.Int32>,
               ffi.Int,
               ffi.Bool)>>('llama_tokenize_with_model');
   late final _llama_tokenize_with_model =
       _llama_tokenize_with_modelPtr.asFunction<
-          int Function(ffi.Pointer<llama_model>, ffi.Pointer<ffi.Char>,
-              ffi.Pointer<ffi.Int>, int, bool)>();
+          int Function(ffi.Pointer<llama_model>, ffi.Pointer<ffi.Char>, int,
+              ffi.Pointer<ffi.Int32>, int, bool)>();
 
   int llama_token_to_piece(
     ffi.Pointer<llama_context> ctx,
@@ -794,7 +944,7 @@ class LlamaCpp {
 
   late final _llama_token_to_piecePtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<llama_context>, ffi.Int,
+          ffi.Int Function(ffi.Pointer<llama_context>, ffi.Int32,
               ffi.Pointer<ffi.Char>, ffi.Int)>>('llama_token_to_piece');
   late final _llama_token_to_piece = _llama_token_to_piecePtr.asFunction<
       int Function(
@@ -818,7 +968,7 @@ class LlamaCpp {
       ffi.NativeFunction<
           ffi.Int Function(
               ffi.Pointer<llama_model>,
-              ffi.Int,
+              ffi.Int32,
               ffi.Pointer<ffi.Char>,
               ffi.Int)>>('llama_token_to_piece_with_model');
   late final _llama_token_to_piece_with_model =
@@ -877,11 +1027,28 @@ class LlamaCpp {
   late final _llama_grammar_copy = _llama_grammar_copyPtr.asFunction<
       ffi.Pointer<llama_grammar> Function(ffi.Pointer<llama_grammar>)>();
 
+  void llama_set_rng_seed(
+    ffi.Pointer<llama_context> ctx,
+    int seed,
+  ) {
+    return _llama_set_rng_seed(
+      ctx,
+      seed,
+    );
+  }
+
+  late final _llama_set_rng_seedPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Pointer<llama_context>, ffi.Uint32)>>('llama_set_rng_seed');
+  late final _llama_set_rng_seed = _llama_set_rng_seedPtr
+      .asFunction<void Function(ffi.Pointer<llama_context>, int)>();
+
   /// @details Repetition penalty described in CTRL academic paper https://arxiv.org/abs/1909.05858, with negative logit fix.
   void llama_sample_repetition_penalty(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<llama_token_data_array> candidates,
-    ffi.Pointer<ffi.Int> last_tokens,
+    ffi.Pointer<ffi.Int32> last_tokens,
     int last_tokens_size,
     double penalty,
   ) {
@@ -899,7 +1066,7 @@ class LlamaCpp {
           ffi.Void Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int32>,
               ffi.Size,
               ffi.Float)>>('llama_sample_repetition_penalty');
   late final _llama_sample_repetition_penalty =
@@ -907,7 +1074,7 @@ class LlamaCpp {
           void Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int32>,
               int,
               double)>();
 
@@ -915,7 +1082,7 @@ class LlamaCpp {
   void llama_sample_frequency_and_presence_penalties(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<llama_token_data_array> candidates,
-    ffi.Pointer<ffi.Int> last_tokens,
+    ffi.Pointer<ffi.Int32> last_tokens,
     int last_tokens_size,
     double alpha_frequency,
     double alpha_presence,
@@ -935,7 +1102,7 @@ class LlamaCpp {
           ffi.Void Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int32>,
               ffi.Size,
               ffi.Float,
               ffi.Float)>>('llama_sample_frequency_and_presence_penalties');
@@ -944,7 +1111,7 @@ class LlamaCpp {
           void Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
-              ffi.Pointer<ffi.Int>,
+              ffi.Pointer<ffi.Int32>,
               int,
               double,
               double)>();
@@ -1105,6 +1272,28 @@ class LlamaCpp {
       void Function(ffi.Pointer<llama_context>,
           ffi.Pointer<llama_token_data_array>, double, int)>();
 
+  void llama_sample_temp(
+    ffi.Pointer<llama_context> ctx,
+    ffi.Pointer<llama_token_data_array> candidates,
+    double temp,
+  ) {
+    return _llama_sample_temp(
+      ctx,
+      candidates,
+      temp,
+    );
+  }
+
+  late final _llama_sample_tempPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Pointer<llama_context>,
+              ffi.Pointer<llama_token_data_array>,
+              ffi.Float)>>('llama_sample_temp');
+  late final _llama_sample_temp = _llama_sample_tempPtr.asFunction<
+      void Function(ffi.Pointer<llama_context>,
+          ffi.Pointer<llama_token_data_array>, double)>();
+
   void llama_sample_temperature(
     ffi.Pointer<llama_context> ctx,
     ffi.Pointer<llama_token_data_array> candidates,
@@ -1177,7 +1366,7 @@ class LlamaCpp {
 
   late final _llama_sample_token_mirostatPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(
+          ffi.Int32 Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
               ffi.Float,
@@ -1217,7 +1406,7 @@ class LlamaCpp {
 
   late final _llama_sample_token_mirostat_v2Ptr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(
+          ffi.Int32 Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>,
               ffi.Float,
@@ -1245,7 +1434,7 @@ class LlamaCpp {
 
   late final _llama_sample_token_greedyPtr = _lookup<
           ffi.NativeFunction<
-              ffi.Int Function(ffi.Pointer<llama_context>,
+              ffi.Int32 Function(ffi.Pointer<llama_context>,
                   ffi.Pointer<llama_token_data_array>)>>(
       'llama_sample_token_greedy');
   late final _llama_sample_token_greedy =
@@ -1266,7 +1455,7 @@ class LlamaCpp {
 
   late final _llama_sample_tokenPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Int Function(ffi.Pointer<llama_context>,
+          ffi.Int32 Function(ffi.Pointer<llama_context>,
               ffi.Pointer<llama_token_data_array>)>>('llama_sample_token');
   late final _llama_sample_token = _llama_sample_tokenPtr.asFunction<
       int Function(
@@ -1290,7 +1479,7 @@ class LlamaCpp {
           ffi.Void Function(
               ffi.Pointer<llama_context>,
               ffi.Pointer<llama_grammar>,
-              ffi.Int)>>('llama_grammar_accept_token');
+              ffi.Int32)>>('llama_grammar_accept_token');
   late final _llama_grammar_accept_token =
       _llama_grammar_accept_tokenPtr.asFunction<
           void Function(
@@ -1361,9 +1550,9 @@ class LlamaCpp {
   }
 
   late final _llama_get_timingsPtr = _lookup<
-      ffi.NativeFunction<
-          llama_timings Function(
-              ffi.Pointer<llama_context>)>>('llama_get_timings');
+          ffi
+          .NativeFunction<llama_timings Function(ffi.Pointer<llama_context>)>>(
+      'llama_get_timings');
   late final _llama_get_timings = _llama_get_timingsPtr
       .asFunction<llama_timings Function(ffi.Pointer<llama_context>)>();
 
@@ -1479,8 +1668,8 @@ final class llama_context_params extends ffi.Struct {
   external double rope_freq_scale;
 
   external ffi.Pointer<
-          ffi.NativeFunction<
-              ffi.Void Function(ffi.Float, ffi.Pointer<ffi.Void>)>>
+          ffi
+          .NativeFunction<ffi.Void Function(ffi.Float, ffi.Pointer<ffi.Void>)>>
       progress_callback;
 
   external ffi.Pointer<ffi.Void> progress_callback_user_data;
@@ -1557,6 +1746,30 @@ abstract class llama_vocab_type1 {
   static const int LLAMA_VOCAB_TYPE_BPE = 1;
 }
 
+final class llama_batch extends ffi.Struct {
+  @ffi.Int32()
+  external int n_tokens;
+
+  external ffi.Pointer<ffi.Int32> token;
+
+  external ffi.Pointer<ffi.Float> embd;
+
+  external ffi.Pointer<ffi.Int32> pos;
+
+  external ffi.Pointer<ffi.Int32> seq_id;
+
+  external ffi.Pointer<ffi.Int8> logits;
+
+  @ffi.Int32()
+  external int all_pos_0;
+
+  @ffi.Int32()
+  external int all_pos_1;
+
+  @ffi.Int32()
+  external int all_seq_id;
+}
+
 abstract class llama_token_type {
   static const int LLAMA_TOKEN_TYPE_UNDEFINED = 0;
   static const int LLAMA_TOKEN_TYPE_NORMAL = 1;
@@ -1598,7 +1811,7 @@ final class llama_token_data_array extends ffi.Struct {
 }
 
 final class llama_token_data extends ffi.Struct {
-  @ffi.Int()
+  @ffi.Int32()
   external int id;
 
   @ffi.Float()
@@ -1622,7 +1835,7 @@ final class llama_beams_state extends ffi.Struct {
 }
 
 final class llama_beam_view extends ffi.Struct {
-  external ffi.Pointer<ffi.Int> tokens;
+  external ffi.Pointer<ffi.Int32> tokens;
 
   @ffi.Size()
   external int n_tokens;
@@ -1692,7 +1905,7 @@ final class __sFILE extends ffi.Struct {
   external ffi.Pointer<ffi.Void> _cookie;
 
   external ffi
-          .Pointer<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>
+      .Pointer<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ffi.Void>)>>
       _close;
 
   external ffi.Pointer<

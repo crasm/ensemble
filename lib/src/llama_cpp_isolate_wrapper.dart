@@ -30,11 +30,11 @@ extension on llama_context_params {
     low_vram = p.useLessVram;
     mul_mat_q = p.cudaUseMulMatQ;
     f16_kv = p.useFloat16KVCache;
-    logits_all = p.calculateAllLogits;
+    logits_all = p.computeAllLogits;
     vocab_only = p.loadOnlyVocabSkipTensors;
     use_mmap = p.useMmap;
     use_mlock = p.useMlock;
-    embedding = p.willUseEmbedding;
+    embedding = p.embeddingModeOnly;
   }
 }
 
