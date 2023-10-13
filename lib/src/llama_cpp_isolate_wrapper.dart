@@ -4,11 +4,24 @@ import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
-import 'package:ensemble_llama/src/ensemble_llama_base.dart' show ContextParams;
+import 'package:ensemble_llama/src/ensemble_llama_base.dart'
+    show ModelParams, ContextParams;
 
 // 4294967295 (32 bit unsigned)
 // -1 (32 bit signed)
 const int32Max = 0xFFFFFFFF;
+
+extension on llama_model_params {
+  void setSimpleFrom(ModelParams p) {
+    n_gpu_layers = p.gpuLayers;
+    main_gpu = p.cudaMainGpu;
+    // Skipping: tensor_split
+    // Skipping: progress_callback{,_user_data}
+    vocab_only = p.loadOnlyVocabSkipTensors;
+    use_mmap = p.useMmap;
+    use_mlock = p.useMlock;
+  }
+}
 
 extension on llama_context_params {
   // Sets most of the context parameters, such as int, double, bool.
@@ -17,23 +30,13 @@ extension on llama_context_params {
     seed = p.seed;
     n_ctx = p.contextSizeTokens;
     n_batch = p.batchSizeTokens;
-    n_gpu_layers = p.gpuLayers;
-    main_gpu = p.cudaMainGpu;
-
-    // Skipping: tensor_split
 
     rope_freq_base = p.ropeFreqBase;
     rope_freq_scale = p.ropeFreqScale;
 
-    // Skipping: progress_callback{,_user_data}
-
-    low_vram = p.useLessVram;
     mul_mat_q = p.cudaUseMulMatQ;
     f16_kv = p.useFloat16KVCache;
     logits_all = p.computeAllLogits;
-    vocab_only = p.loadOnlyVocabSkipTensors;
-    use_mmap = p.useMmap;
-    use_mlock = p.useMlock;
     embedding = p.embeddingModeOnly;
   }
 }
@@ -65,9 +68,9 @@ class LogMessage {
   @override
   String toString() {
     String levelStr = switch (level) {
-      llama_log_level.LLAMA_LOG_LEVEL_ERROR => 'ERROR',
-      llama_log_level.LLAMA_LOG_LEVEL_WARN => 'WARN',
-      llama_log_level.LLAMA_LOG_LEVEL_INFO => 'INFO',
+      ggml_log_level.GGML_LOG_LEVEL_ERROR => 'ERROR',
+      ggml_log_level.GGML_LOG_LEVEL_WARN => 'WARN',
+      ggml_log_level.GGML_LOG_LEVEL_INFO => 'INFO',
       _ => throw Exception("Unknown log level: $level"),
     };
 
@@ -86,7 +89,7 @@ class ExitCtl extends ControlMessage {
 
 class LoadModelCtl extends ControlMessage {
   final String path;
-  final ContextParams params;
+  final ModelParams params;
   LoadModelCtl(this.path, this.params);
 
   LoadModelResp done(Model model) => LoadModelResp(id, model: model);
@@ -223,7 +226,7 @@ void _onControl(ControlMessage ctl) {
 
     case LoadModelCtl():
       final Set<Pointer> allocs = {};
-      final params = libllama.llama_context_default_params()
+      final params = libllama.llama_model_default_params()
         ..setSimpleFrom(ctl.params);
 
       params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);

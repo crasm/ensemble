@@ -11,16 +11,17 @@ void main() async {
     }
   });
 
-  final params = ContextParams(gpuLayers: 1, useMmap: false);
+  final modelParams = ModelParams(gpuLayers: 1, useMmap: false);
   final model = await llama.loadModel(
     "/Users/vczf/models/default/ggml-model-f16.gguf",
-    params: params,
+    params: modelParams,
     progressCallback: (p) => stdout.write("."),
   );
 
   print(model);
 
-  final ctx = await llama.newContext(model, params);
+  final ctxParams = ContextParams();
+  final ctx = await llama.newContext(model, ctxParams);
   await llama.freeContext(ctx);
 
   await llama.freeModel(model);

@@ -2,40 +2,44 @@ import 'dart:isolate';
 
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
+class ModelParams {
+  final int gpuLayers;
+  final int cudaMainGpu;
+  // final List<double> cudaTensorSplits;
+  final bool loadOnlyVocabSkipTensors;
+  final bool useMmap;
+  final bool useMlock;
+
+  const ModelParams({
+    this.gpuLayers = 0,
+    this.cudaMainGpu = 0,
+    // this.cudaTensorSplits = const [0.0],
+    this.loadOnlyVocabSkipTensors = false,
+    this.useMmap = true,
+    this.useMlock = false,
+  });
+}
+
 class ContextParams {
   final int seed;
   final int contextSizeTokens;
   final int batchSizeTokens;
-  final int gpuLayers;
-  final int cudaMainGpu;
-  // final List<double> cudaTensorSplits;
   final double ropeFreqBase;
   final double ropeFreqScale;
-  final bool useLessVram;
   final bool cudaUseMulMatQ;
   final bool useFloat16KVCache;
   final bool computeAllLogits;
-  final bool loadOnlyVocabSkipTensors;
-  final bool useMmap;
-  final bool useMlock;
   final bool embeddingModeOnly;
 
   const ContextParams({
     this.seed = int32Max,
     this.contextSizeTokens = 512,
     this.batchSizeTokens = 512,
-    this.gpuLayers = 0,
-    this.cudaMainGpu = 0,
-    // this.cudaTensorSplits = const [0.0],
     this.ropeFreqBase = 10000.0,
     this.ropeFreqScale = 1.0,
-    this.useLessVram = false,
     this.cudaUseMulMatQ = true,
     this.useFloat16KVCache = true,
     this.computeAllLogits = false,
-    this.loadOnlyVocabSkipTensors = false,
-    this.useMmap = true,
-    this.useMlock = false,
     this.embeddingModeOnly = false,
   }) : assert(seed <= int32Max);
 }
@@ -82,7 +86,7 @@ class Llama {
   Future<Model> loadModel(
     String path, {
     void Function(double progress)? progressCallback,
-    ContextParams params = const ContextParams(),
+    ModelParams params = const ModelParams(),
   }) async {
     final ctl = LoadModelCtl(path, params);
     final progressListener = _response
