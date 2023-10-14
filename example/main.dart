@@ -19,9 +19,9 @@ void main() {
   Console.init();
   Console.write("hello, ensemble_llama");
 
-  var params = libllama.llama_context_default_params();
-  params.n_gpu_layers = 1;
-  params.progress_callback = Pointer.fromFunction(onModelLoadProgress);
+  var modelParams = libllama.llama_model_default_params();
+  modelParams.n_gpu_layers = 1;
+  modelParams.progress_callback = Pointer.fromFunction(onModelLoadProgress);
 
   libllama.llama_log_set(
       Pointer.fromFunction(onLlamaLog), Pointer.fromAddress(0));
@@ -30,28 +30,42 @@ void main() {
       "/Users/vczf/models/default/ggml-model-f16.gguf"
           .toNativeUtf8()
           .cast<Char>(),
-      params);
+      modelParams);
 
-  var ctx = libllama.llama_new_context_with_model(model, params);
+  var ctxParams = libllama.llama_context_default_params();
+  var ctx = libllama.llama_new_context_with_model(model, ctxParams);
 
   var maxTokens = 10;
-  Pointer<Int> tokens = calloc.allocate(maxTokens * sizeOf<Int>());
-  int nTokens = libllama.llama_tokenize(
-      ctx, "We".toNativeUtf8().cast<Char>(), tokens, maxTokens, true);
+  Pointer<Int32> tokens = calloc.allocate(maxTokens * sizeOf<Int32>());
+  int numTokenized = libllama.llama_tokenize(
+    model,
+    "We".toNativeUtf8().cast<Char>(),
+    "We".length,
+    tokens,
+    maxTokens,
+    true,
+  );
 
-  if (nTokens < 1) throw Exception();
+  if (numTokenized < 1) throw Exception();
 
-  for (var i = 0; i < nTokens; i++) {
-    Pointer<Char> tokPiece = calloc.allocate(10 * sizeOf<Char>());
-    int err = libllama.llama_token_to_piece(
-        ctx, tokens.elementAt(i).value, tokPiece, 10);
-    if (err < 0) throw Exception();
+  var batch = libllama.llama_batch_init(10, 0);
+  batch.n_tokens = numTokenized;
+  for (var i = 0; i < numTokenized; i++) {
+    print("prompt token: ${tokens[i]}");
+
+    batch.token[i] = tokens[i];
+    batch.pos[i] = i;
+    batch.seq_id[i] = 0;
+    batch.logits[i] = 0; // = false;
   }
 
-  if (libllama.llama_eval(ctx, tokens, nTokens, 0, 1) != 0) throw Exception();
+  batch.logits[batch.n_tokens - 1] = 1; // = true;
 
-  Pointer<Float> logits = libllama.llama_get_logits(ctx);
-  int nVocab = libllama.llama_n_vocab(ctx);
+  if (libllama.llama_decode(ctx, batch) != 0) throw Exception();
+  //TODO
+
+  int nVocab = libllama.llama_n_vocab(model);
+  Pointer<Float> logits = libllama.llama_get_logits_ith(ctx, numTokenized - 1);
 
   Pointer<llama_token_data> data =
       calloc.allocate(nVocab * sizeOf<llama_token_data>());
@@ -72,9 +86,11 @@ void main() {
   int token = libllama.llama_sample_token_greedy(ctx, candidates);
   Console.write("token: $token\n");
   Pointer<Char> tokenStr = calloc(10);
-  var err = libllama.llama_token_to_piece(ctx, token, tokenStr, 10);
+  var err = libllama.llama_token_to_piece(model, token, tokenStr, 10);
   Console.write("sample_token_greedy: $err\n");
   Console.write("first token is: ${tokenStr.cast<Utf8>().toDartString()}\n");
+
+  libllama.llama_batch_free(batch);
 
   calloc.free(data);
   calloc.free(candidates);
