@@ -55,6 +55,11 @@ class Context {
       Pointer.fromAddress(_rawPointer).cast<llama_context>();
 }
 
+class Batch {
+  final llama_batch _batch;
+  const Batch._(this._batch);
+}
+
 class LogMessage {
   final int level;
   final String text;
@@ -122,6 +127,13 @@ class FreeContextCtl extends ControlMessage {
   FreeContextResp done() => FreeContextResp(id);
 }
 
+class InitBatchCtl extends ControlMessage {
+  final int batchSize, embeddingsSize;
+  InitBatchCtl(this.batchSize, this.embeddingsSize);
+
+  InitBatchResp done(Batch batch) => InitBatchResp(id, batch);
+}
+
 sealed class ResponseMessage {
   final int id;
   final Object? err;
@@ -164,6 +176,11 @@ class NewContextResp extends ResponseMessage {
 
 class FreeContextResp extends ResponseMessage {
   const FreeContextResp(super.id);
+}
+
+class InitBatchResp extends ResponseMessage {
+  final Batch batch;
+  const InitBatchResp(super.id, this.batch);
 }
 
 class EntryArgs {
@@ -266,5 +283,10 @@ void _onControl(ControlMessage ctl) {
     case FreeContextCtl():
       libllama.llama_free(ctl.ctx._ffiPointer);
       _response.send(ctl.done());
+
+    case InitBatchCtl():
+      final batch =
+          libllama.llama_batch_init(ctl.batchSize, ctl.embeddingsSize);
+      _response.send(ctl.done(Batch._(batch)));
   }
 }

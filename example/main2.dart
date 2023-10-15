@@ -23,6 +23,9 @@ void main() async {
   final ctxParams = ContextParams();
   final ctx = await llama.newContext(model, ctxParams);
 
+  final batch = await llama.initBatch(512, 0);
+  print("batch: $batch");
+
   await llama.freeContext(ctx);
 
   await llama.freeModel(model);
