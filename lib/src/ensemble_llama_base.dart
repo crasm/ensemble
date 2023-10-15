@@ -123,13 +123,4 @@ class Llama {
     _controlPort.send(ctl);
     await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
   }
-
-  Future<Batch> initBatch(int batchSize, int embeddingsSize) async {
-    final ctl = InitBatchCtl(batchSize, embeddingsSize);
-    _controlPort.send(ctl);
-    final resp = (await _response.firstWhere(
-        (e) => e is InitBatchResp && e.id == ctl.id)) as InitBatchResp
-      ..throwIfErr();
-    return resp.batch;
-  }
 }
