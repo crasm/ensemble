@@ -24,8 +24,6 @@ extension on llama_model_params {
 }
 
 extension on llama_context_params {
-  // Sets most of the context parameters, such as int, double, bool.
-  // Does not set callbacks or pointers to allocated memory.
   void setSimpleFrom(ContextParams p) {
     seed = p.seed;
     n_ctx = p.contextSizeTokens;
@@ -187,9 +185,6 @@ class _Allocations<E> {
   }
 }
 
-final _modelAllocs = _Allocations<int>();
-// final _ctxAllocs = _Allocations<int>();
-
 late final SendPort _log;
 late final SendPort _response;
 
@@ -215,7 +210,7 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
-    _response.send(LoadModelProgressResp(id.cast<Uint32>().value, progress));
+    _response.send(LoadModelProgressResp(id.address, progress));
 
 void _onControl(ControlMessage ctl) {
   switch (ctl) {
@@ -225,15 +220,12 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done());
 
     case LoadModelCtl():
-      final Set<Pointer> allocs = {};
       final params = libllama.llama_model_default_params()
         ..setSimpleFrom(ctl.params);
 
       params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
-      final idPointer = calloc.allocate<Uint32>(sizeOf<Uint32>());
-      allocs.add(idPointer);
-      idPointer.value = ctl.id;
-      params.progress_callback_user_data = idPointer.cast<Void>();
+      // use the pointer value itself to store ctl.id, so we don't need to malloc
+      params.progress_callback_user_data = Pointer.fromAddress(ctl.id);
 
       final rawModel = libllama
           .llama_load_model_from_file(
@@ -248,16 +240,10 @@ void _onControl(ControlMessage ctl) {
         return;
       }
 
-      _modelAllocs[rawModel] = allocs;
       _response.send(ctl.done(Model._(rawModel)));
 
     case FreeModelCtl():
       assert(ctl.model._rawPointer != 0);
-      _modelAllocs[ctl.model._rawPointer]?.forEach((p) {
-        calloc.free(p);
-      });
-      _modelAllocs.clear(ctl.model._rawPointer);
-
       libllama.llama_free_model(ctl.model._ffiPointer);
       _response.send(ctl.done());
 

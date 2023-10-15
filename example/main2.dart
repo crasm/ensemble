@@ -22,6 +22,7 @@ void main() async {
 
   final ctxParams = ContextParams();
   final ctx = await llama.newContext(model, ctxParams);
+
   await llama.freeContext(ctx);
 
   await llama.freeModel(model);
