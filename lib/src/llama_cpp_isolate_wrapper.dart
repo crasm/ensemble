@@ -248,27 +248,30 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done());
 
     case LoadModelCtl():
-      final params = libllama.llama_model_default_params()
-        ..setSimpleFrom(ctl.params);
+      Pointer<Char>? pathStrC;
+      try {
+        final params = libllama.llama_model_default_params()
+          ..setSimpleFrom(ctl.params);
 
-      params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
-      // use the pointer value itself to store ctl.id, so we don't need to malloc
-      params.progress_callback_user_data = Pointer.fromAddress(ctl.id);
+        params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
+        // use the pointer value itself to store ctl.id, so we don't need to malloc
+        params.progress_callback_user_data = Pointer.fromAddress(ctl.id);
 
-      final rawModel = libllama
-          .llama_load_model_from_file(
-            ctl.path.toNativeUtf8().cast<Char>(),
-            params,
-          )
-          .address;
+        pathStrC = ctl.path.toNativeUtf8(allocator: calloc).cast<Char>();
+        final rawModel =
+            libllama.llama_load_model_from_file(pathStrC, params).address;
+        if (rawModel == 0) {
+          _response
+              .send(ctl.error(Exception("failed loading model: ${ctl.path}")));
+          return;
+        }
 
-      if (rawModel == 0) {
-        _response
-            .send(ctl.error(Exception("failed loading model: ${ctl.path}")));
-        return;
+        _response.send(ctl.done(Model._(rawModel)));
+      } on ArgumentError catch (e) {
+        _response.send(ctl.error(e));
+      } finally {
+        if (pathStrC != null) calloc.free(pathStrC);
       }
-
-      _response.send(ctl.done(Model._(rawModel)));
 
     case FreeModelCtl():
       assert(ctl.model._rawPointer != 0);
@@ -283,7 +286,6 @@ void _onControl(ControlMessage ctl) {
       final rawCtx = libllama
           .llama_new_context_with_model(ctl.model._ffiPointer, params)
           .address;
-
       if (rawCtx == 0) {
         _response.send(ctl.error(Exception("failed creating context")));
         return;
