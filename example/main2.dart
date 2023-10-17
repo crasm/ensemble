@@ -23,6 +23,11 @@ void main() async {
   final ctxParams = ContextParams();
   final ctx = await llama.newContext(model, ctxParams);
 
+  final tokStream = llama.generate(ctx, "Hello bob", SamplingParams());
+  await for (final tok in tokStream) {
+    print(tok);
+  }
+
   await llama.freeContext(ctx);
 
   await llama.freeModel(model);

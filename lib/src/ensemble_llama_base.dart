@@ -2,6 +2,7 @@ import 'dart:isolate';
 
 import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
 
+// TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
 class ModelParams {
   final int gpuLayers;
   final int cudaMainGpu;
@@ -42,6 +43,45 @@ class ContextParams {
     this.computeAllLogits = false,
     this.embeddingModeOnly = false,
   }) : assert(seed <= int32Max);
+}
+
+class SamplingParams {
+  final int topK;
+  final double topP;
+  final double tfsZ;
+  final double typicalP;
+  final double temperature;
+  final double repeatPenalty;
+  final int repeatPenaltyLastN;
+  final double frequencyPenalty;
+  final double presencePenalty;
+  final int mirostatMode;
+  final double mirostatTau;
+  final double mirostatEta;
+  final bool penalizeNewline;
+  final int keepTokenTopProbs;
+  final String? cfgNegativePrompt;
+  final double cfgScale;
+  final Map? tokenLogitBiasMap;
+  const SamplingParams({
+    this.topK = 40,
+    this.topP = 0.95,
+    this.tfsZ = 1.00,
+    this.typicalP = 1.0,
+    this.temperature = 0.80,
+    this.repeatPenalty = 1.10,
+    this.repeatPenaltyLastN = 64,
+    this.frequencyPenalty = 0.00,
+    this.presencePenalty = 0.00,
+    this.mirostatMode = 0,
+    this.mirostatTau = 5.00,
+    this.mirostatEta = 0.10,
+    this.penalizeNewline = true,
+    this.keepTokenTopProbs = 0,
+    this.cfgNegativePrompt,
+    this.cfgScale = 1.0,
+    this.tokenLogitBiasMap,
+  });
 }
 
 class Llama {
@@ -122,5 +162,23 @@ class Llama {
     final ctl = FreeContextCtl(ctx);
     _controlPort.send(ctl);
     await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
+  }
+
+  Stream<Token> generate(
+      Context ctx, String prompt, SamplingParams sparams) async* {
+    final ctl = GenerateCtl(ctx, prompt, sparams);
+    _controlPort.send(ctl);
+    await for (final resp in _response) {
+      if (resp.id != ctl.id) continue;
+      switch (resp) {
+        case GenerateTokenResp():
+          yield resp.tok;
+        case GenerateResp():
+          return;
+        default:
+          throw AssertionError(
+              "unexpected response ($resp), but valid id (${resp.id})");
+      }
+    }
   }
 }

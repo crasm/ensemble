@@ -5,7 +5,7 @@ import 'dart:math';
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/ensemble_llama_cpp.dart';
 import 'package:ensemble_llama/src/ensemble_llama_base.dart'
-    show ModelParams, ContextParams;
+    show ModelParams, ContextParams, SamplingParams;
 
 // 4294967295 (32 bit unsigned)
 // -1 (32 bit signed)
@@ -50,9 +50,20 @@ class Model {
 
 class Context {
   final int _rawPointer;
-  const Context._(this._rawPointer);
+  final ContextParams params;
+  const Context._(this._rawPointer, this.params);
   Pointer<llama_context> get _ffiPointer =>
       Pointer.fromAddress(_rawPointer).cast<llama_context>();
+}
+
+class Token {
+  final int id;
+  final String _str;
+  const Token(this.id, this._str);
+  @override
+  String toString() {
+    return _str;
+  }
 }
 
 class LogMessage {
@@ -91,9 +102,7 @@ class LoadModelCtl extends ControlMessage {
   LoadModelCtl(this.path, this.params);
 
   LoadModelResp done(Model model) => LoadModelResp(id, model: model);
-
   LoadModelResp error(Object err) => LoadModelResp(id, err: err);
-
   LoadModelProgressResp progress(double progress) =>
       LoadModelProgressResp(id, progress);
 }
@@ -120,6 +129,16 @@ class FreeContextCtl extends ControlMessage {
   FreeContextCtl(this.ctx);
 
   FreeContextResp done() => FreeContextResp(id);
+}
+
+class GenerateCtl extends ControlMessage {
+  final Context ctx;
+  final String prompt;
+  final SamplingParams sparams;
+  GenerateCtl(this.ctx, this.prompt, this.sparams);
+
+  GenerateResp done() => GenerateResp(id);
+  GenerateTokenResp token(Token tok) => GenerateTokenResp(id, tok);
 }
 
 sealed class ResponseMessage {
@@ -164,6 +183,15 @@ class NewContextResp extends ResponseMessage {
 
 class FreeContextResp extends ResponseMessage {
   const FreeContextResp(super.id);
+}
+
+class GenerateResp extends ResponseMessage {
+  const GenerateResp(super.id);
+}
+
+class GenerateTokenResp extends ResponseMessage {
+  final Token tok;
+  const GenerateTokenResp(super.id, this.tok);
 }
 
 class EntryArgs {
@@ -261,10 +289,22 @@ void _onControl(ControlMessage ctl) {
         return;
       }
 
-      _response.send(ctl.done(Context._(rawCtx)));
+      _response.send(ctl.done(Context._(rawCtx, ctl.params)));
 
     case FreeContextCtl():
       libllama.llama_free(ctl.ctx._ffiPointer);
+      _response.send(ctl.done());
+
+    case GenerateCtl():
+      final tok = Token(
+          526,
+          libllama
+              .llama_token_get_text(ctl.ctx._ffiPointer, 526)
+              .cast<Utf8>()
+              .toDartString());
+      for (var i = 0; i < 3; i++) {
+        _response.send(ctl.token(tok));
+      }
       _response.send(ctl.done());
   }
 }
