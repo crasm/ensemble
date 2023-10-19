@@ -25,7 +25,7 @@ void main() async {
 
   final tokStream = llama.generate(ctx, "Hello bob", SamplingParams());
   await for (final tok in tokStream) {
-    print(tok);
+    stdout.write(tok);
   }
 
   await llama.freeContext(ctx);
