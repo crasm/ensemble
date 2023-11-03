@@ -299,101 +299,134 @@ void _onControl(ControlMessage ctl) {
       llama_batch? batch;
       try {
         final ctx = ctl.ctx;
+        final contextSize = ctx.params.contextSizeTokens;
+        final batchSize = ctx.params.batchSizeTokens;
 
         final Pointer<Char> promptStrC =
             ctl.prompt.toNativeUtf8(allocator: calloc).cast<Char>();
         allocs.add(promptStrC);
 
-        final Pointer<Int32> tokenBuf = calloc
-            .allocate(ctx.params.batchSizeTokens * sizeOf<Int32>())
-            .cast<Int32>();
+        final Pointer<Int32> tokenBuf =
+            calloc.allocate(contextSize * sizeOf<Int32>()).cast<Int32>();
         allocs.add(tokenBuf);
 
+        //
         // Tokenize prompt
+        //
         int promptTokenCount = libllama.llama_tokenize(
           ctx.model._ffiPointer,
           promptStrC,
           ctl.prompt.length,
           tokenBuf,
-          ctx.params.batchSizeTokens,
+          batchSize,
           true,
         );
 
         if (promptTokenCount < 0) {
           ctl.error(Exception("llama_tokenize failed with $promptTokenCount"));
           return;
-        }
-
-        // Evaluate initial prompt
-        batch = libllama.llama_batch_init(ctx.params.batchSizeTokens, 0);
-        batch.n_tokens = promptTokenCount;
-
-        for (var i = 0; i < promptTokenCount; i++) {
-          batch.token[i] = tokenBuf[i];
-          batch.pos[i] = i;
-          batch.seq_id[i] = 0;
-          batch.logits[i] = 0; // = false;
-        }
-
-        batch.logits[batch.n_tokens - 1] = 1; // = true;
-
-        final status = libllama.llama_decode(ctx._ffiPointer, batch);
-        if (status != 0) {
-          _response
-              .send(ctl.error(Exception("llama_decode failed with $status")));
+        } else if (promptTokenCount >= contextSize) {
+          ctl.error(Exception(
+              "prompt too large: $promptTokenCount >= $contextSize tokens"));
           return;
         }
 
-        var nCur = batch.n_tokens;
-        // var nDecode = 0;
+        //
+        // Evaluate prompt.
+        //
+        // To do so, we fill up a llama_batch with tokens, call llama_decode()
+        // to load those tokens into the model, and repeat until we run out of
+        // prompt tokens.
 
-        final nVocab = libllama.llama_n_vocab(ctx.model._ffiPointer);
+        batch = libllama.llama_batch_init(batchSize, 0);
+
+        var i = 0; // index into context window
+        var j = 0; // index into current batch
+        while (i + j < promptTokenCount) {
+          final promptTokensRemaining = promptTokenCount - i;
+          final isLastBatch = promptTokensRemaining < batchSize;
+          final fillCount = isLastBatch ? promptTokensRemaining : batchSize;
+
+          batch.n_tokens = fillCount;
+          for (j = 0; j < fillCount; j++) {
+            batch.token[j] = tokenBuf[i + j];
+            batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
+            batch.seq_id[j] = 0;
+            batch.logits[j] = isLastBatch ? 1 : 0;
+          }
+
+          final status = libllama.llama_decode(ctx._ffiPointer, batch);
+          if (status != 0) {
+            _response
+                .send(ctl.error(Exception("llama_decode failed with $status")));
+            return;
+          }
+
+          assert(j <= batchSize);
+          if (j == batchSize) {
+            i += batchSize;
+            j = 0;
+          }
+        }
+
+        print("i=$i; j=$j");
+
+        //
+        // Generate tokens to fill context
+        //
+
+        final vocabSize = libllama.llama_n_vocab(ctx.model._ffiPointer);
 
         Pointer<llama_token_data> candidates =
-            calloc.allocate(nVocab * sizeOf<llama_token_data>());
+            calloc.allocate(vocabSize * sizeOf<llama_token_data>());
         allocs.add(candidates);
         Pointer<llama_token_data_array> candidatesWrapper =
             calloc.allocate(sizeOf<llama_token_data_array>());
         allocs.add(candidatesWrapper);
 
         candidatesWrapper.ref.data = candidates;
-        candidatesWrapper.ref.size = nVocab;
+        candidatesWrapper.ref.size = vocabSize;
         candidatesWrapper.ref.sorted = false;
 
-        while (nCur <= ctx.params.batchSizeTokens) {
-          final logits = libllama.llama_get_logits_ith(
-              ctx._ffiPointer, batch.n_tokens - 1);
-
-          for (var i = 0; i < nVocab; i++) {
-            candidates[i].id = i;
-            candidates[i].logit = logits[i];
-            candidates[i].p = 0.0;
+        while (i + j < contextSize) {
+          final logits = libllama.llama_get_logits_ith(ctx._ffiPointer, i);
+          for (var k = 0; k < vocabSize; k++) {
+            candidates[k].id = k;
+            candidates[k].logit = logits[k];
+            candidates[k].p = 0.0;
           }
 
-          final mu = calloc.allocate(sizeOf<Float>()).cast<Float>();
-          allocs.add(mu);
-          final newTokenId = libllama.llama_sample_token_greedy(
+          final tok = libllama.llama_sample_token_greedy(
               ctx._ffiPointer, candidatesWrapper);
+          _response.send(ctl.token(Token.fromId(ctx, tok)));
 
           // Check if end of stream
-          if (newTokenId == libllama.llama_token_eos(ctx._ffiPointer) ||
-              nCur == ctx.params.batchSizeTokens) {
-            _response.send(ctl.done());
-            return;
+          if (tok == libllama.llama_token_eos(ctx._ffiPointer)) {
+            break;
           }
 
-          _response.send(ctl.token(Token.fromId(ctx, newTokenId)));
+          //
+          // Decode next token
+          //
 
-          batch.n_tokens = 0;
+          assert(j <= batchSize);
+          if (j == batchSize) {
+            j = 0;
+            i += batchSize;
+          }
 
-          batch.token[batch.n_tokens] = newTokenId;
-          batch.pos[batch.n_tokens] = nCur;
-          batch.seq_id[batch.n_tokens] = 0;
-          batch.logits[batch.n_tokens] = 1; // = true;
+          if (j - 1 >= 0) {
+            batch.logits[j - 1] = 0; // disable logits for the previous token
+          }
 
-          batch.n_tokens += 1;
-          // nDecode += 1;
-          nCur += 1;
+          batch.n_tokens = j + 1;
+
+          batch.token[j] = tok;
+          batch.pos[j] = i + j;
+          batch.seq_id[j] = 0;
+          batch.logits[j] = 1; // enable logits for this token
+
+          j++;
 
           final status = libllama.llama_decode(ctx._ffiPointer, batch);
           if (status != 0) {
@@ -402,6 +435,8 @@ void _onControl(ControlMessage ctl) {
             return;
           }
         }
+
+        _response.send(ctl.done());
       } finally {
         for (final p in allocs) {
           calloc.free(p);

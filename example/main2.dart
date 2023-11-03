@@ -11,7 +11,7 @@ void main() async {
     }
   });
 
-  final modelParams = ModelParams(gpuLayers: 1, useMmap: false);
+  final modelParams = ModelParams(gpuLayers: 1);
   final model = await llama.loadModel(
     "/Users/vczf/models/default/ggml-model-f16.gguf",
     params: modelParams,
@@ -20,7 +20,7 @@ void main() async {
 
   print(model);
 
-  final ctxParams = ContextParams();
+  final ctxParams = ContextParams(contextSizeTokens: 2048);
   final ctx = await llama.newContext(model, ctxParams);
 
   final tokStream = llama.generate(ctx, "Hello bob", SamplingParams());
