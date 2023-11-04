@@ -23,7 +23,7 @@ void main() async {
   final ctxParams = ContextParams(contextSizeTokens: 2048);
   final ctx = await llama.newContext(model, ctxParams);
 
-  final tokStream = llama.generate(ctx, "Hello bob", SamplingParams());
+  final tokStream = llama.generate(ctx, "pean", SamplingParams());
   await for (final tok in tokStream) {
     stdout.write(tok);
   }

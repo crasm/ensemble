@@ -39,10 +39,39 @@ extension on llama_context_params {
   }
 }
 
+// Stores an array of candidate tokens and their logit probabilities.
+class _Candidates {
+  final int length;
+  late final Pointer<llama_token_data> _candidates;
+  late final Pointer<llama_token_data_array> pointer;
+
+  _Candidates(this.length) {
+    _candidates = calloc.allocate(length * sizeOf<llama_token_data>());
+    pointer = calloc.allocate(sizeOf<llama_token_data_array>());
+
+    pointer.ref.data = _candidates;
+    pointer.ref.size = length;
+    pointer.ref.sorted = false;
+  }
+
+  void load(Pointer<Float> logits) {
+    for (var i = 0; i < length; i++) {
+      _candidates[i].id = i;
+      _candidates[i].logit = logits[i];
+      _candidates[i].p = 0.0;
+    }
+  }
+
+  void dispose() {
+    calloc.free(_candidates);
+    calloc.free(pointer);
+  }
+}
+
 class Model {
   final int _rawPointer;
   const Model._(this._rawPointer);
-  Pointer<llama_model> get _ffiPointer =>
+  Pointer<llama_model> get _pointer =>
       Pointer.fromAddress(_rawPointer).cast<llama_model>();
   @override
   String toString() => "Model{$_rawPointer}";
@@ -53,7 +82,7 @@ class Context {
   final Model model;
   final ContextParams params;
   const Context._(this._rawPointer, this.model, this.params);
-  Pointer<llama_context> get _ffiPointer =>
+  Pointer<llama_context> get _pointer =>
       Pointer.fromAddress(_rawPointer).cast<llama_context>();
 }
 
@@ -65,7 +94,7 @@ class Token {
   factory Token.fromId(Context ctx, int id) => Token(
         id,
         libllama
-            .llama_token_get_text(ctx._ffiPointer, id)
+            .llama_token_get_text(ctx._pointer, id)
             .cast<Utf8>()
             .toDartString()
             .replaceAll("▁", " "), // replace U+2581 with a space
@@ -272,7 +301,7 @@ void _onControl(ControlMessage ctl) {
 
     case FreeModelCtl():
       assert(ctl.model._rawPointer != 0);
-      libllama.llama_free_model(ctl.model._ffiPointer);
+      libllama.llama_free_model(ctl.model._pointer);
       _response.send(ctl.done());
 
     case NewContextCtl():
@@ -281,7 +310,7 @@ void _onControl(ControlMessage ctl) {
         ..setSimpleFrom(ctl.params);
 
       final rawCtx = libllama
-          .llama_new_context_with_model(ctl.model._ffiPointer, params)
+          .llama_new_context_with_model(ctl.model._pointer, params)
           .address;
       if (rawCtx == 0) {
         _response.send(ctl.error(Exception("failed creating context")));
@@ -291,12 +320,13 @@ void _onControl(ControlMessage ctl) {
       _response.send(ctl.done(Context._(rawCtx, ctl.model, ctl.params)));
 
     case FreeContextCtl():
-      libllama.llama_free(ctl.ctx._ffiPointer);
+      libllama.llama_free(ctl.ctx._pointer);
       _response.send(ctl.done());
 
     case GenerateCtl():
       Set<Pointer> allocs = {};
       llama_batch? batch;
+      _Candidates? candidates;
       try {
         final ctx = ctl.ctx;
         final contextSize = ctx.params.contextSizeTokens;
@@ -310,11 +340,13 @@ void _onControl(ControlMessage ctl) {
             calloc.allocate(contextSize * sizeOf<Int32>()).cast<Int32>();
         allocs.add(tokenBuf);
 
+        candidates = _Candidates(libllama.llama_n_vocab(ctx.model._pointer));
+
         //
         // Tokenize prompt
         //
         int promptTokenCount = libllama.llama_tokenize(
-          ctx.model._ffiPointer,
+          ctx.model._pointer,
           promptStrC,
           ctl.prompt.length,
           tokenBuf,
@@ -349,13 +381,15 @@ void _onControl(ControlMessage ctl) {
 
           batch.n_tokens = fillCount;
           for (j = 0; j < fillCount; j++) {
+            print(
+                "Adding token ${Token.fromId(ctx, tokenBuf[i + j])} to batch");
             batch.token[j] = tokenBuf[i + j];
             batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
             batch.seq_id[j] = 0;
             batch.logits[j] = isLastBatch ? 1 : 0;
           }
 
-          final status = libllama.llama_decode(ctx._ffiPointer, batch);
+          final status = libllama.llama_decode(ctx._pointer, batch);
           if (status != 0) {
             _response
                 .send(ctl.error(Exception("llama_decode failed with $status")));
@@ -375,33 +409,16 @@ void _onControl(ControlMessage ctl) {
         // Generate tokens to fill context
         //
 
-        final vocabSize = libllama.llama_n_vocab(ctx.model._ffiPointer);
-
-        Pointer<llama_token_data> candidates =
-            calloc.allocate(vocabSize * sizeOf<llama_token_data>());
-        allocs.add(candidates);
-        Pointer<llama_token_data_array> candidatesWrapper =
-            calloc.allocate(sizeOf<llama_token_data_array>());
-        allocs.add(candidatesWrapper);
-
-        candidatesWrapper.ref.data = candidates;
-        candidatesWrapper.ref.size = vocabSize;
-        candidatesWrapper.ref.sorted = false;
-
         while (i + j < contextSize) {
-          final logits = libllama.llama_get_logits_ith(ctx._ffiPointer, i);
-          for (var k = 0; k < vocabSize; k++) {
-            candidates[k].id = k;
-            candidates[k].logit = logits[k];
-            candidates[k].p = 0.0;
-          }
+          final logits = libllama.llama_get_logits_ith(ctx._pointer, j - 1);
+          candidates.load(logits);
 
           final tok = libllama.llama_sample_token_greedy(
-              ctx._ffiPointer, candidatesWrapper);
+              ctx._pointer, candidates.pointer);
           _response.send(ctl.token(Token.fromId(ctx, tok)));
 
           // Check if end of stream
-          if (tok == libllama.llama_token_eos(ctx._ffiPointer)) {
+          if (tok == libllama.llama_token_eos(ctx._pointer)) {
             break;
           }
 
@@ -428,7 +445,7 @@ void _onControl(ControlMessage ctl) {
 
           j++;
 
-          final status = libllama.llama_decode(ctx._ffiPointer, batch);
+          final status = libllama.llama_decode(ctx._pointer, batch);
           if (status != 0) {
             _response
                 .send(ctl.error(Exception("llama_decode failed with $status")));
@@ -442,6 +459,7 @@ void _onControl(ControlMessage ctl) {
           calloc.free(p);
         }
         if (batch != null) libllama.llama_batch_free(batch);
+        candidates?.dispose();
       }
   }
 }
