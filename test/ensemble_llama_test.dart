@@ -22,6 +22,7 @@ void main() {
       llama.dispose();
     });
 
+    // TODO write tests for various context and batch size
     test('happy path batch and context size', () async {
       ctx = await llama.newContext(
           model, ContextParams(contextSizeTokens: 20, batchSizeTokens: 20));

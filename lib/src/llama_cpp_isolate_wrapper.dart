@@ -68,6 +68,7 @@ class _Candidates {
   }
 }
 
+// TODO: refactor these classes into a third class for public interface
 class Model {
   final int _rawPointer;
   const Model._(this._rawPointer);
@@ -409,8 +410,22 @@ void _onControl(ControlMessage ctl) {
         // Generate tokens to fill context
         //
 
-        while (i + j < contextSize) {
-          final logits = libllama.llama_get_logits_ith(ctx._pointer, j - 1);
+        i += j; // index into the context for all tokens so far
+
+        while (i < contextSize) {
+          int logitsIndex;
+          if (j != 0) {
+            // on first iteration, the batch is almost always partially filled,
+            // so we need to use the index of the last token in the batch
+            logitsIndex = j - 1;
+            j = 0;
+          } else {
+            // on future iterations, we use only the first slot in the batch
+            logitsIndex = 0;
+          }
+
+          final logits =
+              libllama.llama_get_logits_ith(ctx._pointer, logitsIndex);
           candidates.load(logits);
 
           final tok = libllama.llama_sample_token_greedy(
@@ -426,24 +441,12 @@ void _onControl(ControlMessage ctl) {
           // Decode next token
           //
 
-          assert(j <= batchSize);
-          if (j == batchSize) {
-            j = 0;
-            i += batchSize;
-          }
+          batch.n_tokens = 1;
 
-          if (j - 1 >= 0) {
-            batch.logits[j - 1] = 0; // disable logits for the previous token
-          }
-
-          batch.n_tokens = j + 1;
-
-          batch.token[j] = tok;
-          batch.pos[j] = i + j;
-          batch.seq_id[j] = 0;
-          batch.logits[j] = 1; // enable logits for this token
-
-          j++;
+          batch.token[0] = tok;
+          batch.pos[0] = i++;
+          batch.seq_id[0] = 0;
+          batch.logits[0] = 1; // enable logits for this token
 
           final status = libllama.llama_decode(ctx._pointer, batch);
           if (status != 0) {
