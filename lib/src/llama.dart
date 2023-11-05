@@ -1,6 +1,6 @@
 import 'dart:isolate';
 
-import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
+import 'package:ensemble_llama/src/isolate.dart';
 
 // TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
 class ModelParams {

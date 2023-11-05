@@ -3,7 +3,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 import 'package:test/test.dart' as t;
 
-import 'package:ensemble_llama/ensemble_llama_cpp.dart';
+import 'package:ensemble_llama/llama_ffi.dart';
 
 void mycb(double progress, Pointer<Void> ctx) {
   print(progress);

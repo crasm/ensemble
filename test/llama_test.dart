@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import 'package:ensemble_llama/ensemble_llama.dart';
-import 'package:ensemble_llama/src/llama_cpp_isolate_wrapper.dart';
+import 'package:ensemble_llama/llama.dart';
+import 'package:ensemble_llama/src/isolate.dart';
 
 void main() {
   group('A group of tests', () {

@@ -3,8 +3,8 @@ import 'dart:isolate';
 import 'dart:math';
 
 import 'package:ffi/ffi.dart';
-import 'package:ensemble_llama/ensemble_llama_cpp.dart';
-import 'package:ensemble_llama/src/ensemble_llama_base.dart'
+import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/src/llama.dart'
     show ModelParams, ContextParams, SamplingParams;
 
 // 4294967295 (32 bit unsigned)
@@ -68,7 +68,6 @@ class _Candidates {
   }
 }
 
-// TODO: refactor these classes into a third class for public interface
 class Model {
   final int _rawPointer;
   const Model._(this._rawPointer);

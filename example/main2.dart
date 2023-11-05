@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:ensemble_llama/ensemble_llama.dart';
+import 'package:ensemble_llama/llama.dart';
 
 void main() async {
   var llama = await Llama.create();
@@ -29,7 +29,6 @@ void main() async {
   }
 
   await llama.freeContext(ctx);
-
   await llama.freeModel(model);
   llama.dispose();
 }

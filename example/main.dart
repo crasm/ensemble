@@ -3,7 +3,7 @@ import 'dart:ffi';
 import 'package:console/console.dart';
 import 'package:ffi/ffi.dart';
 
-import 'package:ensemble_llama/ensemble_llama_cpp.dart';
+import 'package:ensemble_llama/llama_ffi.dart';
 
 final _pbar = ProgressBar(complete: 100);
 void onModelLoadProgress(double progress, Pointer<Void> ctx) {
