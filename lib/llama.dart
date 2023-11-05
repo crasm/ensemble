@@ -2,4 +2,4 @@
 library;
 
 export 'src/llama.dart';
-export 'src/isolate.dart' show Model, Context, Token, LogMessage;
+export 'src/params.dart';

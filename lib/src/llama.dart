@@ -1,87 +1,77 @@
 import 'dart:isolate';
 
+import 'dart:ffi';
+import 'package:ffi/ffi.dart';
+import 'package:ensemble_llama/llama_ffi.dart';
+
 import 'package:ensemble_llama/src/isolate.dart';
+import 'package:ensemble_llama/src/message_control.dart';
+import 'package:ensemble_llama/src/message_response.dart';
+import 'package:ensemble_llama/src/params.dart';
 
-// TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
-class ModelParams {
-  final int gpuLayers;
-  final int cudaMainGpu;
-  // final List<double> cudaTensorSplits;
-  final bool loadOnlyVocabSkipTensors;
-  final bool useMmap;
-  final bool useMlock;
+final class Model {
+  final int rawPointer;
 
-  const ModelParams({
-    this.gpuLayers = 0,
-    this.cudaMainGpu = 0,
-    // this.cudaTensorSplits = const [0.0],
-    this.loadOnlyVocabSkipTensors = false,
-    this.useMmap = true,
-    this.useMlock = false,
-  });
+  const Model(this.rawPointer);
+
+  Pointer<llama_model> get pointer =>
+      Pointer.fromAddress(rawPointer).cast<llama_model>();
+
+  @override
+  String toString() => "Model{$rawPointer}";
 }
 
-class ContextParams {
-  final int seed;
-  final int contextSizeTokens;
-  final int batchSizeTokens;
-  final double ropeFreqBase;
-  final double ropeFreqScale;
-  final bool cudaUseMulMatQ;
-  final bool useFloat16KVCache;
-  final bool computeAllLogits;
-  final bool embeddingModeOnly;
+final class Context {
+  final int rawPointer;
+  final Model model;
+  final ContextParams params;
 
-  const ContextParams({
-    this.seed = int32Max,
-    this.contextSizeTokens = 512,
-    this.batchSizeTokens = 512,
-    this.ropeFreqBase = 10000.0,
-    this.ropeFreqScale = 1.0,
-    this.cudaUseMulMatQ = true,
-    this.useFloat16KVCache = true,
-    this.computeAllLogits = false,
-    this.embeddingModeOnly = false,
-  }) : assert(seed <= int32Max);
+  const Context(this.rawPointer, this.model, this.params);
+
+  Pointer<llama_context> get pointer =>
+      Pointer.fromAddress(rawPointer).cast<llama_context>();
 }
 
-class SamplingParams {
-  final int topK;
-  final double topP;
-  final double tfsZ;
-  final double typicalP;
-  final double temperature;
-  final double repeatPenalty;
-  final int repeatPenaltyLastN;
-  final double frequencyPenalty;
-  final double presencePenalty;
-  final int mirostatMode;
-  final double mirostatTau;
-  final double mirostatEta;
-  final bool penalizeNewline;
-  final int keepTokenTopProbs;
-  final String? cfgNegativePrompt;
-  final double cfgScale;
-  final Map? tokenLogitBiasMap;
-  const SamplingParams({
-    this.topK = 40,
-    this.topP = 0.95,
-    this.tfsZ = 1.00,
-    this.typicalP = 1.0,
-    this.temperature = 0.80,
-    this.repeatPenalty = 1.10,
-    this.repeatPenaltyLastN = 64,
-    this.frequencyPenalty = 0.00,
-    this.presencePenalty = 0.00,
-    this.mirostatMode = 0,
-    this.mirostatTau = 5.00,
-    this.mirostatEta = 0.10,
-    this.penalizeNewline = true,
-    this.keepTokenTopProbs = 0,
-    this.cfgNegativePrompt,
-    this.cfgScale = 1.0,
-    this.tokenLogitBiasMap,
+final class Token {
+  final int id;
+  final String _str;
+
+  const Token(this.id, this._str);
+
+  factory Token.fromId(Context ctx, int id) => Token(
+        id,
+        libllama
+            .llama_token_get_text(ctx.pointer, id)
+            .cast<Utf8>()
+            .toDartString()
+            .replaceAll("▁", " "), // replace U+2581 with a space
+      );
+
+  @override
+  String toString() {
+    return _str;
+  }
+}
+
+class LogMessage {
+  final int level;
+  final String text;
+  const LogMessage({
+    required this.level,
+    required this.text,
   });
+
+  @override
+  String toString() {
+    String levelStr = switch (level) {
+      ggml_log_level.GGML_LOG_LEVEL_ERROR => 'ERROR',
+      ggml_log_level.GGML_LOG_LEVEL_WARN => 'WARN',
+      ggml_log_level.GGML_LOG_LEVEL_INFO => 'INFO',
+      _ => throw Exception("Unknown log level: $level"),
+    };
+
+    return "$levelStr: $text";
+  }
 }
 
 class Llama {
