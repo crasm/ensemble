@@ -98,9 +98,6 @@ class Llama {
             response: llama._responsePort.sendPort));
 
     final resp = await llama._response.first as HandshakeResp;
-    assert(resp.id == 0);
-    assert(resp.err == null);
-
     llama._controlPort = resp.controlPort;
     return llama;
   }
@@ -164,6 +161,7 @@ class Llama {
         case GenerateTokenResp():
           yield resp.tok;
         case GenerateResp():
+          resp.throwIfErr();
           return;
         default:
           throw AssertionError(

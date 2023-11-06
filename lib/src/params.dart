@@ -40,7 +40,7 @@ class ContextParams {
     this.useFloat16KVCache = true,
     this.computeAllLogits = false,
     this.embeddingModeOnly = false,
-  }) : assert(seed <= int32Max);
+  });
 }
 
 class SamplingParams {

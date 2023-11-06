@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
@@ -35,6 +36,12 @@ extension on llama_context_params {
     f16_kv = p.useFloat16KVCache;
     logits_all = p.computeAllLogits;
     embedding = p.embeddingModeOnly;
+  }
+}
+
+extension on ResponseMessage {
+  void send() {
+    _response.send(this);
   }
 }
 
@@ -83,7 +90,7 @@ void init(EntryArgs args) {
   _response = args.response;
 
   _control.listen(_onControl);
-  _response.send(HandshakeResp(_controlPort.sendPort));
+  HandshakeResp(_controlPort.sendPort).send();
 
   libllama.llama_backend_init(false);
   libllama.llama_log_set(
@@ -97,14 +104,14 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
         level: level, text: text.cast<Utf8>().toDartString().trimRight()));
 
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
-    _response.send(LoadModelProgressResp(id.address, progress));
+    LoadModelProgressResp(id.address, progress).send();
 
 void _onControl(ControlMessage ctl) {
   switch (ctl) {
     case ExitCtl():
       _controlPort.close();
       libllama.llama_backend_free();
-      _response.send(ctl.done());
+      ctl.done().send();
 
     case LoadModelCtl():
       Pointer<Char>? pathStrC;
@@ -120,14 +127,13 @@ void _onControl(ControlMessage ctl) {
         final rawModel =
             libllama.llama_load_model_from_file(pathStrC, params).address;
         if (rawModel == 0) {
-          _response
-              .send(ctl.error(Exception("failed loading model: ${ctl.path}")));
+          ctl.error(Exception("failed loading model: ${ctl.path}")).send();
           return;
         }
 
-        _response.send(ctl.done(Model(rawModel)));
+        ctl.done(Model(rawModel)).send();
       } on ArgumentError catch (e) {
-        _response.send(ctl.error(e));
+        ctl.error(e).send();
       } finally {
         if (pathStrC != null) calloc.free(pathStrC);
       }
@@ -135,7 +141,7 @@ void _onControl(ControlMessage ctl) {
     case FreeModelCtl():
       assert(ctl.model.rawPointer != 0);
       libllama.llama_free_model(ctl.model.pointer);
-      _response.send(ctl.done());
+      ctl.done().send();
 
     case NewContextCtl():
       assert(ctl.model.rawPointer != 0);
@@ -146,15 +152,15 @@ void _onControl(ControlMessage ctl) {
           .llama_new_context_with_model(ctl.model.pointer, params)
           .address;
       if (rawCtx == 0) {
-        _response.send(ctl.error(Exception("failed creating context")));
+        ctl.error(Exception("failed creating context")).send();
         return;
       }
 
-      _response.send(ctl.done(Context(rawCtx, ctl.model, ctl.params)));
+      ctl.done(Context(rawCtx, ctl.model, ctl.params)).send();
 
     case FreeContextCtl():
       libllama.llama_free(ctl.ctx.pointer);
-      _response.send(ctl.done());
+      ctl.done().send();
 
     case GenerateCtl():
       Set<Pointer> allocs = {};
@@ -183,16 +189,19 @@ void _onControl(ControlMessage ctl) {
           promptStrC,
           ctl.prompt.length,
           tokenBuf,
-          batchSize,
+          contextSize,
           true,
         );
 
         if (promptTokenCount < 0) {
-          ctl.error(Exception("llama_tokenize failed with $promptTokenCount"));
+          ctl
+              .error(Exception("llama_tokenize failed with $promptTokenCount"))
+              .send();
           return;
         } else if (promptTokenCount >= contextSize) {
           ctl.error(Exception(
-              "prompt too large: $promptTokenCount >= $contextSize tokens"));
+                  "prompt too large: $promptTokenCount >= $contextSize tokens"))
+              .send();
           return;
         }
 
@@ -224,8 +233,7 @@ void _onControl(ControlMessage ctl) {
 
           final status = libllama.llama_decode(ctx.pointer, batch);
           if (status != 0) {
-            _response
-                .send(ctl.error(Exception("llama_decode failed with $status")));
+            ctl.error(Exception("llama_decode failed with $status")).send();
             return;
           }
 
@@ -262,7 +270,7 @@ void _onControl(ControlMessage ctl) {
 
           final tok = libllama.llama_sample_token_greedy(
               ctx.pointer, candidates.pointer);
-          _response.send(ctl.token(Token.fromId(ctx, tok)));
+          ctl.token(Token.fromId(ctx, tok)).send();
 
           // Check if end of stream
           if (tok == libllama.llama_token_eos(ctx.pointer)) {
@@ -282,13 +290,12 @@ void _onControl(ControlMessage ctl) {
 
           final status = libllama.llama_decode(ctx.pointer, batch);
           if (status != 0) {
-            _response
-                .send(ctl.error(Exception("llama_decode failed with $status")));
+            ctl.error(Exception("llama_decode failed with $status")).send();
             return;
           }
         }
 
-        _response.send(ctl.done());
+        ctl.done().send();
       } finally {
         for (final p in allocs) {
           calloc.free(p);
