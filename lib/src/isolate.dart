@@ -268,6 +268,7 @@ void _onControl(ControlMessage ctl) {
               libllama.llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
+          // TODO NEXT: Flesh out sampling methods
           final tok = libllama.llama_sample_token_greedy(
               ctx.pointer, candidates.pointer);
           ctl.token(Token.fromId(ctx, tok)).send();
@@ -296,6 +297,8 @@ void _onControl(ControlMessage ctl) {
         }
 
         ctl.done().send();
+      } catch (e) {
+        ctl.error(e).send();
       } finally {
         for (final p in allocs) {
           calloc.free(p);
