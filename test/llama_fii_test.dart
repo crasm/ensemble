@@ -20,16 +20,5 @@ void main() {
           libllama.llama_print_system_info().cast<Utf8>().toDartString();
       t.expect(info.substring(0, 3), 'AVX');
     });
-
-    t.test('load model', () {
-      var params = libllama.llama_context_default_params();
-      params.progress_callback = Pointer.fromFunction(mycb);
-
-      libllama.llama_load_model_from_file(
-          "/Users/vczf/models/default/ggml-model-f16.gguf"
-              .toNativeUtf8()
-              .cast<Char>(),
-          params);
-    });
   });
 }
