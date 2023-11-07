@@ -1,5 +1,4 @@
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
@@ -199,7 +198,8 @@ void _onControl(ControlMessage ctl) {
               .send();
           return;
         } else if (promptTokenCount >= contextSize) {
-          ctl.error(Exception(
+          ctl
+              .error(Exception(
                   "prompt too large: $promptTokenCount >= $contextSize tokens"))
               .send();
           return;
@@ -218,7 +218,7 @@ void _onControl(ControlMessage ctl) {
         var j = 0; // index into current batch
         while (i + j < promptTokenCount) {
           final promptTokensRemaining = promptTokenCount - i;
-          final isLastBatch = promptTokensRemaining < batchSize;
+          final isLastBatch = promptTokensRemaining <= batchSize;
           final fillCount = isLastBatch ? promptTokensRemaining : batchSize;
 
           batch.n_tokens = fillCount;
