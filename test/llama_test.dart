@@ -53,19 +53,17 @@ void main() {
       expect(sbuf.toString(), " I feel fine.");
     });
 
-    // test('one', () async {
-    //   ctx = await llama.newContext(
-    //       model,
-    //       ContextParams(
-    //         seed: 1,
-    //         contextSizeTokens: 1,
-    //         batchSizeTokens: 1,
-    //       ));
+    test('gen one token', () async {
+      ctx = await llama.newContext(
+          model,
+          ContextParams(
+            seed: 1,
+            contextSizeTokens: 2, // Need +1 for BOS token
+            batchSizeTokens: 1,
+          ));
 
-    //   final tokStream = llama.generate(ctx, "", SamplingParams());
-    //   await for (final tok in tokStream) {
-    //     print(tok);
-    //   }
-    // });
+      final tokStream = llama.generate(ctx, "", SamplingParams());
+      expect((await tokStream.single).toString(), " hopefully");
+    });
   });
 }

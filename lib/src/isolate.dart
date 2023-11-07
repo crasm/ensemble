@@ -189,7 +189,7 @@ void _onControl(ControlMessage ctl) {
           ctl.prompt.length,
           tokenBuf,
           contextSize,
-          true,
+          true, // add Beginning-Of-Stream token
         );
 
         if (promptTokenCount < 0) {
