@@ -19,6 +19,7 @@ class ModelParams {
   });
 }
 
+// TODO: insert ArgumentError.value checks for all params
 class ContextParams {
   final int seed;
   final int contextSizeTokens;

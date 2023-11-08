@@ -45,7 +45,7 @@ extension on ResponseMessage {
 }
 
 // Stores an array of candidate tokens and their logit probabilities.
-class _Candidates {
+final class _Candidates {
   final int length;
   late final Pointer<llama_token_data> _candidates;
   late final Pointer<llama_token_data_array> pointer;
@@ -73,7 +73,55 @@ class _Candidates {
   }
 }
 
-class EntryArgs {
+final class _TokenBuf {
+  final int promptSize;
+  final Pointer<Int32> buf;
+  final int length;
+  _TokenBuf._(this.promptSize, this.buf, this.length);
+
+  int operator [](int index) {
+    RangeError.checkValidIndex(index, this);
+    return buf[index];
+  }
+
+  void operator []=(int index, int value) {
+    RangeError.checkValidIndex(index, this);
+    buf[index] = value;
+  }
+
+  factory _TokenBuf.fromString(String text, int contextSize, Model model) {
+    Pointer<Char>? textC;
+    try {
+      textC = text.toNativeUtf8(allocator: calloc).cast<Char>();
+      final buf = calloc.allocate(contextSize * sizeOf<Int32>()).cast<Int32>();
+
+      final numTokens = libllama.llama_tokenize(
+        model.pointer,
+        textC,
+        text.length,
+        buf,
+        contextSize,
+        true, // add Beginning-Of-Stream token
+      );
+
+      if (numTokens < 0) {
+        throw Exception("llama_tokenize failed with $numTokens");
+      } else if (numTokens >= contextSize) {
+        throw Exception("prompt too large: $numTokens >= $contextSize tokens");
+      }
+
+      return _TokenBuf._(numTokens, buf, contextSize);
+    } finally {
+      if (textC != null) calloc.free(textC);
+    }
+  }
+
+  void dispose() {
+    calloc.free(buf);
+  }
+}
+
+final class EntryArgs {
   final SendPort log, response;
   const EntryArgs({required this.log, required this.response});
 }
@@ -165,45 +213,17 @@ void _onControl(ControlMessage ctl) {
       Set<Pointer> allocs = {};
       llama_batch? batch;
       _Candidates? candidates;
+      _TokenBuf? tokens;
       try {
         final ctx = ctl.ctx;
         final contextSize = ctx.params.contextSizeTokens;
         final batchSize = ctx.params.batchSizeTokens;
-
-        final Pointer<Char> promptStrC =
-            ctl.prompt.toNativeUtf8(allocator: calloc).cast<Char>();
-        allocs.add(promptStrC);
-
-        final Pointer<Int32> tokenBuf =
-            calloc.allocate(contextSize * sizeOf<Int32>()).cast<Int32>();
-        allocs.add(tokenBuf);
+        // final sparams = ctl.sparams;
 
         candidates = _Candidates(libllama.llama_n_vocab(ctx.model.pointer));
+        tokens = _TokenBuf.fromString(ctl.prompt, contextSize, ctx.model);
 
-        //
-        // Tokenize prompt
-        //
-        int promptTokenCount = libllama.llama_tokenize(
-          ctx.model.pointer,
-          promptStrC,
-          ctl.prompt.length,
-          tokenBuf,
-          contextSize,
-          true, // add Beginning-Of-Stream token
-        );
-
-        if (promptTokenCount < 0) {
-          ctl
-              .error(Exception("llama_tokenize failed with $promptTokenCount"))
-              .send();
-          return;
-        } else if (promptTokenCount >= contextSize) {
-          ctl
-              .error(Exception(
-                  "prompt too large: $promptTokenCount >= $contextSize tokens"))
-              .send();
-          return;
-        }
+        final promptSize = tokens.promptSize;
 
         //
         // Evaluate prompt.
@@ -216,16 +236,15 @@ void _onControl(ControlMessage ctl) {
 
         var i = 0; // index into context window
         var j = 0; // index into current batch
-        while (i + j < promptTokenCount) {
-          final promptTokensRemaining = promptTokenCount - i;
+        while (i + j < promptSize) {
+          final promptTokensRemaining = promptSize - i;
           final isLastBatch = promptTokensRemaining <= batchSize;
           final fillCount = isLastBatch ? promptTokensRemaining : batchSize;
 
           batch.n_tokens = fillCount;
           for (j = 0; j < fillCount; j++) {
-            print(
-                "Adding token ${Token.fromId(ctx, tokenBuf[i + j])} to batch");
-            batch.token[j] = tokenBuf[i + j];
+            print("Adding token ${Token.fromId(ctx, tokens[i + j])} to batch");
+            batch.token[j] = tokens[i + j];
             batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
             batch.seq_id[j] = 0;
             batch.logits[j] = isLastBatch ? 1 : 0;
@@ -233,8 +252,7 @@ void _onControl(ControlMessage ctl) {
 
           final status = libllama.llama_decode(ctx.pointer, batch);
           if (status != 0) {
-            ctl.error(Exception("llama_decode failed with $status")).send();
-            return;
+            throw Exception("llama_decode failed with $status");
           }
 
           assert(j <= batchSize);
@@ -268,7 +286,8 @@ void _onControl(ControlMessage ctl) {
               libllama.llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
-          // TODO NEXT: Flesh out sampling methods
+          // TODO: add token to tokenbuf?
+          // tok = _sample(ctx, sparams, candidates, tokens);
           final tok = libllama.llama_sample_token_greedy(
               ctx.pointer, candidates.pointer);
           ctl.token(Token.fromId(ctx, tok)).send();
@@ -291,8 +310,7 @@ void _onControl(ControlMessage ctl) {
 
           final status = libllama.llama_decode(ctx.pointer, batch);
           if (status != 0) {
-            ctl.error(Exception("llama_decode failed with $status")).send();
-            return;
+            throw Exception("llama_decode failed with $status");
           }
         }
 
@@ -305,6 +323,7 @@ void _onControl(ControlMessage ctl) {
         }
         if (batch != null) libllama.llama_batch_free(batch);
         candidates?.dispose();
+        tokens?.dispose();
       }
   }
 }
