@@ -1,5 +1,32 @@
 import 'package:ensemble_llama/src/common.dart';
 
+extension on num {
+  void checkIncInc(num start, num end, String name) {
+    if (!(this >= start && this <= end)) {
+      throw RangeError.value(this, name, "must be between [$start, $end]");
+    }
+  }
+
+  void checkZeroToOne(String name) {
+    if (!(this >= 0.0 && this <= 1.0)) {
+      throw RangeError.value(this, name, "must be between [0.0, 1.0]");
+    }
+  }
+
+  void checkGT(num min, String name) {
+    if (!(this > min)) {
+      throw RangeError.value(this, name, "must be greater than $min");
+    }
+  }
+
+  void checkGTE(num min, String name) {
+    if (!(this >= min)) {
+      throw RangeError.value(
+          this, name, "must be greater than or equal to $min");
+    }
+  }
+}
+
 // TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
 class ModelParams {
   final int gpuLayers;
@@ -9,17 +36,19 @@ class ModelParams {
   final bool useMmap;
   final bool useMlock;
 
-  const ModelParams({
+  ModelParams({
     this.gpuLayers = 0,
     this.cudaMainGpu = 0,
     // this.cudaTensorSplits = const [0.0],
     this.loadOnlyVocabSkipTensors = false,
     this.useMmap = true,
     this.useMlock = false,
-  });
+  }) {
+    gpuLayers.checkGTE(0, "gpuLayers");
+    cudaMainGpu.checkGTE(0, "cudaMainGpu");
+  }
 }
 
-// TODO: insert ArgumentError.value checks for all params
 class ContextParams {
   final int seed;
   final int contextSizeTokens;
@@ -31,7 +60,7 @@ class ContextParams {
   final bool computeAllLogits;
   final bool embeddingModeOnly;
 
-  const ContextParams({
+  ContextParams({
     this.seed = int32Max,
     this.contextSizeTokens = 512,
     this.batchSizeTokens = 512,
@@ -41,7 +70,13 @@ class ContextParams {
     this.useFloat16KVCache = true,
     this.computeAllLogits = false,
     this.embeddingModeOnly = false,
-  });
+  }) {
+    seed.checkIncInc(0, int32Max, "seed");
+    contextSizeTokens.checkGTE(2, "contextSizeTokens");
+    batchSizeTokens.checkGTE(1, "batchSizeTokens");
+    ropeFreqBase.checkGT(0.0, "ropeFreqBase");
+    ropeFreqScale.checkZeroToOne("ropeFreqScale");
+  }
 }
 
 class SamplingParams {
@@ -62,7 +97,8 @@ class SamplingParams {
   final String? cfgNegativePrompt;
   final double cfgScale;
   final Map? tokenLogitBiasMap;
-  const SamplingParams({
+
+  SamplingParams({
     this.topK = 40,
     this.topP = 0.95,
     this.tfsZ = 1.00,
@@ -80,5 +116,20 @@ class SamplingParams {
     this.cfgNegativePrompt,
     this.cfgScale = 1.0,
     this.tokenLogitBiasMap,
-  });
+  }) {
+    topK.checkGTE(-1, "topK");
+    topP.checkZeroToOne("topP");
+    tfsZ.checkZeroToOne("tfsZ");
+    typicalP.checkZeroToOne("typicalP");
+    temperature.checkGTE(0, "temperature");
+    repeatPenalty.checkGTE(0, "repeatePenalty");
+    repeatPenaltyLastN.checkGTE(-1, "repeatPenaltyLastN");
+    frequencyPenalty.checkZeroToOne("frequencyPenalty");
+    presencePenalty.checkZeroToOne("presencePenalty");
+    mirostatMode.checkIncInc(0, 2, "mirostatMode");
+    mirostatTau.checkGTE(0.0, "mirostatTau");
+    mirostatEta.checkGTE(0.0, "mirostatEta");
+    keepTokenTopProbs.checkGTE(0, "keepTokenTopProbs");
+    cfgScale.checkGTE(0.0, "cfgScale");
+  }
 }

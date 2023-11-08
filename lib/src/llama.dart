@@ -113,9 +113,9 @@ class Llama {
   Future<Model> loadModel(
     String path, {
     void Function(double progress)? progressCallback,
-    ModelParams params = const ModelParams(),
+    ModelParams? params,
   }) async {
-    final ctl = LoadModelCtl(path, params);
+    final ctl = LoadModelCtl(path, params ?? ModelParams());
     final progressListener = _response
         .where((e) => e is LoadModelProgressResp && e.id == ctl.id)
         .cast<LoadModelProgressResp>()
