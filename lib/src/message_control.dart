@@ -48,6 +48,15 @@ class FreeContextCtl extends ControlMessage {
   FreeContextResp done() => FreeContextResp(id);
 }
 
+class TokenizeCtl extends ControlMessage {
+  final Context ctx;
+  final String prompt;
+  TokenizeCtl(this.ctx, this.prompt);
+
+  TokenizeResp done(List<Token> tokens) => TokenizeResp(id, tokens: tokens);
+  TokenizeResp error(Object err) => TokenizeResp(id, err: err);
+}
+
 class GenerateCtl extends ControlMessage {
   final Context ctx;
   final String prompt;

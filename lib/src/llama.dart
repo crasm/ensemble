@@ -35,9 +35,9 @@ final class Context {
 final class Token {
   final int id;
   final String text;
-  final String textRaw;
+  final String rawText;
 
-  const Token(this.id, this.text, this.textRaw);
+  const Token(this.id, this.text, this.rawText);
 
   factory Token.fromId(Context ctx, int id) {
     final str = libllama
@@ -154,6 +154,16 @@ class Llama {
     final ctl = FreeContextCtl(ctx);
     _controlPort.send(ctl);
     await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
+  }
+
+  Future<List<Token>> tokenize(Context ctx, String prompt) async {
+    final ctl = TokenizeCtl(ctx, prompt);
+    _controlPort.send(ctl);
+    final resp = await _response.firstWhere(
+      (e) => e is TokenizeResp && e.id == ctl.id,
+    ) as TokenizeResp
+      ..throwIfErr();
+    return resp.tokens;
   }
 
   Stream<Token> generate(

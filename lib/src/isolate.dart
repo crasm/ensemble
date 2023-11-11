@@ -134,7 +134,9 @@ final class _TokenBuf {
     return strb.toString();
   }
 
-  factory _TokenBuf.fromString(String text, int contextSize, Model model) {
+  factory _TokenBuf.fromString(Context ctx, String text) {
+    final contextSize = ctx.params.contextSizeTokens;
+    final model = ctx.model;
     Pointer<Char>? textC;
     try {
       textC = text.toNativeUtf8(allocator: calloc).cast<Char>();
@@ -159,6 +161,14 @@ final class _TokenBuf {
     } finally {
       if (textC != null) calloc.free(textC);
     }
+  }
+
+  List<Token> toList(Context ctx) {
+    final List<Token> list = [];
+    for (var i = 0; i < length; i++) {
+      list.add(Token.fromId(ctx, buf[i]));
+    }
+    return list;
   }
 
   void dispose() {
@@ -254,6 +264,17 @@ void _onControl(ControlMessage ctl) {
       libllama.llama_free(ctl.ctx.pointer);
       ctl.done().send();
 
+    case TokenizeCtl():
+      _TokenBuf? tokens;
+      try {
+        tokens = _TokenBuf.fromString(ctl.ctx, ctl.prompt);
+        ctl.done(tokens.toList(ctl.ctx)).send();
+      } catch (e) {
+        ctl.error(e).send();
+      } finally {
+        tokens?.dispose();
+      }
+
     case GenerateCtl():
       Set<Pointer> allocs = {};
       llama_batch? batch;
@@ -265,7 +286,7 @@ void _onControl(ControlMessage ctl) {
         final batchSize = ctx.params.batchSizeTokens;
 
         candidates = _Candidates(libllama.llama_n_vocab(ctx.model.pointer));
-        tokens = _TokenBuf.fromString(ctl.prompt, contextSize, ctx.model);
+        tokens = _TokenBuf.fromString(ctx, ctl.prompt);
 
         final promptSize = tokens.length;
 

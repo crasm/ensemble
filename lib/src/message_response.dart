@@ -47,6 +47,11 @@ class FreeContextResp extends ResponseMessage {
   const FreeContextResp(super.id);
 }
 
+class TokenizeResp extends ResponseMessage {
+  final List<Token> tokens;
+  const TokenizeResp(super.id, {super.err, this.tokens = const []});
+}
+
 class GenerateResp extends ResponseMessage {
   const GenerateResp(super.id, {super.err});
 }
