@@ -112,7 +112,7 @@ class SamplingParams {
     this.mirostatTau = 5.00,
     this.mirostatEta = 0.10,
     this.penalizeNewline = true,
-    this.keepTokenTopProbs = 0,
+    this.keepTokenTopProbs = 1,
     this.cfgNegativePrompt,
     this.cfgScale = 1.0,
     this.tokenLogitBiasMap,
@@ -129,7 +129,7 @@ class SamplingParams {
     mirostatMode.checkIncInc(0, 2, "mirostatMode");
     mirostatTau.checkGTE(0.0, "mirostatTau");
     mirostatEta.checkGTE(0.0, "mirostatEta");
-    keepTokenTopProbs.checkGTE(0, "keepTokenTopProbs");
+    keepTokenTopProbs.checkGTE(1, "keepTokenTopProbs");
     cfgScale.checkGTE(0.0, "cfgScale");
   }
 }

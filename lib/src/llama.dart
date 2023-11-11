@@ -34,23 +34,28 @@ final class Context {
 
 final class Token {
   final int id;
-  final String _str;
+  final String text;
+  final String textRaw;
 
-  const Token(this.id, this._str);
+  const Token(this.id, this.text, this.textRaw);
 
-  factory Token.fromId(Context ctx, int id) => Token(
-        id,
-        libllama
-            .llama_token_get_text(ctx.pointer, id)
-            .cast<Utf8>()
-            .toDartString()
-            .replaceAll("▁", " "), // replace U+2581 with a space
-      );
+  factory Token.fromId(Context ctx, int id) {
+    final str = libllama
+        .llama_token_get_text(ctx.pointer, id)
+        .cast<Utf8>()
+        .toDartString();
+    return Token(
+      id,
+      str
+          .replaceAll("▁", " ") // replace U+2581 with a space
+          // TODO: is this the right approach here? What about other cases?
+          .replaceAll("<0x0A>", "\n"),
+      str,
+    );
+  }
 
   @override
-  String toString() {
-    return _str;
-  }
+  String toString() => text;
 }
 
 class LogMessage {

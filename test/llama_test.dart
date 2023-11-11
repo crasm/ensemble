@@ -27,8 +27,10 @@ void main() {
             contextSizeTokens: 19,
             batchSizeTokens: 19,
           ));
-      final tokStream = llama.generate(ctx,
-          "It's the end of the world as we know it, and", SamplingParams());
+      final tokStream = llama.generate(
+          ctx,
+          "It's the end of the world as we know it, and",
+          SamplingParams(temperature: 0.0));
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok);
@@ -45,7 +47,8 @@ void main() {
             batchSizeTokens: 1,
           ));
       final tokStream = llama.generate(ctx,
-          "It's the end of the world as we know it, and", SamplingParams());
+          "It's the end of the world as we know it, and",
+          SamplingParams(temperature: 0.0));
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok);
@@ -62,7 +65,8 @@ void main() {
             batchSizeTokens: 1,
           ));
 
-      final tokStream = llama.generate(ctx, "", SamplingParams());
+      final tokStream =
+          llama.generate(ctx, "", SamplingParams(temperature: 0.0));
       expect((await tokStream.single).toString(), " hopefully");
     });
   });

@@ -1,5 +1,6 @@
 import 'dart:ffi';
 import 'dart:isolate';
+import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/llama_ffi.dart';
@@ -46,25 +47,50 @@ extension on ResponseMessage {
 
 // Stores an array of candidate tokens and their logit probabilities.
 final class _Candidates {
-  final int length;
+  final int vocabSize;
+  int get size => pointer.ref.size;
   late final Pointer<llama_token_data> _candidates;
   late final Pointer<llama_token_data_array> pointer;
 
-  _Candidates(this.length) {
-    _candidates = calloc.allocate(length * sizeOf<llama_token_data>());
+  _Candidates(this.vocabSize) {
+    _candidates = calloc.allocate(vocabSize * sizeOf<llama_token_data>());
     pointer = calloc.allocate(sizeOf<llama_token_data_array>());
 
     pointer.ref.data = _candidates;
-    pointer.ref.size = length;
+    pointer.ref.size = vocabSize;
     pointer.ref.sorted = false;
   }
 
   void load(Pointer<Float> logits) {
-    for (var i = 0; i < length; i++) {
+    pointer.ref.size = vocabSize;
+    pointer.ref.sorted = false;
+
+    for (var i = 0; i < size; i++) {
       _candidates[i].id = i;
       _candidates[i].logit = logits[i];
       _candidates[i].p = 0.0;
     }
+  }
+
+  double getLogit(int tokId) => _candidates[tokId].logit;
+  void setLogit(int tokId, double logit) => _candidates[tokId].logit = logit;
+
+  String toStringContext(Context ctx) {
+    final List<llama_token_data> copy = [];
+    for (var i = 0; i < size; i++) {
+      copy.add(_candidates[i]);
+    }
+    copy.sort((a, b) => b.logit.compareTo(a.logit));
+
+    final strb = StringBuffer("cands = ");
+    for (var i = 0; i < 8; i++) {
+      strb.write(Token.fromId(ctx, _candidates[i].id));
+      strb.write("=");
+      strb.write(_candidates[i].logit.toStringAsFixed(2));
+      strb.write(" ");
+    }
+    strb.write("...");
+    return strb.toString();
   }
 
   void dispose() {
@@ -74,10 +100,12 @@ final class _Candidates {
 }
 
 final class _TokenBuf {
-  final int promptSize;
+  int _length;
+  int get length => _length;
+
   final Pointer<Int32> buf;
-  final int length;
-  _TokenBuf._(this.promptSize, this.buf, this.length);
+  final int capacity;
+  _TokenBuf._(this._length, this.buf, this.capacity);
 
   int operator [](int index) {
     RangeError.checkValidIndex(index, this);
@@ -87,6 +115,23 @@ final class _TokenBuf {
   void operator []=(int index, int value) {
     RangeError.checkValidIndex(index, this);
     buf[index] = value;
+  }
+
+  void add(int tokId) {
+    assert(length <= capacity);
+    if (_length == capacity) {
+      throw Exception(
+          "tried to store $_length tokens in $capacity token buffer");
+    }
+    buf[_length++] = tokId;
+  }
+
+  String toStringContext(Context ctx) {
+    final strb = StringBuffer("buf[0:${length - 1}] = ");
+    for (var i = 0; i < length; i++) {
+      strb.write(Token.fromId(ctx, buf[i]));
+    }
+    return strb.toString();
   }
 
   factory _TokenBuf.fromString(String text, int contextSize, Model model) {
@@ -218,12 +263,11 @@ void _onControl(ControlMessage ctl) {
         final ctx = ctl.ctx;
         final contextSize = ctx.params.contextSizeTokens;
         final batchSize = ctx.params.batchSizeTokens;
-        // final sparams = ctl.sparams;
 
         candidates = _Candidates(libllama.llama_n_vocab(ctx.model.pointer));
         tokens = _TokenBuf.fromString(ctl.prompt, contextSize, ctx.model);
 
-        final promptSize = tokens.promptSize;
+        final promptSize = tokens.length;
 
         //
         // Evaluate prompt.
@@ -243,7 +287,6 @@ void _onControl(ControlMessage ctl) {
 
           batch.n_tokens = fillCount;
           for (j = 0; j < fillCount; j++) {
-            print("Adding token ${Token.fromId(ctx, tokens[i + j])} to batch");
             batch.token[j] = tokens[i + j];
             batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
             batch.seq_id[j] = 0;
@@ -262,14 +305,14 @@ void _onControl(ControlMessage ctl) {
           }
         }
 
-        print("i=$i; j=$j");
-
         //
         // Generate tokens to fill context
         //
 
         i += j; // index into the context for all tokens so far
 
+        final mirostatMu = calloc.allocate(1 * sizeOf<Float>()).cast<Float>();
+        allocs.add(mirostatMu);
         while (i < contextSize) {
           int logitsIndex;
           if (j != 0) {
@@ -286,10 +329,8 @@ void _onControl(ControlMessage ctl) {
               libllama.llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
-          // TODO: add token to tokenbuf?
-          // tok = _sample(ctx, sparams, candidates, tokens);
-          final tok = libllama.llama_sample_token_greedy(
-              ctx.pointer, candidates.pointer);
+          final tok = _sample(ctx, ctl.sparams, candidates, tokens, mirostatMu);
+          tokens.add(tok);
           ctl.token(Token.fromId(ctx, tok)).send();
 
           // Check if end of stream
@@ -326,4 +367,91 @@ void _onControl(ControlMessage ctl) {
         tokens?.dispose();
       }
   }
+}
+
+int _min(List<int> args) => args.fold(args[0], (a, b) => min(a, b));
+
+int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
+    _TokenBuf toks, Pointer<Float> mirostatMu) {
+  if (sparams.temperature == 0.0) {
+    return libllama.llama_sample_token_greedy(ctx.pointer, cands.pointer);
+  }
+
+  // Apply repetition penalties
+  final nlId = libllama.llama_token_nl(ctx.pointer);
+  final nlBackupLogit = cands.getLogit(nlId);
+
+  final repeatPenaltyLastN = _min([
+    toks.capacity,
+    sparams.repeatPenaltyLastN,
+    ctx.params.contextSizeTokens,
+  ]);
+  final repeatPenaltyTokenPointer =
+      toks.buf.elementAt(toks.capacity - repeatPenaltyLastN);
+
+  libllama.llama_sample_repetition_penalty(
+    ctx.pointer,
+    cands.pointer,
+    repeatPenaltyTokenPointer,
+    repeatPenaltyLastN,
+    sparams.repeatPenalty,
+  );
+  libllama.llama_sample_frequency_and_presence_penalties(
+    ctx.pointer,
+    cands.pointer,
+    repeatPenaltyTokenPointer,
+    repeatPenaltyLastN,
+    sparams.frequencyPenalty,
+    sparams.presencePenalty,
+  );
+
+  if (!sparams.penalizeNewline) {
+    // llama/common/sampling.cpp uses a loop here, because it's possible for
+    // the candidates to be sorted (and therefore newline logit not at index nlId).
+    assert(!cands.pointer.ref.sorted);
+    cands.setLogit(nlId, nlBackupLogit);
+  }
+
+  switch (sparams.mirostatMode) {
+    case 1:
+      throw UnimplementedError("can't use mirostat 1");
+    case 2:
+      libllama.llama_sample_temp(
+          ctx.pointer, cands.pointer, sparams.temperature);
+      return libllama.llama_sample_token_mirostat_v2(ctx.pointer, cands.pointer,
+          sparams.mirostatTau, sparams.mirostatEta, mirostatMu);
+  }
+
+  final keepProbs = sparams.keepTokenTopProbs;
+  libllama.llama_sample_top_k(
+    ctx.pointer,
+    cands.pointer,
+    sparams.topK,
+    keepProbs,
+  );
+  libllama.llama_sample_tail_free(
+    ctx.pointer,
+    cands.pointer,
+    sparams.tfsZ,
+    keepProbs,
+  );
+  libllama.llama_sample_typical(
+    ctx.pointer,
+    cands.pointer,
+    sparams.typicalP,
+    keepProbs,
+  );
+  libllama.llama_sample_top_p(
+    ctx.pointer,
+    cands.pointer,
+    sparams.topP,
+    keepProbs,
+  );
+  libllama.llama_sample_temp(
+    ctx.pointer,
+    cands.pointer,
+    sparams.temperature,
+  );
+
+  return libllama.llama_sample_token(ctx.pointer, cands.pointer);
 }
