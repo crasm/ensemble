@@ -141,8 +141,8 @@ class Llama {
     await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
   }
 
-  Future<Context> newContext(Model model, ContextParams params) async {
-    final ctl = NewContextCtl(model, params);
+  Future<Context> newContext(Model model, [ContextParams? params]) async {
+    final ctl = NewContextCtl(model, params ?? ContextParams());
     _controlPort.send(ctl);
     final resp = await _response.firstWhere(
         (e) => e is NewContextResp && e.id == ctl.id) as NewContextResp
