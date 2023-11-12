@@ -1,6 +1,5 @@
 import 'package:test/test.dart';
 
-import 'dart:io';
 
 import 'package:ensemble_llama/llama.dart';
 
@@ -98,6 +97,24 @@ void main() {
       final tok = await tokStream.first;
       expect(tok.id, isNot(4628)); // "▁black"
       expect(tok.id, 13); // <0x0A> or "\n"
+    });
+
+    test('repeat penalty last N = -1', () async {
+      ctx = await llama.newContext(model,
+          ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
+      final tokStream = llama.generate(
+          ctx,
+          " a a a a a a a",
+          SamplingParams(
+            topK: 0,
+            topP: 1.0,
+            temperature: double.minPositive,
+            repeatPenalty: 1.0 + double.minPositive,
+            repeatPenaltyLastN: -1,
+          ));
+      await for (final tok in tokStream) {
+        expect(tok.id, 263); // 263 = ▁a
+      }
     });
   });
 }

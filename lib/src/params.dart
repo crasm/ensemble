@@ -117,7 +117,7 @@ class SamplingParams {
     this.cfgScale = 1.0,
     this.tokenLogitBiasMap,
   }) {
-    topK.checkGTE(-1, "topK");
+    topK.checkGTE(0, "topK");
     topP.checkZeroToOne("topP");
     tfsZ.checkZeroToOne("tfsZ");
     typicalP.checkZeroToOne("typicalP");

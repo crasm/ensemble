@@ -56,6 +56,7 @@ final class Token {
 
   @override
   String toString() => text;
+  String toStringForLogging() => "${id.toString().padLeft(5)} = $rawText\n";
 }
 
 class LogMessage {

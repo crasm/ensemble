@@ -398,13 +398,25 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
     return libllama.llama_sample_token_greedy(ctx.pointer, cands.pointer);
   }
 
+  if (sparams.tokenLogitBiasMap != null) {
+    throw UnimplementedError("not yet implemented: tokenLogitBiasMap");
+  } else if (sparams.cfgScale != 1.0 || sparams.cfgNegativePrompt != null) {
+    throw UnimplementedError("not yet implemented: classifier free guidance");
+  }
+
   // Apply repetition penalties
   final nlId = libllama.llama_token_nl(ctx.pointer);
   final nlBackupLogit = cands.getLogit(nlId);
 
-  final repeatPenaltyLastN = _min([
+  assert(sparams.repeatPenaltyLastN >= -1);
+  var repeatPenaltyLastN = sparams.repeatPenaltyLastN;
+  if (repeatPenaltyLastN == -1) {
+    repeatPenaltyLastN = ctx.params.contextSizeTokens;
+  }
+
+  repeatPenaltyLastN = _min([
     toks.capacity,
-    sparams.repeatPenaltyLastN,
+    repeatPenaltyLastN,
     ctx.params.contextSizeTokens,
   ]);
   final repeatPenaltyTokenPointer =
@@ -433,14 +445,30 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
     cands.setLogit(nlId, nlBackupLogit);
   }
 
-  switch (sparams.mirostatMode) {
-    case 1:
-      throw UnimplementedError("can't use mirostat 1");
-    case 2:
-      libllama.llama_sample_temp(
-          ctx.pointer, cands.pointer, sparams.temperature);
-      return libllama.llama_sample_token_mirostat_v2(ctx.pointer, cands.pointer,
-          sparams.mirostatTau, sparams.mirostatEta, mirostatMu);
+  if (sparams.mirostatMode > 0) {
+    libllama.llama_sample_temp(ctx.pointer, cands.pointer, sparams.temperature);
+    switch (sparams.mirostatMode) {
+      case 1:
+        final mirostatM = 100;
+        return libllama.llama_sample_token_mirostat(
+          ctx.pointer,
+          cands.pointer,
+          sparams.mirostatTau,
+          sparams.mirostatEta,
+          mirostatM,
+          mirostatMu,
+        );
+      case 2:
+        return libllama.llama_sample_token_mirostat_v2(
+          ctx.pointer,
+          cands.pointer,
+          sparams.mirostatTau,
+          sparams.mirostatEta,
+          mirostatMu,
+        );
+      default:
+        assert(false, "mirostatMode should never be greater than 2");
+    }
   }
 
   final keepProbs = sparams.keepTokenTopProbs;
@@ -473,6 +501,8 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
     cands.pointer,
     sparams.temperature,
   );
+
+  // TODO: grammar?
 
   return libllama.llama_sample_token(ctx.pointer, cands.pointer);
 }
