@@ -1,5 +1,7 @@
 import 'package:test/test.dart';
 
+import 'dart:io';
+
 import 'package:ensemble_llama/llama.dart';
 
 void main() {
@@ -79,6 +81,23 @@ void main() {
       final tokStream =
           llama.generate(ctx, "", SamplingParams(temperature: 0.0));
       expect((await tokStream.single).toString(), " hopefully");
+    });
+
+    test('repeat penalty', () async {
+      ctx = await llama.newContext(model,
+          ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
+      final tokStream = llama.generate(
+          ctx,
+          "paint it black, paint it black, paint it black, paint it",
+          SamplingParams(
+            topK: 0,
+            topP: 1.0,
+            temperature: double.minPositive,
+            repeatPenalty: 2.0,
+          ));
+      final tok = await tokStream.first;
+      expect(tok.id, isNot(4628)); // "▁black"
+      expect(tok.id, 13); // <0x0A> or "\n"
     });
   });
 }
