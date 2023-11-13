@@ -9,5 +9,7 @@ pubspec.lock
 .vscode/
 .cache/
 
+bin/*.exe
+
 build
 Session.vim
