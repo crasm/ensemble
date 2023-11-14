@@ -10,6 +10,9 @@ final class CompileError extends Error {
   CompileError([this.message = ""]);
 }
 
+Future<File> _copy(String filename, String src, String dst) =>
+    File(path.join(src, filename)).copy(path.join(dst, filename));
+
 void main(List<String> args) async {
   final buildConfig = await BuildConfig.fromArgs(args);
   final buildOutput = BuildOutput();
@@ -25,8 +28,10 @@ void main(List<String> args) async {
   }
 
   // $ cp ./src/libllama.so ./.dart_tool/native_assets_builder/<snip>/out/libllama.so
-  final libllama = await File(path.join('src', 'libllama.so'))
-      .copy(path.join(path.fromUri(buildConfig.outDir), 'libllama.so'));
+  final src = 'src';
+  final dst = path.fromUri(buildConfig.outDir);
+  final libllama = await _copy('libllama.so', src, dst);
+  await _copy('ggml-metal.metal', src, dst);
 
   buildOutput.assets.add(Asset(
     id: 'package:ensemble_llama/src/libllama.ffigen.dart',
