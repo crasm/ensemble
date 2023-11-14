@@ -142,7 +142,7 @@ final class _TokenBuf {
       textC = text.toNativeUtf8(allocator: calloc).cast<Char>();
       final buf = calloc.allocate(contextSize * sizeOf<Int32>()).cast<Int32>();
 
-      final numTokens = libllama.llama_tokenize(
+      final numTokens = llama_tokenize(
         model.pointer,
         textC,
         text.length,
@@ -194,8 +194,8 @@ void init(EntryArgs args) {
   _control.listen(_onControl);
   HandshakeResp(_controlPort.sendPort).send();
 
-  libllama.llama_backend_init(false);
-  libllama.llama_log_set(
+  llama_backend_init(false);
+  llama_log_set(
     Pointer.fromFunction(_onLlamaLog),
     Pointer.fromAddress(0), // not used
   );
@@ -212,22 +212,20 @@ void _onControl(ControlMessage ctl) {
   switch (ctl) {
     case ExitCtl():
       _controlPort.close();
-      libllama.llama_backend_free();
+      llama_backend_free();
       ctl.done().send();
 
     case LoadModelCtl():
       Pointer<Char>? pathStrC;
       try {
-        final params = libllama.llama_model_default_params()
-          ..setSimpleFrom(ctl.params);
+        final params = llama_model_default_params()..setSimpleFrom(ctl.params);
 
         params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
         // use the pointer value itself to store ctl.id, so we don't need to malloc
         params.progress_callback_user_data = Pointer.fromAddress(ctl.id);
 
         pathStrC = ctl.path.toNativeUtf8(allocator: calloc).cast<Char>();
-        final rawModel =
-            libllama.llama_load_model_from_file(pathStrC, params).address;
+        final rawModel = llama_load_model_from_file(pathStrC, params).address;
         if (rawModel == 0) {
           ctl.error(Exception("failed loading model: ${ctl.path}")).send();
           return;
@@ -242,17 +240,15 @@ void _onControl(ControlMessage ctl) {
 
     case FreeModelCtl():
       assert(ctl.model.rawPointer != 0);
-      libllama.llama_free_model(ctl.model.pointer);
+      llama_free_model(ctl.model.pointer);
       ctl.done().send();
 
     case NewContextCtl():
       assert(ctl.model.rawPointer != 0);
-      final params = libllama.llama_context_default_params()
-        ..setSimpleFrom(ctl.params);
+      final params = llama_context_default_params()..setSimpleFrom(ctl.params);
 
-      final rawCtx = libllama
-          .llama_new_context_with_model(ctl.model.pointer, params)
-          .address;
+      final rawCtx =
+          llama_new_context_with_model(ctl.model.pointer, params).address;
       if (rawCtx == 0) {
         ctl.error(Exception("failed creating context")).send();
         return;
@@ -261,7 +257,7 @@ void _onControl(ControlMessage ctl) {
       ctl.done(Context(rawCtx, ctl.model, ctl.params)).send();
 
     case FreeContextCtl():
-      libllama.llama_free(ctl.ctx.pointer);
+      llama_free(ctl.ctx.pointer);
       ctl.done().send();
 
     case TokenizeCtl():
@@ -285,7 +281,7 @@ void _onControl(ControlMessage ctl) {
         final contextSize = ctx.params.contextSizeTokens;
         final batchSize = ctx.params.batchSizeTokens;
 
-        candidates = _Candidates(libllama.llama_n_vocab(ctx.model.pointer));
+        candidates = _Candidates(llama_n_vocab(ctx.model.pointer));
         tokens = _TokenBuf.fromString(ctx, ctl.prompt);
 
         final promptSize = tokens.length;
@@ -297,7 +293,7 @@ void _onControl(ControlMessage ctl) {
         // to load those tokens into the model, and repeat until we run out of
         // prompt tokens.
 
-        batch = libllama.llama_batch_init(batchSize, 0);
+        batch = llama_batch_init(batchSize, 0);
 
         var i = 0; // index into context window
         var j = 0; // index into current batch
@@ -314,7 +310,7 @@ void _onControl(ControlMessage ctl) {
             batch.logits[j] = isLastBatch ? 1 : 0;
           }
 
-          final status = libllama.llama_decode(ctx.pointer, batch);
+          final status = llama_decode(ctx.pointer, batch);
           if (status != 0) {
             throw Exception("llama_decode failed with $status");
           }
@@ -346,8 +342,7 @@ void _onControl(ControlMessage ctl) {
             logitsIndex = 0;
           }
 
-          final logits =
-              libllama.llama_get_logits_ith(ctx.pointer, logitsIndex);
+          final logits = llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
           final tok = _sample(ctx, ctl.sparams, candidates, tokens, mirostatMu);
@@ -355,7 +350,7 @@ void _onControl(ControlMessage ctl) {
           ctl.token(Token.fromId(ctx, tok)).send();
 
           // Check if end of stream
-          if (tok == libllama.llama_token_eos(ctx.pointer)) {
+          if (tok == llama_token_eos(ctx.pointer)) {
             break;
           }
 
@@ -370,7 +365,7 @@ void _onControl(ControlMessage ctl) {
           batch.seq_id[0] = 0;
           batch.logits[0] = 1; // enable logits for this token
 
-          final status = libllama.llama_decode(ctx.pointer, batch);
+          final status = llama_decode(ctx.pointer, batch);
           if (status != 0) {
             throw Exception("llama_decode failed with $status");
           }
@@ -383,7 +378,7 @@ void _onControl(ControlMessage ctl) {
         for (final p in allocs) {
           calloc.free(p);
         }
-        if (batch != null) libllama.llama_batch_free(batch);
+        if (batch != null) llama_batch_free(batch);
         candidates?.dispose();
         tokens?.dispose();
       }
@@ -395,7 +390,7 @@ int _min(List<int> args) => args.fold(args[0], (a, b) => min(a, b));
 int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
     _TokenBuf toks, Pointer<Float> mirostatMu) {
   if (sparams.temperature == 0.0) {
-    return libllama.llama_sample_token_greedy(ctx.pointer, cands.pointer);
+    return llama_sample_token_greedy(ctx.pointer, cands.pointer);
   }
 
   if (sparams.tokenLogitBiasMap != null) {
@@ -405,7 +400,7 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   }
 
   // Apply repetition penalties
-  final nlId = libllama.llama_token_nl(ctx.pointer);
+  final nlId = llama_token_nl(ctx.pointer);
   final nlBackupLogit = cands.getLogit(nlId);
 
   assert(sparams.repeatPenaltyLastN >= -1);
@@ -422,14 +417,14 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   final repeatPenaltyTokenPointer =
       toks.buf.elementAt(toks.capacity - repeatPenaltyLastN);
 
-  libllama.llama_sample_repetition_penalty(
+  llama_sample_repetition_penalty(
     ctx.pointer,
     cands.pointer,
     repeatPenaltyTokenPointer,
     repeatPenaltyLastN,
     sparams.repeatPenalty,
   );
-  libllama.llama_sample_frequency_and_presence_penalties(
+  llama_sample_frequency_and_presence_penalties(
     ctx.pointer,
     cands.pointer,
     repeatPenaltyTokenPointer,
@@ -446,11 +441,11 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   }
 
   if (sparams.mirostatMode > 0) {
-    libllama.llama_sample_temp(ctx.pointer, cands.pointer, sparams.temperature);
+    llama_sample_temp(ctx.pointer, cands.pointer, sparams.temperature);
     switch (sparams.mirostatMode) {
       case 1:
         final mirostatM = 100;
-        return libllama.llama_sample_token_mirostat(
+        return llama_sample_token_mirostat(
           ctx.pointer,
           cands.pointer,
           sparams.mirostatTau,
@@ -459,7 +454,7 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
           mirostatMu,
         );
       case 2:
-        return libllama.llama_sample_token_mirostat_v2(
+        return llama_sample_token_mirostat_v2(
           ctx.pointer,
           cands.pointer,
           sparams.mirostatTau,
@@ -472,31 +467,31 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   }
 
   final keepProbs = sparams.keepTokenTopProbs;
-  libllama.llama_sample_top_k(
+  llama_sample_top_k(
     ctx.pointer,
     cands.pointer,
     sparams.topK,
     keepProbs,
   );
-  libllama.llama_sample_tail_free(
+  llama_sample_tail_free(
     ctx.pointer,
     cands.pointer,
     sparams.tfsZ,
     keepProbs,
   );
-  libllama.llama_sample_typical(
+  llama_sample_typical(
     ctx.pointer,
     cands.pointer,
     sparams.typicalP,
     keepProbs,
   );
-  libllama.llama_sample_top_p(
+  llama_sample_top_p(
     ctx.pointer,
     cands.pointer,
     sparams.topP,
     keepProbs,
   );
-  libllama.llama_sample_temp(
+  llama_sample_temp(
     ctx.pointer,
     cands.pointer,
     sparams.temperature,
@@ -504,5 +499,5 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
 
   // TODO: grammar?
 
-  return libllama.llama_sample_token(ctx.pointer, cands.pointer);
+  return llama_sample_token(ctx.pointer, cands.pointer);
 }

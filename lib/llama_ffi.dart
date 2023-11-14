@@ -3,5 +3,4 @@
 /// You will need 'dart:ffi' and 'package:ffi/ffi.dart' to use this effectively
 library;
 
-export 'src/libllama.dart';
 export 'src/libllama.ffigen.dart';

@@ -16,8 +16,7 @@ void main() {
     });
 
     t.test('systemInfo', () {
-      String info =
-          libllama.llama_print_system_info().cast<Utf8>().toDartString();
+      String info = llama_print_system_info().cast<Utf8>().toDartString();
       t.expect(info.substring(0, 3), 'AVX');
     });
   });

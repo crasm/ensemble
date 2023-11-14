@@ -40,10 +40,8 @@ final class Token {
   const Token(this.id, this.text, this.rawText);
 
   factory Token.fromId(Context ctx, int id) {
-    final str = libllama
-        .llama_token_get_text(ctx.pointer, id)
-        .cast<Utf8>()
-        .toDartString();
+    final str =
+        llama_token_get_text(ctx.pointer, id).cast<Utf8>().toDartString();
     return Token(
       id,
       str
