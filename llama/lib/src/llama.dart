@@ -41,7 +41,7 @@ final class Token {
 
   factory Token.fromId(Context ctx, int id) {
     final str =
-        llama_token_get_text(ctx.pointer, id).cast<Utf8>().toDartString();
+        llama_token_get_text(ctx.model.pointer, id).cast<Utf8>().toDartString();
     return Token(
       id,
       str

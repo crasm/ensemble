@@ -149,6 +149,7 @@ final class _TokenBuf {
         buf,
         contextSize,
         true, // add Beginning-Of-Stream token
+        false, // tokenize meta tokens (like BOS/EOS)
       );
 
       if (numTokens < 0) {
@@ -293,7 +294,7 @@ void _onControl(ControlMessage ctl) {
         // to load those tokens into the model, and repeat until we run out of
         // prompt tokens.
 
-        batch = llama_batch_init(batchSize, 0);
+        batch = llama_batch_init(batchSize, 0, 1);
 
         var i = 0; // index into context window
         var j = 0; // index into current batch
@@ -306,7 +307,8 @@ void _onControl(ControlMessage ctl) {
           for (j = 0; j < fillCount; j++) {
             batch.token[j] = tokens[i + j];
             batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
-            batch.seq_id[j] = 0;
+            batch.n_seq_id[j] = 1;
+            batch.seq_id[j][0] = 1;
             batch.logits[j] = isLastBatch ? 1 : 0;
           }
 
@@ -350,7 +352,7 @@ void _onControl(ControlMessage ctl) {
           ctl.token(Token.fromId(ctx, tok)).send();
 
           // Check if end of stream
-          if (tok == llama_token_eos(ctx.pointer)) {
+          if (tok == llama_token_eos(ctx.model.pointer)) {
             break;
           }
 
@@ -362,7 +364,8 @@ void _onControl(ControlMessage ctl) {
 
           batch.token[0] = tok;
           batch.pos[0] = i++;
-          batch.seq_id[0] = 0;
+          batch.n_seq_id[0] = 1;
+          batch.seq_id[0][0] = 1;
           batch.logits[0] = 1; // enable logits for this token
 
           final status = llama_decode(ctx.pointer, batch);
@@ -400,7 +403,7 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   }
 
   // Apply repetition penalties
-  final nlId = llama_token_nl(ctx.pointer);
+  final nlId = llama_token_nl(ctx.model.pointer);
   final nlBackupLogit = cands.getLogit(nlId);
 
   assert(sparams.repeatPenaltyLastN >= -1);
@@ -417,18 +420,12 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
   final repeatPenaltyTokenPointer =
       toks.buf.elementAt(toks.capacity - repeatPenaltyLastN);
 
-  llama_sample_repetition_penalty(
+  llama_sample_repetition_penalties(
     ctx.pointer,
     cands.pointer,
     repeatPenaltyTokenPointer,
     repeatPenaltyLastN,
     sparams.repeatPenalty,
-  );
-  llama_sample_frequency_and_presence_penalties(
-    ctx.pointer,
-    cands.pointer,
-    repeatPenaltyTokenPointer,
-    repeatPenaltyLastN,
     sparams.frequencyPenalty,
     sparams.presencePenalty,
   );
@@ -489,6 +486,12 @@ int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
     ctx.pointer,
     cands.pointer,
     sparams.topP,
+    keepProbs,
+  );
+  llama_sample_min_p(
+    ctx.pointer,
+    cands.pointer,
+    sparams.minP,
     keepProbs,
   );
   llama_sample_temp(

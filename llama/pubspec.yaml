@@ -4,7 +4,7 @@ version: 0.0.1
 repository: https://github.com/crasm/ensemble/llama
 
 environment:
-  sdk: '>=3.1.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   ffi: ^2.1.0
@@ -19,6 +19,7 @@ dev_dependencies:
   test: ^1.21.0
 
 ffigen:
+  name: 'LlamaCpp'
   description: 'FFI bindings for llama.cpp'
   output: lib/src/libllama.ffigen.dart
   headers:
@@ -26,11 +27,18 @@ ffigen:
       - 'src/llama.h'
     include-directives:
       - 'src/llama.h'
+      - 'src/ggml.h'
   comments:
     style: any
     length: full
   exclude-all-by-default: true
+  ffi-native:
   functions:
     include:
       - 'llama_.*'
-  ffi-native:
+  enums:
+    include:
+      - 'llama_.*'
+  macros:
+    include:
+      - 'GGML_DEFAULT_N_THREADS'
