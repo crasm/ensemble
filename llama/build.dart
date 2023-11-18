@@ -17,8 +17,11 @@ void main(List<String> args) async {
   final buildConfig = await BuildConfig.fromArgs(args);
   final buildOutput = BuildOutput();
 
+  final src = path.join(buildConfig.packageRoot.toFilePath(), 'src').toString();
+
+  stderr.writeln(buildConfig);
   final proc =
-      await Process.start('make', ['libllama.so'], workingDirectory: 'src');
+      await Process.start('make', ['libllama.so'], workingDirectory: src);
 
   proc.stdout.transform(utf8.decoder).forEach(stderr.write);
   proc.stderr.transform(utf8.decoder).forEach(stderr.write);
@@ -28,7 +31,6 @@ void main(List<String> args) async {
   }
 
   // $ cp ./src/libllama.so ./.dart_tool/native_assets_builder/<snip>/out/libllama.so
-  final src = 'src';
   final dst = path.fromUri(buildConfig.outDir);
   final libllama = await _copy('libllama.so', src, dst);
   await _copy('ggml-metal.metal', src, dst);
