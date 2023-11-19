@@ -3,14 +3,21 @@ description: A sample command-line application with basic argument parsing.
 version: 0.0.1
 # repository: https://github.com/my_org/my_repo
 
+publish_to: none
+
 environment:
   sdk: ^3.3.0-135.0.dev
 
 # Add regular dependencies here.
 dependencies:
-  args: ^2.4.2
+  ensemble_common:
+    path: ../common
   ensemble_llama:
     path: ../llama
+
+  args: ^2.4.2
+  protobuf: ^3.1.0
+  grpc: ^3.2.4
 
 dev_dependencies:
   lints: ^3.0.0
