@@ -28,6 +28,7 @@ class LlmService extends c.LlmServiceBase {
         yield ct;
       }
     } finally {
+      // ignore: unnecessary_null_comparison
       if (ctx != null) llama.freeContext(ctx);
     }
   }
