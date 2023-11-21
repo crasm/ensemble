@@ -119,36 +119,36 @@ class ContextParams {
 
 class SamplingParams {
   // final int keepTokenPrev; // Not using this one yet
-  final int keepTokenTopProbs;
-  final int topK;
-  final double topP;
-  final double minP;
-  final double tfsZ;
-  final double typicalP;
-  final double temperature;
-  final int repeatPenaltyLastN;
-  final double repeatPenalty;
-  final double frequencyPenalty;
-  final double presencePenalty;
-  final int mirostatMode;
-  final double mirostatTau;
-  final double mirostatEta;
-  final bool penalizeNewline;
+  int keepTokenTopProbs;
+  int topK;
+  double topP;
+  double minP;
+  double tfsZ;
+  double typicalP;
+  double temperature;
+  int repeatPenaltyLastN;
+  double repeatPenalty;
+  double frequencyPenalty;
+  double presencePenalty;
+  int mirostatMode;
+  double mirostatTau;
+  double mirostatEta;
+  bool penalizeNewline;
   // TODO: grammar
-  final String? cfgNegativePrompt;
-  final double cfgScale;
-  final Map? tokenLogitBiasMap;
+  String? cfgNegativePrompt;
+  double cfgScale;
+  Map? tokenLogitBiasMap;
 
   SamplingParams({
     this.keepTokenTopProbs = 1,
-    this.topK = 40,
-    this.topP = 0.95,
-    this.minP = 0.05,
+    this.topK = 0,
+    this.topP = 1.00,
+    this.minP = 0.00,
     this.tfsZ = 1.00,
     this.typicalP = 1.0,
-    this.temperature = 0.80,
-    this.repeatPenaltyLastN = 64,
-    this.repeatPenalty = 1.10,
+    this.temperature = 0.00,
+    this.repeatPenaltyLastN = 0,
+    this.repeatPenalty = 1.00,
     this.frequencyPenalty = 0.00,
     this.presencePenalty = 0.00,
     this.mirostatMode = 0,
@@ -175,4 +175,6 @@ class SamplingParams {
     mirostatEta.checkGTE(0.0, "mirostatEta");
     cfgScale.checkGTE(0.0, "cfgScale");
   }
+
+  SamplingParams.greedy() : this(temperature: 0.0);
 }

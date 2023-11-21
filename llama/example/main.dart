@@ -22,12 +22,12 @@ void main() async {
   print(model);
 
   final ctxParams = ContextParams(contextSizeTokens: 256);
-  final ctx = await llama.newContext(model, ctxParams);
+  final ctx = await llama.newContext(model, params: ctxParams);
 
   final tokStream = llama.generate(
       ctx,
       "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
-      SamplingParams(
+      params: SamplingParams(
         temperature: 0.45,
         repeatPenalty: 1.1,
         repeatPenaltyLastN: 256,

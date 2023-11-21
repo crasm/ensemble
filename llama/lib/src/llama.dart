@@ -140,7 +140,7 @@ class Llama {
     await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
   }
 
-  Future<Context> newContext(Model model, [ContextParams? params]) async {
+  Future<Context> newContext(Model model, {ContextParams? params}) async {
     final ctl = NewContextCtl(model, params ?? ContextParams());
     _controlPort.send(ctl);
     final resp = await _response.firstWhere(
@@ -165,9 +165,9 @@ class Llama {
     return resp.tokens;
   }
 
-  Stream<Token> generate(
-      Context ctx, String prompt, SamplingParams sparams) async* {
-    final ctl = GenerateCtl(ctx, prompt, sparams);
+  Stream<Token> generate(Context ctx, String prompt,
+      {SamplingParams? params}) async* {
+    final ctl = GenerateCtl(ctx, prompt, params ?? SamplingParams());
     _controlPort.send(ctl);
     await for (final resp in _response) {
       if (resp.id != ctl.id) continue;
