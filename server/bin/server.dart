@@ -51,7 +51,7 @@ void main(List<String> arguments) async {
   });
   final server = grpc.Server.create(services: [await LlmService.create()]);
   await server.serve(
-    // address: 'brick',
+    address: 'brick',
     port: 8888,
   );
   print('Server listening on port ${server.port}');

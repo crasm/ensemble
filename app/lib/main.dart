@@ -40,11 +40,13 @@ class _MyHomePageState extends State<MyHomePage> {
   final String prompt = "Hello, my name is";
   late final StringBuffer gen;
 
-  _MyHomePageState() {
+  @override
+  void initState() {
+    super.initState();
     channel = ClientChannel(
       // '127.0.0.1',
-      '192.168.32.3',
-      // 'brick',
+      // '192.168.32.3',
+      'brick',
       port: 8888,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
@@ -54,26 +56,21 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     gen = StringBuffer(prompt);
+
+    stub.generate(Prompt(text: prompt)).listen((ct) {
+      if (ct.hasText()) {
+        setState(() {
+          gen.write(ct.text);
+        });
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: Center(
-        child: StreamBuilder<Token>(
-          stream: stub.generate(Prompt(text: "Hello, my name is")),
-          builder: (context, snapshot) {
-            if (snapshot.hasData &&
-                snapshot.data != null &&
-                snapshot.data!.hasText()) {
-              stderr.write(snapshot.data!.text);
-              gen.write(snapshot.data!.text);
-            }
-            return Text(gen.toString());
-          },
-        ),
-      ),
+      body: Center(child: Text(gen.toString())),
       floatingActionButton: FloatingActionButton(
         onPressed: () {},
         child: const Icon(Icons.add),
