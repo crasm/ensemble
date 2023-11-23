@@ -3,3 +3,4 @@ library;
 
 export 'src/llama.dart';
 export 'src/params.dart';
+export 'src/sampling.dart';

@@ -39,8 +39,7 @@ void main() {
           ));
       final tokStream = llama.generate(
           ctx,
-          "It's the end of the world as we know it, and",
-          params: SamplingParams.greedy());
+          "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok);
@@ -58,8 +57,7 @@ void main() {
           ));
       final tokStream = llama.generate(
           ctx,
-          "It's the end of the world as we know it, and",
-          params: SamplingParams.greedy());
+          "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok);
@@ -77,7 +75,7 @@ void main() {
           ));
 
       final tokStream =
-          llama.generate(ctx, "", params: SamplingParams.greedy());
+          llama.generate(ctx, "");
       expect((await tokStream.single).toString(), " hopefully");
     });
 
@@ -88,11 +86,10 @@ void main() {
       final tokStream = llama.generate(
           ctx,
           "paint it black, paint it black, paint it black, paint it",
-          params: SamplingParams(
-            temperature: double.minPositive,
-            repeatPenalty: 2.0,
-            repeatPenaltyLastN: 64,
-          ));
+          samplers: [
+            RepetitionPenalty(lastN: 64, penalty: 2.0),
+            Temperature(double.minPositive),
+          ]);
       final tok = await tokStream.first;
       expect(tok.id, isNot(4628)); // "▁black"
       expect(tok.id, 13); // <0x0A> or "\n"
@@ -105,11 +102,10 @@ void main() {
       final tokStream = llama.generate(
           ctx,
           " a a a a a a a",
-          params: SamplingParams(
-            temperature: double.minPositive,
-            repeatPenalty: 1.0 + double.minPositive,
-            repeatPenaltyLastN: -1,
-          ));
+          samplers: [
+        RepetitionPenalty(lastN: -1, penalty: 1.0 + double.minPositive),
+        Temperature(double.minPositive),
+      ]);
       await for (final tok in tokStream) {
         expect(tok.id, 263); // 263 = ▁a
       }

@@ -8,6 +8,7 @@ import 'package:ensemble_llama/src/isolate.dart';
 import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
+import 'package:ensemble_llama/src/sampling.dart';
 
 final class Model {
   final int rawPointer;
@@ -165,9 +166,16 @@ class Llama {
     return resp.tokens;
   }
 
-  Stream<Token> generate(Context ctx, String prompt,
-      {SamplingParams? params}) async* {
-    final ctl = GenerateCtl(ctx, prompt, params ?? SamplingParams());
+  Stream<Token> generate(
+    Context ctx,
+    String prompt, {
+    List<ChainableSampler> samplers = const [],
+    TerminalSampler terminalSampler = const DefaultLastSampler(),
+  }) async* {
+    if (samplers.isEmpty && terminalSampler == const DefaultLastSampler()) {
+      terminalSampler = GreedySampler();
+    }
+    final ctl = GenerateCtl(ctx, prompt, samplers, terminalSampler);
     _controlPort.send(ctl);
     await for (final resp in _response) {
       if (resp.id != ctl.id) continue;

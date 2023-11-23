@@ -1,6 +1,5 @@
 import 'dart:ffi';
 import 'dart:isolate';
-import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 import 'package:ensemble_llama/llama_ffi.dart';
@@ -10,6 +9,7 @@ import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/llama.dart'
     show Model, Context, Token, LogMessage;
+import 'package:ensemble_llama/src/sampling.dart';
 
 extension on llama_model_params {
   void setSimpleFrom(ModelParams p) {
@@ -28,9 +28,22 @@ extension on llama_context_params {
     seed = p.seed;
     n_ctx = p.contextSizeTokens;
     n_batch = p.batchSizeTokens;
+    n_threads = p.threads;
+    n_threads_batch = p.batchThreads;
 
-    rope_freq_base = p.ropeFreqBase;
-    rope_freq_scale = p.ropeFreqScale;
+    rope_scaling_type = p.rope?.llamaRopeScalingType() ??
+        llama_rope_scaling_type.LLAMA_ROPE_SCALING_UNSPECIFIED;
+    if (p.rope is RopeLinear) {
+      final rope = p.rope as RopeLinear;
+      rope_freq_base = rope.freqBase;
+      rope_freq_scale = rope.freqScale;
+    } else if (p.rope is RopeYarn) {
+      final yarn = p.rope as RopeYarn;
+      yarn_ext_factor = yarn.extrapolFactor;
+      yarn_beta_fast = yarn.betaFast;
+      yarn_beta_slow = yarn.betaSlow;
+      yarn_orig_ctx = yarn.origCtx;
+    }
 
     mul_mat_q = p.cudaUseMulMatQ;
     f16_kv = p.useFloat16KVCache;
@@ -46,13 +59,13 @@ extension on ResponseMessage {
 }
 
 // Stores an array of candidate tokens and their logit probabilities.
-final class _Candidates {
+final class Candidates {
   final int vocabSize;
   int get size => pointer.ref.size;
   late final Pointer<llama_token_data> _candidates;
   late final Pointer<llama_token_data_array> pointer;
 
-  _Candidates(this.vocabSize) {
+  Candidates(this.vocabSize) {
     _candidates = calloc.allocate(vocabSize * sizeOf<llama_token_data>());
     pointer = calloc.allocate(sizeOf<llama_token_data_array>());
 
@@ -99,13 +112,13 @@ final class _Candidates {
   }
 }
 
-final class _TokenBuf {
+final class TokenBuf {
   int _length;
   int get length => _length;
 
   final Pointer<Int32> buf;
   final int capacity;
-  _TokenBuf._(this._length, this.buf, this.capacity);
+  TokenBuf._(this._length, this.buf, this.capacity);
 
   int operator [](int index) {
     RangeError.checkValidIndex(index, this);
@@ -134,7 +147,7 @@ final class _TokenBuf {
     return strb.toString();
   }
 
-  factory _TokenBuf.fromString(Context ctx, String text) {
+  factory TokenBuf.fromString(Context ctx, String text) {
     final contextSize = ctx.params.contextSizeTokens;
     final model = ctx.model;
     Pointer<Char>? textC;
@@ -158,7 +171,7 @@ final class _TokenBuf {
         throw Exception("prompt too large: $numTokens >= $contextSize tokens");
       }
 
-      return _TokenBuf._(numTokens, buf, contextSize);
+      return TokenBuf._(numTokens, buf, contextSize);
     } finally {
       if (textC != null) calloc.free(textC);
     }
@@ -262,9 +275,9 @@ void _onControl(ControlMessage ctl) {
       ctl.done().send();
 
     case TokenizeCtl():
-      _TokenBuf? tokens;
+      TokenBuf? tokens;
       try {
-        tokens = _TokenBuf.fromString(ctl.ctx, ctl.prompt);
+        tokens = TokenBuf.fromString(ctl.ctx, ctl.prompt);
         ctl.done(tokens.toList(ctl.ctx)).send();
       } catch (e) {
         ctl.error(e).send();
@@ -275,17 +288,21 @@ void _onControl(ControlMessage ctl) {
     case GenerateCtl():
       Set<Pointer> allocs = {};
       llama_batch? batch;
-      _Candidates? candidates;
-      _TokenBuf? tokens;
+      Candidates? candidates;
+      TokenBuf? tokens;
       try {
         final ctx = ctl.ctx;
         final contextSize = ctx.params.contextSizeTokens;
         final batchSize = ctx.params.batchSizeTokens;
 
-        candidates = _Candidates(llama_n_vocab(ctx.model.pointer));
-        tokens = _TokenBuf.fromString(ctx, ctl.prompt);
+        candidates = Candidates(llama_n_vocab(ctx.model.pointer));
+        tokens = TokenBuf.fromString(ctx, ctl.prompt);
 
         final promptSize = tokens.length;
+
+        for (final s in [...ctl.samplers, ctl.terminalSampler]) {
+          if (s is NativeMemoryUser) s.alloc();
+        }
 
         //
         // Evaluate prompt.
@@ -330,8 +347,6 @@ void _onControl(ControlMessage ctl) {
 
         i += j; // index into the context for all tokens so far
 
-        final mirostatMu = calloc.allocate(1 * sizeOf<Float>()).cast<Float>();
-        allocs.add(mirostatMu);
         while (i < contextSize) {
           int logitsIndex;
           if (j != 0) {
@@ -347,7 +362,12 @@ void _onControl(ControlMessage ctl) {
           final logits = llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
-          final tok = _sample(ctx, ctl.sparams, candidates, tokens, mirostatMu);
+          for (final s in ctl.samplers) {
+            s.apply(ctx, candidates, tokens);
+          }
+
+          final tok =
+              ctl.terminalSampler.applyAndSample(ctx, candidates, tokens);
           tokens.add(tok);
           ctl.token(Token.fromId(ctx, tok)).send();
 
@@ -378,129 +398,17 @@ void _onControl(ControlMessage ctl) {
       } catch (e) {
         ctl.error(e).send();
       } finally {
+        for (final s in [...ctl.samplers, ctl.terminalSampler]) {
+          if (s is NativeMemoryUser) s.free();
+        }
+
         for (final p in allocs) {
           calloc.free(p);
         }
+
         if (batch != null) llama_batch_free(batch);
         candidates?.dispose();
         tokens?.dispose();
       }
   }
-}
-
-int _min(List<int> args) => args.fold(args[0], (a, b) => min(a, b));
-
-int _sample(Context ctx, SamplingParams sparams, _Candidates cands,
-    _TokenBuf toks, Pointer<Float> mirostatMu) {
-  if (sparams.temperature == 0.0) {
-    return llama_sample_token_greedy(ctx.pointer, cands.pointer);
-  }
-
-  if (sparams.tokenLogitBiasMap != null) {
-    throw UnimplementedError("not yet implemented: tokenLogitBiasMap");
-  } else if (sparams.cfgScale != 1.0 || sparams.cfgNegativePrompt != null) {
-    throw UnimplementedError("not yet implemented: classifier free guidance");
-  }
-
-  // Apply repetition penalties
-  final nlId = llama_token_nl(ctx.model.pointer);
-  final nlBackupLogit = cands.getLogit(nlId);
-
-  assert(sparams.repeatPenaltyLastN >= -1);
-  var repeatPenaltyLastN = sparams.repeatPenaltyLastN;
-  if (repeatPenaltyLastN == -1) {
-    repeatPenaltyLastN = ctx.params.contextSizeTokens;
-  }
-
-  repeatPenaltyLastN = _min([
-    toks.capacity,
-    repeatPenaltyLastN,
-    ctx.params.contextSizeTokens,
-  ]);
-  final repeatPenaltyTokenPointer =
-      toks.buf.elementAt(toks.capacity - repeatPenaltyLastN);
-
-  llama_sample_repetition_penalties(
-    ctx.pointer,
-    cands.pointer,
-    repeatPenaltyTokenPointer,
-    repeatPenaltyLastN,
-    sparams.repeatPenalty,
-    sparams.frequencyPenalty,
-    sparams.presencePenalty,
-  );
-
-  if (!sparams.penalizeNewline) {
-    // llama/common/sampling.cpp uses a loop here, because it's possible for
-    // the candidates to be sorted (and therefore newline logit not at index nlId).
-    assert(!cands.pointer.ref.sorted);
-    cands.setLogit(nlId, nlBackupLogit);
-  }
-
-  if (sparams.mirostatMode > 0) {
-    llama_sample_temp(ctx.pointer, cands.pointer, sparams.temperature);
-    switch (sparams.mirostatMode) {
-      case 1:
-        final mirostatM = 100;
-        return llama_sample_token_mirostat(
-          ctx.pointer,
-          cands.pointer,
-          sparams.mirostatTau,
-          sparams.mirostatEta,
-          mirostatM,
-          mirostatMu,
-        );
-      case 2:
-        return llama_sample_token_mirostat_v2(
-          ctx.pointer,
-          cands.pointer,
-          sparams.mirostatTau,
-          sparams.mirostatEta,
-          mirostatMu,
-        );
-      default:
-        assert(false, "mirostatMode should never be greater than 2");
-    }
-  }
-
-  final keepProbs = sparams.keepTokenTopProbs;
-  llama_sample_top_k(
-    ctx.pointer,
-    cands.pointer,
-    sparams.topK,
-    keepProbs,
-  );
-  llama_sample_tail_free(
-    ctx.pointer,
-    cands.pointer,
-    sparams.tfsZ,
-    keepProbs,
-  );
-  llama_sample_typical(
-    ctx.pointer,
-    cands.pointer,
-    sparams.typicalP,
-    keepProbs,
-  );
-  llama_sample_top_p(
-    ctx.pointer,
-    cands.pointer,
-    sparams.topP,
-    keepProbs,
-  );
-  llama_sample_min_p(
-    ctx.pointer,
-    cands.pointer,
-    sparams.minP,
-    keepProbs,
-  );
-  llama_sample_temp(
-    ctx.pointer,
-    cands.pointer,
-    sparams.temperature,
-  );
-
-  // TODO: grammar?
-
-  return llama_sample_token(ctx.pointer, cands.pointer);
 }

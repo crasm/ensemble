@@ -4,6 +4,7 @@ import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/llama.dart' show Model, Context, Token;
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
+import 'package:ensemble_llama/src/sampling.dart';
 
 sealed class ControlMessage {
   final id = Random().nextInt(int32Max);
@@ -60,8 +61,10 @@ class TokenizeCtl extends ControlMessage {
 class GenerateCtl extends ControlMessage {
   final Context ctx;
   final String prompt;
-  final SamplingParams sparams;
-  GenerateCtl(this.ctx, this.prompt, this.sparams);
+  final List<ChainableSampler> samplers;
+  final TerminalSampler terminalSampler;
+
+  GenerateCtl(this.ctx, this.prompt, this.samplers, this.terminalSampler);
 
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);

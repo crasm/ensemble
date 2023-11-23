@@ -27,12 +27,12 @@ void main() async {
   final tokStream = llama.generate(
       ctx,
       "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
-      params: SamplingParams(
-        temperature: 0.45,
-        repeatPenalty: 1.1,
-        repeatPenaltyLastN: 256,
-        mirostatMode: 2,
-      ));
+    samplers: [
+      RepetitionPenalty(lastN: 256, penalty: 1.1),
+      Temperature(0.45),
+    ],
+    terminalSampler: MirostatV2(),
+  );
   await for (final tok in tokStream) {
     stdout.write(tok);
   }
