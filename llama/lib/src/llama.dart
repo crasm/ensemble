@@ -54,6 +54,12 @@ final class Token {
   }
 
   @override
+  bool operator ==(Object other) => other is Token && other.id == id;
+
+  @override
+  int get hashCode => id;
+
+  @override
   String toString() => text;
   String toStringForLogging() => "${id.toString().padLeft(5)} = $rawText\n";
 }
@@ -169,13 +175,12 @@ class Llama {
   Stream<Token> generate(
     Context ctx,
     String prompt, {
-    List<ChainableSampler> samplers = const [],
-    TerminalSampler terminalSampler = const DefaultLastSampler(),
+    List<Sampler> samplers = const [],
   }) async* {
-    if (samplers.isEmpty && terminalSampler == const DefaultLastSampler()) {
-      terminalSampler = GreedySampler();
+    if (samplers.isEmpty) {
+      samplers = [Temperature(0.0)];
     }
-    final ctl = GenerateCtl(ctx, prompt, samplers, terminalSampler);
+    final ctl = GenerateCtl(ctx, prompt, samplers);
     _controlPort.send(ctl);
     await for (final resp in _response) {
       if (resp.id != ctl.id) continue;

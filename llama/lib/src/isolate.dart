@@ -2,13 +2,12 @@ import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
-import 'package:ensemble_llama/llama_ffi.dart';
 
-import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/src/message_response.dart';
+import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/src/llama.dart';
 import 'package:ensemble_llama/src/message_control.dart';
-import 'package:ensemble_llama/src/llama.dart'
-    show Model, Context, Token, LogMessage;
+import 'package:ensemble_llama/src/message_response.dart';
+import 'package:ensemble_llama/src/params.dart';
 import 'package:ensemble_llama/src/sampling.dart';
 
 extension on llama_model_params {
@@ -53,9 +52,7 @@ extension on llama_context_params {
 }
 
 extension on ResponseMessage {
-  void send() {
-    _response.send(this);
-  }
+  void send() => _response.send(this);
 }
 
 // Stores an array of candidate tokens and their logit probabilities.
@@ -190,6 +187,18 @@ final class TokenBuf {
   }
 }
 
+/// Samples the next token randomly, using the probabilities in [cands].
+///
+/// This is called last, after any [Sampler] have been called, unless
+/// an alternative [TerminalSampler] is supplied. This does not modify any
+/// probabilities in [cands].
+final class _DefaultLastSampler implements Sampler {
+  const _DefaultLastSampler();
+  @override
+  Token? sample(Context ctx, Candidates cands, TokenBuf _) =>
+      Token.fromId(ctx, llama_sample_token(ctx.pointer, cands.pointer));
+}
+
 final class EntryArgs {
   final SendPort log, response;
   const EntryArgs({required this.log, required this.response});
@@ -300,8 +309,8 @@ void _onControl(ControlMessage ctl) {
 
         final promptSize = tokens.length;
 
-        for (final s in [...ctl.samplers, ctl.terminalSampler]) {
-          if (s is NativeMemoryUser) s.alloc();
+        for (final s in ctl.samplers) {
+          if (s is NativeMemoryUser) (s as NativeMemoryUser).alloc();
         }
 
         //
@@ -362,17 +371,32 @@ void _onControl(ControlMessage ctl) {
           final logits = llama_get_logits_ith(ctx.pointer, logitsIndex);
           candidates.load(logits);
 
-          for (final s in ctl.samplers) {
-            s.apply(ctx, candidates, tokens);
+          // Apply each sampler in turn. If we receive a token back, it should
+          // be the last sampler. If there are samplers remaining and we already
+          // have a token, it is an error.
+          Token? tok;
+          final samplerCount = ctl.samplers.length;
+          for (var i = 0; i < samplerCount; i++) {
+            tok = ctl.samplers[i].sample(ctx, candidates, tokens);
+
+            if (tok != null) {
+              if (samplerCount > i + 1) {
+                final buf = StringBuffer()..writeAll(ctl.samplers.skip(i + 1));
+                throw ArgumentError(
+                    "Unexpected token from ${ctl.samplers[i]}. Unable to process these additional samplers: $buf");
+              }
+
+              break;
+            }
           }
 
-          final tok =
-              ctl.terminalSampler.applyAndSample(ctx, candidates, tokens);
-          tokens.add(tok);
-          ctl.token(Token.fromId(ctx, tok)).send();
+          tok ??= _DefaultLastSampler().sample(ctx, candidates, tokens);
+
+          tokens.add(tok!.id);
+          ctl.token(tok).send();
 
           // Check if end of stream
-          if (tok == llama_token_eos(ctx.model.pointer)) {
+          if (tok.id == llama_token_eos(ctx.model.pointer)) {
             break;
           }
 
@@ -382,7 +406,7 @@ void _onControl(ControlMessage ctl) {
 
           batch.n_tokens = 1;
 
-          batch.token[0] = tok;
+          batch.token[0] = tok.id;
           batch.pos[0] = i++;
           batch.n_seq_id[0] = 1;
           batch.seq_id[0][0] = 1;
@@ -396,10 +420,11 @@ void _onControl(ControlMessage ctl) {
 
         ctl.done().send();
       } catch (e) {
+        // rethrow; // for debugging
         ctl.error(e).send();
       } finally {
-        for (final s in [...ctl.samplers, ctl.terminalSampler]) {
-          if (s is NativeMemoryUser) s.free();
+        for (final s in ctl.samplers) {
+          if (s is NativeMemoryUser) (s as NativeMemoryUser).free();
         }
 
         for (final p in allocs) {

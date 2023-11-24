@@ -30,8 +30,8 @@ void main() async {
     samplers: [
       RepetitionPenalty(lastN: 256, penalty: 1.1),
       Temperature(0.45),
+      MirostatV2(),
     ],
-    terminalSampler: MirostatV2(),
   );
   await for (final tok in tokStream) {
     stdout.write(tok);

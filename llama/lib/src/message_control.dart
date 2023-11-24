@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:ensemble_llama/src/common.dart';
-import 'package:ensemble_llama/src/llama.dart' show Model, Context, Token;
+import 'package:ensemble_llama/src/llama.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
 import 'package:ensemble_llama/src/sampling.dart';
@@ -61,10 +61,9 @@ class TokenizeCtl extends ControlMessage {
 class GenerateCtl extends ControlMessage {
   final Context ctx;
   final String prompt;
-  final List<ChainableSampler> samplers;
-  final TerminalSampler terminalSampler;
+  final List<Sampler> samplers;
 
-  GenerateCtl(this.ctx, this.prompt, this.samplers, this.terminalSampler);
+  GenerateCtl(this.ctx, this.prompt, this.samplers);
 
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);
