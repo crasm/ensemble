@@ -23,6 +23,7 @@ abstract interface class NativeMemoryUser {
 /// Typically, this sampler should be called last.
 final class Temperature implements Sampler {
   final double temp;
+  bool get greedy => temp == 0.0;
   // TODO: change to temp >= Float32.minValue * 10 or something
   const Temperature(this.temp) : assert(temp >= 0.0);
 

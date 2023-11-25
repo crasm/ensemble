@@ -377,13 +377,15 @@ void _onControl(ControlMessage ctl) {
           Token? tok;
           final samplerCount = ctl.samplers.length;
           for (var i = 0; i < samplerCount; i++) {
-            tok = ctl.samplers[i].sample(ctx, candidates, tokens);
+            final samp = ctl.samplers[i];
+            tok = samp.sample(ctx, candidates, tokens);
 
             if (tok != null) {
               if (samplerCount > i + 1) {
-                final buf = StringBuffer()..writeAll(ctl.samplers.skip(i + 1));
-                throw ArgumentError(
-                    "Unexpected token from ${ctl.samplers[i]}. Unable to process these additional samplers: $buf");
+                final unused = ctl.samplers.skip(i + 1).toList(growable: false);
+                final buf = StringBuffer()..writeAll(unused);
+                throw ArgumentError.value(unused,
+                    "Unexpected token from $samp. Unable to process these additional samplers: $buf");
               }
 
               break;
