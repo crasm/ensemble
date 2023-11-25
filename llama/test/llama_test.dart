@@ -112,7 +112,7 @@ void main() {
           params:
               ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
       final tokStream = llama.generate(ctx, "a a a a a a a", samplers: [
-        RepetitionPenalty(lastN: -1, penalty: 1.0 + double.minPositive),
+        RepetitionPenalty(lastN: -1, penalty: 1.0 + tinyFloat),
         Temperature(tinyFloat),
       ]);
       await for (final tok in tokStream) {
