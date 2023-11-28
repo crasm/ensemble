@@ -74,85 +74,64 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  late final ClientChannel channel;
-  late final LlmClient stub;
+  final TextEditingController _textCtl = TextEditingController();
+  final ScrollController _scrollCtl = ScrollController();
 
-  final String prompt = "Hello, my name is";
-  late final StringBuffer gen;
-  final TextEditingController _genTextController = TextEditingController();
-  final ScrollController _genScrollController = ScrollController();
-  final DraggableScrollableController _paramsSheetController = DraggableScrollableController();
-
+  late final ClientChannel _channel;
+  late final LlmClient _stub;
   ResponseStream<Token>? _resp;
+  final StringBuffer _gen = StringBuffer();
   bool _isGenerating = false;
-
-  final _genTextStyle = TextStyle(
-    fontFamily: 'monospace',
-    inherit: false,
-    color: Colors.black,
-    fontWeight: FontWeight.normal,
-    wordSpacing: 0.8,
-    letterSpacing: 0.0,
-    fontSize: 14.0,
-    height: 1.3,
-    leadingDistribution: null,
-    textBaseline: TextBaseline.alphabetic,
-  );
 
   @override
   void initState() {
     super.initState();
-    channel = ClientChannel(
+    _channel = ClientChannel(
       'brick',
       port: 8888,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
-    stub = LlmClient(
-      channel,
+    _stub = LlmClient(
+      _channel,
       options: CallOptions(timeout: const Duration(seconds: 30)),
     );
 
-    _genTextController.addListener(() {
-      gen.clear();
-      gen.write(_genTextController.text);
+    _textCtl.addListener(() {
+      _gen.clear();
+      _gen.write(_textCtl.text);
     });
-
-    gen = StringBuffer(prompt);
   }
 
   @override
   void dispose() {
     super.dispose();
-    _genTextController.dispose();
-  }
-
-  void _loadGen(Token tok) {
-    if (tok.hasText()) {
-      setState(() {
-        gen.write(tok.text);
-        _genTextController.text = gen.toString();
-      });
-    }
-  }
-
-  void _onDoneGen() => setState(() => _isGenerating = false);
-  void _onErrorGen(e) {
-    _log.fine(e);
-    setState(() => _isGenerating = false);
+    _textCtl.dispose();
+    _scrollCtl.dispose();
+    _channel.shutdown();
   }
 
   void _onFab() async {
     if (!_isGenerating) {
-      _resp = stub.generate(Prompt(text: gen.toString()))
+      _resp = _stub.generate(Prompt(text: _gen.toString()))
         ..listen(
-          _loadGen,
-          onDone: _onDoneGen,
-          onError: _onErrorGen,
+          (tok) {
+            if (tok.hasText()) {
+              setState(() {
+                _gen.write(tok.text);
+                _textCtl.text = _gen.toString();
+              });
+            }
+          },
+          onDone: () => setState(() => _isGenerating = false),
+          onError: (e) {
+            _log.fine(e);
+            setState(() => _isGenerating = false);
+          },
           cancelOnError: true,
         );
       setState(() => _isGenerating = true);
     } else {
-      await _resp!.cancel();
+      await _resp?.cancel();
       setState(() => _isGenerating = false);
     }
   }
@@ -165,101 +144,74 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     return Scaffold(
       body: Stack(
         children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: _topHeight,
-            child: GenTextField(
-                isGenerating: _isGenerating,
-                gen: gen,
-                genTextStyle: _genTextStyle,
-                genTextController: _genTextController,
-                genScrollController: _genScrollController),
-          ),
-          Positioned(
-            top: _topHeight,
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.amber,
-              child: ListView(
-                children: ['Temperature', 'TopK', 'TopP', 'MinP']
-                    .map((p) => FilledButton.tonal(onPressed: () {}, child: Text(p)))
-                    .toList(),
-              ),
-            ),
-          ),
-          Positioned(
-            top: _topHeight,
-            left: 0,
-            right: 0,
-            height: 30,
-            child: GestureDetector(
-              onVerticalDragUpdate: (details) {
-                double screenHeight = MediaQuery.of(context).size.height;
-                setState(() {
-                  _topHeight = (_topHeight + details.delta.dy).clamp(0.0, screenHeight);
-                  withx(_genScrollController, (ctl) {
-                    ctl.animateTo(
-                      ctl.offset - details.delta.dy,
-                      duration: Duration(microseconds: 1),
-                      curve: Curves.linear,
-                    );
-                  });
-                });
-              },
-              child: Container(color: Colors.blue),
-            ),
-          ),
+          Positioned(top: 0, height: _topHeight, left: 0, right: 0, child: _genArea()),
+          Positioned(top: _topHeight, bottom: 0, left: 0, right: 0, child: _params()),
+          Positioned(top: _topHeight, left: 0, right: 0, height: 30, child: _dragBar())
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _onFab,
-        child:
-            Icon(!_isGenerating ? Icons.play_circle_filled_sharp : Icons.pause_circle_filled_sharp),
-      ),
+      floatingActionButton: _fab(),
     );
   }
-}
 
-class GenTextField extends StatelessWidget {
-  const GenTextField({
-    super.key,
-    required bool isGenerating,
-    required this.gen,
-    required TextStyle genTextStyle,
-    required TextEditingController genTextController,
-    required ScrollController genScrollController,
-  })  : _isGenerating = isGenerating,
-        _genTextStyle = genTextStyle,
-        _genTextController = genTextController,
-        _genScrollController = genScrollController;
+  Widget _dragBar() {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        double screenHeight = MediaQuery.of(context).size.height;
+        setState(() {
+          _topHeight = (_topHeight + details.delta.dy).clamp(0.0, screenHeight);
+        });
+      },
+      child: Container(color: Colors.blue),
+    );
+  }
 
-  final bool _isGenerating;
-  final StringBuffer gen;
-  final TextStyle _genTextStyle;
-  final TextEditingController _genTextController;
-  final ScrollController _genScrollController;
+  Widget _fab() {
+    return FloatingActionButton(
+      onPressed: _onFab,
+      child:
+          Icon(!_isGenerating ? Icons.play_circle_filled_sharp : Icons.pause_circle_filled_sharp),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _genArea() {
+    const style = TextStyle(
+      fontFamily: 'monospace',
+      inherit: false,
+      color: Colors.black,
+      fontWeight: FontWeight.normal,
+      wordSpacing: 0.8,
+      letterSpacing: 0.0,
+      fontSize: 14.0,
+      height: 1.3,
+      leadingDistribution: null,
+      textBaseline: TextBaseline.alphabetic,
+    );
+
     return Container(
       padding: EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0, bottom: 0),
       child: _isGenerating
-          ? SingleChildScrollView(child: Text(gen.toString(), style: _genTextStyle))
+          ? SingleChildScrollView(child: Text(_gen.toString(), style: style))
           : GestureDetector(
               onTap: () {},
               child: TextField(
                 autofocus: true,
-                controller: _genTextController,
-                scrollController: _genScrollController,
-                style: _genTextStyle,
+                controller: _textCtl,
+                scrollController: _scrollCtl,
+                style: style,
                 maxLines: null,
                 decoration: null,
               )),
+    );
+  }
+
+  Widget _params() {
+    return Container(
+      color: Colors.amber,
+      child: ListView(
+          children: ['Temperature', 'TopK', 'TopP', 'MinP']
+              .map((p) => FilledButton.tonal(onPressed: () {}, child: Text(p)))
+              .toList()),
     );
   }
 }
