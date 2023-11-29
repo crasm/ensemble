@@ -43,12 +43,12 @@ class Home extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        foregroundColor: Theme.of(context).colorScheme.inversePrimary,
+        backgroundColor: context.color.primary,
+        foregroundColor: context.color.onPrimary,
         title: Text('Ensemble'),
         actions: [
           PopupMenuButton(
-            itemBuilder: (ctx) {
+            itemBuilder: (context) {
               return [
                 PopupMenuItem(child: Text('Settings')),
               ];
@@ -100,6 +100,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       _gen.clear();
       _gen.write(_textCtl.text);
     });
+
+    _textCtl.text = "A chat.\nUSER: ";
   }
 
   @override
@@ -110,69 +112,67 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     _channel.shutdown();
   }
 
-  void _onFab() async {
-    if (!_isGenerating) {
-      _resp = _stub.generate(Prompt(text: _gen.toString()))
-        ..listen(
-          (tok) {
-            if (tok.hasText()) {
-              setState(() {
-                _gen.write(tok.text);
-                _textCtl.text = _gen.toString();
-              });
-            }
-          },
-          onDone: () => setState(() => _isGenerating = false),
-          onError: (e) {
-            _log.fine(e);
-            setState(() => _isGenerating = false);
-          },
-          cancelOnError: true,
-        );
-      setState(() => _isGenerating = true);
-    } else {
-      await _resp?.cancel();
-      setState(() => _isGenerating = false);
-    }
+  void _startGenerating() {
+    _resp = _stub.generate(Prompt(text: _gen.toString()))
+      ..listen(
+        (tok) {
+          if (tok.hasText()) {
+            setState(() {
+              _gen.write(tok.text);
+              _textCtl.text = _gen.toString();
+            });
+          }
+        },
+        onDone: () => setState(() => _isGenerating = false),
+        onError: (e) {
+          _log.fine(e);
+          setState(() => _isGenerating = false);
+        },
+        cancelOnError: true,
+      );
+    setState(() => _isGenerating = true);
   }
 
-  double _topHeight = 500;
+  Future<void> _stopGenerating() async {
+    await _resp?.cancel();
+    setState(() => _isGenerating = false);
+  }
+
+  // Reasonable defaults (but should be updated immediately)
+  bool _isHeightInitialized = false;
+  double _maxHeight = 600.0;
+  double _divTop = 400.0;
+  final _divThickness = 32.0;
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned(top: 0, height: _topHeight, left: 0, right: 0, child: _genArea()),
-          Positioned(top: _topHeight, bottom: 0, left: 0, right: 0, child: _params()),
-          Positioned(top: _topHeight, left: 0, right: 0, height: 30, child: _dragBar())
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endTop,
-      floatingActionButton: _fab(),
+      body: LayoutBuilder(builder: (context, box) {
+        if (!_isHeightInitialized) {
+          _isHeightInitialized = true;
+          _maxHeight = box.maxHeight;
+          _divTop = box.maxHeight / 3.0 * 2.0;
+        }
+
+        return Stack(
+          children: [
+            Positioned(top: 0, height: _divTop, left: 0, right: 0, child: _genArea()),
+            Positioned(
+                top: _divTop + _divThickness,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: _params(context)),
+            Positioned(
+                top: _divTop, left: 0, right: 0, height: _divThickness, child: _divBar(context)),
+          ],
+        );
+      }),
     );
   }
 
-  Widget _dragBar() {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        double screenHeight = MediaQuery.of(context).size.height;
-        setState(() {
-          _topHeight = (_topHeight + details.delta.dy).clamp(0.0, screenHeight);
-        });
-      },
-      child: Container(color: Colors.blue),
-    );
-  }
-
-  Widget _fab() {
-    return FloatingActionButton(
-      onPressed: _onFab,
-      child:
-          Icon(!_isGenerating ? Icons.play_circle_filled_sharp : Icons.pause_circle_filled_sharp),
-    );
-  }
+  final FocusNode _genFocusNode = FocusNode();
 
   Widget _genArea() {
     const style = TextStyle(
@@ -189,31 +189,93 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     );
 
     return Container(
-      padding: EdgeInsets.only(top: 8.0, left: 8.0, right: 8.0, bottom: 0),
-      child: _isGenerating
-          ? SingleChildScrollView(child: Text(_gen.toString(), style: style))
-          : GestureDetector(
-              onTap: () {},
-              child: TextField(
-                autofocus: true,
-                controller: _textCtl,
-                scrollController: _scrollCtl,
-                style: style,
-                maxLines: null,
-                decoration: null,
-              )),
+      padding: EdgeInsets.symmetric(horizontal: 12),
+      child: SingleChildScrollView(
+        controller: _scrollCtl,
+        child: Column(children: [
+          SizedBox(height: 12),
+          GestureDetector(
+            onTap: _stopGenerating,
+            child: _isGenerating
+                ? Text(_gen.toString(), style: style)
+                : TextField(
+                    focusNode: _genFocusNode,
+                    controller: _textCtl,
+                    style: style,
+                    maxLines: null,
+                    decoration: null,
+                  ),
+          ),
+          SizedBox(
+              height: _divTop / 2,
+              child: GestureDetector(onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
+        ]),
+      ),
     );
   }
 
-  Widget _params() {
+  void _focusGenTail() {
+    if (!_genFocusNode.hasPrimaryFocus) {
+      _genFocusNode.requestFocus();
+      _textCtl.selection = TextSelection.fromPosition(TextPosition(offset: _textCtl.text.length));
+    } else {
+      _genFocusNode.unfocus();
+    }
+  }
+
+  Widget _params(BuildContext context) {
     return Container(
-      color: Colors.amber,
-      child: ListView(
-          children: ['Temperature', 'TopK', 'TopP', 'MinP']
-              .map((p) => FilledButton.tonal(onPressed: () {}, child: Text(p)))
-              .toList()),
+      color: context.color.surfaceVariant,
+      padding: EdgeInsets.symmetric(horizontal: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ReorderableListView(
+              onReorder: (oldIndex, newIndex) {},
+              children: ['Temperature', 'Top K', 'Top P', 'Min P'].map((p) {
+                return ListTile(key: Key(p), title: Text(p));
+              }).toList(),
+            ),
+          ),
+          Column(children: [
+            IconButton.filled(
+              onPressed: () => _isGenerating ? _stopGenerating() : _startGenerating(),
+              iconSize: 48,
+              icon: Icon(_isGenerating ? Icons.pause : Icons.play_arrow),
+            ),
+            Container(),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _divBar(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _divTop = (_divTop + details.delta.dy).clamp(0.0, _maxHeight - _divThickness);
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: context.color.surfaceVariant,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.0),
+            topRight: Radius.circular(20.0),
+          ),
+        ),
+        child: Icon(Icons.drag_handle, color: context.color.onSurfaceVariant),
+      ),
     );
   }
 }
 
-void withx<T>(T x, void Function(T) f) => f(x);
+extension<T> on T {
+  void withas<R>(R Function(T) f) => f(this);
+}
+
+extension on BuildContext {
+  ColorScheme get color => Theme.of(this).colorScheme;
+}
