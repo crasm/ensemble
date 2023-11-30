@@ -96,11 +96,6 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       options: CallOptions(timeout: const Duration(seconds: 30)),
     );
 
-    _textCtl.addListener(() {
-      _gen.clear();
-      _gen.write(_textCtl.text);
-    });
-
     _textCtl.text = "A chat.\nUSER: ";
   }
 
@@ -113,6 +108,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   }
 
   void _startGenerating() {
+    _gen.clear();
+    _gen.write(_textCtl.text);
     _resp = _stub.generate(Prompt(text: _gen.toString()))
       ..listen(
         (tok) {
@@ -157,7 +154,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
         return Stack(
           children: [
-            Positioned(top: 0, height: _divTop, left: 0, right: 0, child: _genArea()),
+            Positioned(top: 0, height: _divTop, left: 0, right: 0, child: _genArea(context)),
             Positioned(
                 top: _divTop + _divThickness,
                 bottom: 0,
@@ -174,7 +171,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
   final FocusNode _genFocusNode = FocusNode();
 
-  Widget _genArea() {
+  Widget _genArea(BuildContext ctx) {
     const style = TextStyle(
       fontFamily: 'monospace',
       inherit: false,
@@ -188,30 +185,48 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       textBaseline: TextBaseline.alphabetic,
     );
 
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12),
-      child: SingleChildScrollView(
-        controller: _scrollCtl,
-        child: Column(children: [
-          SizedBox(height: 12),
-          GestureDetector(
-            onTap: _stopGenerating,
-            child: _isGenerating
-                ? Text(_gen.toString(), style: style)
-                : TextField(
-                    focusNode: _genFocusNode,
-                    controller: _textCtl,
-                    style: style,
-                    maxLines: null,
-                    decoration: null,
-                  ),
-          ),
-          SizedBox(
-              height: _divTop / 2,
-              child: GestureDetector(onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
-        ]),
-      ),
-    );
+    return LayoutBuilder(builder: (context, box) {
+      const topPadding = 12.0;
+      const horizontalPadding = 12.0;
+
+      final genText = TextSpan(text: _textCtl.text, style: style);
+      final painter = TextPainter(text: genText, textDirection: TextDirection.ltr);
+
+      painter.layout(maxWidth: box.maxWidth - 2 * horizontalPadding);
+      final textHeightPadded = painter.height + topPadding;
+      painter.dispose();
+
+      final mustScroll = textHeightPadded > _divTop / 2;
+
+      final mainColumn = Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: topPadding),
+            GestureDetector(
+              onTap: _stopGenerating,
+              child: _isGenerating
+                  ? Text(_gen.toString(), style: style)
+                  : TextField(
+                      focusNode: _genFocusNode,
+                      controller: _textCtl,
+                      style: style,
+                      maxLines: null,
+                      decoration: null,
+                    ),
+            ),
+            SizedBox(
+                height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
+                child: GestureDetector(onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
+          ],
+        ),
+      );
+
+      return mustScroll
+          ? SingleChildScrollView(controller: _scrollCtl, child: mainColumn)
+          : mainColumn;
+    });
   }
 
   void _focusGenTail() {
