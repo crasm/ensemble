@@ -177,23 +177,30 @@ class Llama {
     String prompt, {
     List<Sampler> samplers = const [],
   }) async* {
-    if (samplers.isEmpty) {
-      samplers = [Temperature(0.0)];
-    }
-    final ctl = GenerateCtl(ctx, prompt, samplers);
-    _controlPort.send(ctl);
-    await for (final resp in _response) {
-      if (resp.id != ctl.id) continue;
-      switch (resp) {
-        case GenerateTokenResp():
-          yield resp.tok;
-        case GenerateResp():
-          resp.throwIfErr();
-          return;
-        default:
-          throw AssertionError(
-              "unexpected response ($resp), but valid id (${resp.id})");
+    SendPort? genPort;
+    try {
+      if (samplers.isEmpty) {
+        samplers = [Temperature(0.0)];
       }
+      final ctl = GenerateCtl(ctx, prompt, samplers);
+      _controlPort.send(ctl);
+      await for (final resp in _response) {
+        if (resp.id != ctl.id) continue;
+        switch (resp) {
+          case GenerateTokenResp():
+            yield resp.tok;
+          case GenerateResp():
+            resp.throwIfErr();
+            return;
+          case HandshakeResp():
+            genPort = resp.controlPort;
+          default:
+            throw AssertionError(
+                "unexpected response ($resp), but valid id (${resp.id})");
+        }
+      }
+    } finally {
+      genPort?.send(0);
     }
   }
 }

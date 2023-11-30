@@ -231,7 +231,7 @@ void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
     LoadModelProgressResp(id.address, progress).send();
 
-void _onControl(ControlMessage ctl) {
+void _onControl(ControlMessage ctl) async {
   switch (ctl) {
     case ExitCtl():
       _controlPort.close();
@@ -299,7 +299,12 @@ void _onControl(ControlMessage ctl) {
       llama_batch? batch;
       Candidates? candidates;
       TokenBuf? tokens;
+      ReceivePort handle = ReceivePort();
       try {
+        bool mustCancel = false;
+        handle.listen((_) => mustCancel = true);
+        ctl.handshake(handle.sendPort).send();
+
         final ctx = ctl.ctx;
         final contextSize = ctx.params.contextSizeTokens;
         final batchSize = ctx.params.batchSizeTokens;
@@ -394,6 +399,10 @@ void _onControl(ControlMessage ctl) {
 
           tok ??= _DefaultLastSampler().sample(ctx, candidates, tokens);
 
+          // Yield to this isolate's event loop
+          await Future.delayed(Duration.zero);
+          if (mustCancel) return;
+
           tokens.add(tok!.id);
           ctl.token(tok).send();
 
@@ -436,6 +445,7 @@ void _onControl(ControlMessage ctl) {
         if (batch != null) llama_batch_free(batch);
         candidates?.dispose();
         tokens?.dispose();
+        handle.close();
       }
   }
 }

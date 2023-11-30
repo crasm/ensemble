@@ -1,3 +1,4 @@
+import 'dart:isolate';
 import 'dart:math';
 
 import 'package:ensemble_llama/src/common.dart';
@@ -68,4 +69,5 @@ class GenerateCtl extends ControlMessage {
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);
   GenerateTokenResp token(Token tok) => GenerateTokenResp(id, tok);
+  HandshakeResp handshake(SendPort port) => HandshakeResp(port, id);
 }
