@@ -4,8 +4,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
 import 'package:ensemble_llama/llama_ffi.dart';
-import 'package:ensemble_llama/src/isolate.dart' show Candidates, TokenBuf;
-import 'package:ensemble_llama/src/llama.dart';
+import 'package:ensemble_llama/src/isolate_models.dart';
 
 abstract interface class Sampler {
   /// Apply this sampler to [cands] and optionally return a [Token].

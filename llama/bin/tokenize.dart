@@ -17,7 +17,9 @@ void _tokenize(String text) async {
       stdout.write(":");
       stdout.write(tokens[i].id.toString().padLeft(6));
       stdout.write(" = ");
-      stdout.write(tokens[i].rawText);
+      stdout.write(
+        tokens[i].text.replaceAll(" ", "▁").replaceAll("\n", "<0x0A>"),
+      );
       stdout.writeln();
     }
   } finally {

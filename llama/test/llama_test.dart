@@ -46,7 +46,7 @@ void main() {
           llama.generate(ctx, "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
-        sbuf.write(tok);
+        sbuf.write(tok.text);
       }
       expect(sbuf.toString(), " I feel fine.");
     });
@@ -62,7 +62,7 @@ void main() {
           llama.generate(ctx, "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
-        sbuf.write(tok);
+        sbuf.write(tok.text);
       }
       expect(sbuf.toString(), " I feel fine.");
     });
@@ -76,7 +76,7 @@ void main() {
           ));
 
       final tokStream = llama.generate(ctx, "");
-      expect((await tokStream.single).toString(), " hopefully");
+      expect((await tokStream.single).text, " hopefully");
     });
 
     test('repeat penalty', () async {
@@ -103,7 +103,7 @@ void main() {
         Temperature(tinyFloat),
       ]);
       await for (final tok in tokStream) {
-        expect(tok, Token.fromId(ctx, 263)); // 263 = ▁a
+        expect(tok.id, 263); // 263 = ▁a
       }
     });
 
@@ -116,7 +116,7 @@ void main() {
         Temperature(tinyFloat),
       ]);
       await for (final tok in tokStream) {
-        expect(tok, Token.fromId(ctx, 263)); // 263 = ▁a
+        expect(tok.id, 263); // 263 = ▁a
       }
     });
 

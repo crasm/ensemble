@@ -1,14 +1,13 @@
 import 'dart:isolate';
-import 'dart:math';
 
-import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/llama.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
 import 'package:ensemble_llama/src/sampling.dart';
 
 sealed class ControlMessage {
-  final id = Random().nextInt(int32Max);
+  static int _nextId = 1;
+  final int id = _nextId++;
   ControlMessage();
 }
 
@@ -32,6 +31,7 @@ class FreeModelCtl extends ControlMessage {
   FreeModelCtl(this.model);
 
   FreeModelResp done() => FreeModelResp(id);
+  FreeModelResp error(Object err) => FreeModelResp(id, err: err);
 }
 
 class NewContextCtl extends ControlMessage {
@@ -48,6 +48,7 @@ class FreeContextCtl extends ControlMessage {
   FreeContextCtl(this.ctx);
 
   FreeContextResp done() => FreeContextResp(id);
+  FreeContextResp error(Object err) => FreeContextResp(id, err: err);
 }
 
 class TokenizeCtl extends ControlMessage {

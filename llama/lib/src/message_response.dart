@@ -35,7 +35,7 @@ class LoadModelProgressResp extends ResponseMessage {
 }
 
 class FreeModelResp extends ResponseMessage {
-  const FreeModelResp(super.id);
+  const FreeModelResp(super.id, {super.err});
 }
 
 class NewContextResp extends ResponseMessage {
@@ -44,7 +44,7 @@ class NewContextResp extends ResponseMessage {
 }
 
 class FreeContextResp extends ResponseMessage {
-  const FreeContextResp(super.id);
+  const FreeContextResp(super.id, {super.err});
 }
 
 class TokenizeResp extends ResponseMessage {

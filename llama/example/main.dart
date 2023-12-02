@@ -25,8 +25,8 @@ void main() async {
   final ctx = await llama.newContext(model, params: ctxParams);
 
   final tokStream = llama.generate(
-      ctx,
-      "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
+    ctx,
+    "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
     samplers: [
       RepetitionPenalty(lastN: 256, penalty: 1.1),
       Temperature(0.45),
@@ -34,7 +34,7 @@ void main() async {
     ],
   );
   await for (final tok in tokStream) {
-    stdout.write(tok);
+    stdout.write(tok.text);
   }
 
   await llama.freeContext(ctx);

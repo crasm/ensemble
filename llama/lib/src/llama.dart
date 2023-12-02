@@ -1,8 +1,6 @@
 import 'dart:isolate';
 
-import 'dart:ffi';
-import 'package:ffi/ffi.dart';
-import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/llama_ffi.dart' show ggml_log_level;
 
 import 'package:ensemble_llama/src/isolate.dart';
 import 'package:ensemble_llama/src/message_control.dart';
@@ -10,61 +8,11 @@ import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
 import 'package:ensemble_llama/src/sampling.dart';
 
-final class Model {
-  final int rawPointer;
+typedef Model = int;
+typedef Context = int;
+typedef Token = ({int id, String text});
 
-  const Model(this.rawPointer);
-
-  Pointer<llama_model> get pointer =>
-      Pointer.fromAddress(rawPointer).cast<llama_model>();
-
-  @override
-  String toString() => "Model{$rawPointer}";
-}
-
-final class Context {
-  final int rawPointer;
-  final Model model;
-  final ContextParams params;
-
-  const Context(this.rawPointer, this.model, this.params);
-
-  Pointer<llama_context> get pointer =>
-      Pointer.fromAddress(rawPointer).cast<llama_context>();
-}
-
-final class Token {
-  final int id;
-  final String text;
-  final String rawText;
-
-  const Token(this.id, this.text, this.rawText);
-
-  factory Token.fromId(Context ctx, int id) {
-    final str =
-        llama_token_get_text(ctx.model.pointer, id).cast<Utf8>().toDartString();
-    return Token(
-      id,
-      str
-          .replaceAll("▁", " ") // replace U+2581 with a space
-          // TODO: is this the right approach here? What about other cases?
-          .replaceAll("<0x0A>", "\n"),
-      str,
-    );
-  }
-
-  @override
-  bool operator ==(Object other) => other is Token && other.id == id;
-
-  @override
-  int get hashCode => id;
-
-  @override
-  String toString() => text;
-  String toStringForLogging() => "${id.toString().padLeft(5)} = $rawText\n";
-}
-
-class LogMessage {
+final class LogMessage {
   final int level;
   final String text;
   const LogMessage({
@@ -85,7 +33,7 @@ class LogMessage {
   }
 }
 
-class Llama {
+final class Llama {
   late final Stream<LogMessage> log;
   late final Stream<ResponseMessage> _response;
 
@@ -103,10 +51,9 @@ class Llama {
     final llama = Llama._();
 
     Isolate.spawn(
-        init,
-        EntryArgs(
-            log: llama._logPort.sendPort,
-            response: llama._responsePort.sendPort));
+      init,
+      (log: llama._logPort.sendPort, response: llama._responsePort.sendPort),
+    );
 
     final resp = await llama._response.first as HandshakeResp;
     llama._controlPort = resp.controlPort;
