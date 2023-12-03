@@ -110,6 +110,46 @@ external double llama_rope_freq_scale_train(
   ffi.Pointer<llama_model> model,
 );
 
+/// Get metadata value as a string by key name
+@ffi.Native<
+    ffi.Int Function(ffi.Pointer<llama_model>, ffi.Pointer<ffi.Char>,
+        ffi.Pointer<ffi.Char>, ffi.Size)>(symbol: 'llama_model_meta_val_str')
+external int llama_model_meta_val_str(
+  ffi.Pointer<llama_model> model,
+  ffi.Pointer<ffi.Char> key,
+  ffi.Pointer<ffi.Char> buf,
+  int buf_size,
+);
+
+/// Get the number of metadata key/value pairs
+@ffi.Native<ffi.Int Function(ffi.Pointer<llama_model>)>(
+    symbol: 'llama_model_meta_count')
+external int llama_model_meta_count(
+  ffi.Pointer<llama_model> model,
+);
+
+/// Get metadata key name by index
+@ffi.Native<
+    ffi.Int Function(ffi.Pointer<llama_model>, ffi.Int, ffi.Pointer<ffi.Char>,
+        ffi.Size)>(symbol: 'llama_model_meta_key_by_index')
+external int llama_model_meta_key_by_index(
+  ffi.Pointer<llama_model> model,
+  int i,
+  ffi.Pointer<ffi.Char> buf,
+  int buf_size,
+);
+
+/// Get metadata value as a string by index
+@ffi.Native<
+    ffi.Int Function(ffi.Pointer<llama_model>, ffi.Int, ffi.Pointer<ffi.Char>,
+        ffi.Size)>(symbol: 'llama_model_meta_val_str_by_index')
+external int llama_model_meta_val_str_by_index(
+  ffi.Pointer<llama_model> model,
+  int i,
+  ffi.Pointer<ffi.Char> buf,
+  int buf_size,
+);
+
 /// Get a string describing the model type
 @ffi.Native<
     ffi.Int Function(ffi.Pointer<llama_model>, ffi.Pointer<ffi.Char>,
@@ -190,10 +230,43 @@ external int llama_model_apply_lora_from_file(
   int n_threads,
 );
 
-/// Returns the number of tokens in the KV cache
+/// Create an empty KV cache view. (use only for debugging purposes)
+@ffi.Native<
+        llama_kv_cache_view Function(ffi.Pointer<llama_context>, ffi.Int32)>(
+    symbol: 'llama_kv_cache_view_init')
+external llama_kv_cache_view llama_kv_cache_view_init(
+  ffi.Pointer<llama_context> ctx,
+  int n_max_seq,
+);
+
+/// Free a KV cache view. (use only for debugging purposes)
+@ffi.Native<ffi.Void Function(ffi.Pointer<llama_kv_cache_view>)>(
+    symbol: 'llama_kv_cache_view_free')
+external void llama_kv_cache_view_free(
+  ffi.Pointer<llama_kv_cache_view> view,
+);
+
+/// Update the KV cache view structure with the current state of the KV cache. (use only for debugging purposes)
+@ffi.Native<
+    ffi.Void Function(ffi.Pointer<llama_context>,
+        ffi.Pointer<llama_kv_cache_view>)>(symbol: 'llama_kv_cache_view_update')
+external void llama_kv_cache_view_update(
+  ffi.Pointer<llama_context> ctx,
+  ffi.Pointer<llama_kv_cache_view> view,
+);
+
+/// Returns the number of tokens in the KV cache (slow, use only for debug)
+/// If a KV cell has multiple sequences assigned to it, it will be counted multiple times
 @ffi.Native<ffi.Int Function(ffi.Pointer<llama_context>)>(
     symbol: 'llama_get_kv_cache_token_count')
 external int llama_get_kv_cache_token_count(
+  ffi.Pointer<llama_context> ctx,
+);
+
+/// Returns the number of used KV cells (i.e. have at least one sequence assigned to them)
+@ffi.Native<ffi.Int Function(ffi.Pointer<llama_context>)>(
+    symbol: 'llama_get_kv_cache_used_cells')
+external int llama_get_kv_cache_used_cells(
   ffi.Pointer<llama_context> ctx,
 );
 
@@ -463,6 +536,20 @@ external int llama_token_eos(
 @ffi.Native<ffi.Int32 Function(ffi.Pointer<llama_model>)>(
     symbol: 'llama_token_nl')
 external int llama_token_nl(
+  ffi.Pointer<llama_model> model,
+);
+
+/// Returns -1 if unknown, 1 for true or 0 for false.
+@ffi.Native<ffi.Int Function(ffi.Pointer<llama_model>)>(
+    symbol: 'llama_add_bos_token')
+external int llama_add_bos_token(
+  ffi.Pointer<llama_model> model,
+);
+
+/// Returns -1 if unknown, 1 for true or 0 for false.
+@ffi.Native<ffi.Int Function(ffi.Pointer<llama_model>)>(
+    symbol: 'llama_add_eos_token')
+external int llama_add_eos_token(
   ffi.Pointer<llama_model> model,
 );
 
@@ -1039,7 +1126,7 @@ final class llama_context_params extends ffi.Struct {
   @ffi.Float()
   external double rope_freq_scale;
 
-  /// YaRN extrapolation mix factor, NaN = from model
+  /// YaRN extrapolation mix factor, negative = from model
   @ffi.Float()
   external double yarn_ext_factor;
 
@@ -1286,6 +1373,52 @@ abstract class ggml_op {
   static const int GGML_OP_CROSS_ENTROPY_LOSS = 66;
   static const int GGML_OP_CROSS_ENTROPY_LOSS_BACK = 67;
   static const int GGML_OP_COUNT = 68;
+}
+
+/// An updateable view of the KV cache.
+final class llama_kv_cache_view extends ffi.Struct {
+  /// Number of KV cache cells. This will be the same as the context size.
+  @ffi.Int32()
+  external int n_cells;
+
+  /// Maximum number of sequences that can exist in a cell. It's not an error
+  /// if there are more sequences in a cell than this value, however they will
+  /// not be visible in the view cells_sequences.
+  @ffi.Int32()
+  external int n_max_seq;
+
+  /// Number of tokens in the cache. For example, if there are two populated
+  /// cells, the first with 1 sequence id in it and the second with 2 sequence
+  /// ids then you'll have 3 tokens.
+  @ffi.Int32()
+  external int token_count;
+
+  /// Number of populated cache cells.
+  @ffi.Int32()
+  external int used_cells;
+
+  /// Maximum contiguous empty slots in the cache.
+  @ffi.Int32()
+  external int max_contiguous;
+
+  /// Index to the start of the max_contiguous slot range. Can be negative
+  /// when cache is full.
+  @ffi.Int32()
+  external int max_contiguous_idx;
+
+  /// Information for an individual cell.
+  external ffi.Pointer<llama_kv_cache_view_cell> cells;
+
+  /// The sequences for each cell. There will be n_max_seq items per cell.
+  external ffi.Pointer<ffi.Int32> cells_sequences;
+}
+
+/// Information associated with an individual cell in the KV cache view.
+final class llama_kv_cache_view_cell extends ffi.Struct {
+  /// The position for this cell. Takes KV cache shifts into account.
+  /// May be negative if the cell is not populated.
+  @ffi.Int32()
+  external int pos;
 }
 
 /// Input data for llama_decode
