@@ -314,7 +314,6 @@ void _generate(GenerateCtl ctl) async {
 
     if (batch != null) llama_batch_free(batch);
     candidates?.dispose();
-    tokens?.dispose();
     handle.close();
   }
 }
