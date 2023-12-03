@@ -27,10 +27,10 @@ final class Context with Disposable {
   final Model model;
   final ContextParams params;
 
-  late final TokenBuf toks;
+  late final TokenBuf tokens;
 
   Context(this.rawPointer, this.model, this.params) {
-    toks = TokenBuf.allocate(params.contextSizeTokens);
+    tokens = TokenBuf.allocate(params.contextSizeTokens);
   }
 
   Pointer<llama_context> get pointer =>
@@ -39,7 +39,7 @@ final class Context with Disposable {
   @override
   void dispose() {
     super.dispose();
-    toks.dispose();
+    tokens.dispose();
   }
 }
 

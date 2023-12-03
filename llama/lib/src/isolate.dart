@@ -162,8 +162,8 @@ void _freeContext(FreeContextCtl ctl) {
 void _tokenize(TokenizeCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
-    final numToks = ctx.toks.addFromString(ctx, ctl.text, ctl.addBos);
-    ctl.done(ctx.toks.toList(ctx, numToks)).send();
+    final numToks = ctx.tokens.addFromString(ctx, ctl.text, ctl.addBos);
+    ctl.done(ctx.tokens.toList(ctx, numToks)).send();
   } catch (e) {
     ctl.error(e).send();
   }
@@ -184,7 +184,7 @@ void _generate(GenerateCtl ctl) async {
     final batchSize = ctx.params.batchSizeTokens;
 
     candidates = Candidates(llama_n_vocab(ctx.model.pointer));
-    tokens = TokenBuf.fromString(ctx, ctl.prompt);
+    tokens = ctx.tokens..addFromString(ctx, ctl.prompt, true);
 
     final promptSize = tokens.length;
 
