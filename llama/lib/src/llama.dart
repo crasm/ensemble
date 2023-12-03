@@ -118,13 +118,13 @@ final class Llama with Disposable {
 
   Future<List<Token>> tokenize(Context ctx, String prompt) async {
     checkDisposed();
-    final ctl = TokenizeCtl(ctx, prompt);
+    final ctl = TokenizeCtl(ctx, prompt, addBos: true);
     _controlPort.send(ctl);
     final resp = await _response.firstWhere(
       (e) => e is TokenizeResp && e.id == ctl.id,
     ) as TokenizeResp
       ..throwIfErr();
-    return [(id: 1, text: '<s>'), ...resp.tokens];
+    return resp.tokens;
   }
 
   Stream<Token> generate(

@@ -167,9 +167,8 @@ final class TokenBuf with Disposable {
 
   /// Tokenizes [text] with the [ctx.model] and returns the number of tokens.
   ///
-  /// This is meant to be called repeatedly with fragments of text, so it does
-  /// not add the BOS (Beginning of Stream) meta-token.
-  int addFromString(Context ctx, String text) {
+  /// [addBos] should only be true when tokenizing the initial prompt.
+  int addFromString(Context ctx, String text, bool addBos) {
     checkDisposed();
     final int remainingCapacity = capacity - _length;
     Pointer<Utf8>? utf;
@@ -181,7 +180,7 @@ final class TokenBuf with Disposable {
         utf.length,
         buf.elementAt(_length),
         remainingCapacity,
-        false, // add Beginning-Of-Stream token
+        addBos, // add Beginning-Of-Stream token
         false, // tokenize meta tokens (like BOS/EOS)
       );
 

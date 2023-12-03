@@ -54,7 +54,8 @@ class FreeContextCtl extends ControlMessage {
 class TokenizeCtl extends ControlMessage {
   final Context ctx;
   final String text;
-  TokenizeCtl(this.ctx, this.text);
+  final bool addBos;
+  TokenizeCtl(this.ctx, this.text, {required this.addBos});
 
   TokenizeResp done(List<Token> tokens) => TokenizeResp(id, tokens: tokens);
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);

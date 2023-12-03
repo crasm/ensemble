@@ -162,7 +162,7 @@ void _freeContext(FreeContextCtl ctl) {
 void _tokenize(TokenizeCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
-    final numToks = ctx.toks.addFromString(ctx, ctl.text);
+    final numToks = ctx.toks.addFromString(ctx, ctl.text, ctl.addBos);
     ctl.done(ctx.toks.toList(ctx, numToks)).send();
   } catch (e) {
     ctl.error(e).send();
