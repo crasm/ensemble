@@ -9,8 +9,9 @@ import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/sampling.dart';
 
-import 'package:ensemble_llama/src/isolate_param_extensions.dart';
 import 'package:ensemble_llama/src/isolate_models.dart';
+import 'package:ensemble_llama/src/isolate_param_extensions.dart';
+import 'package:ensemble_llama/src/isolate_state.dart';
 
 extension on ResponseMessage {
   void send() => _response.send(this);
@@ -80,13 +81,6 @@ void _exit(ExitCtl ctl) {
   Isolate.exit(_response, ctl.done());
 }
 
-pub.Model _nextModel = 1;
-pub.Context _nextContext = 1;
-
-final Map<pub.Model, Model> _models = {};
-final Map<pub.Context, Context> _contexts = {};
-final Map<pub.Model, Set<pub.Context>> _contextsForModel = {};
-
 void _loadModel(LoadModelCtl ctl) {
   Pointer<Char>? pathStrC;
   try {
@@ -103,9 +97,7 @@ void _loadModel(LoadModelCtl ctl) {
       return;
     }
 
-    final id = _nextModel++;
-    _models[id] = Model(id, rawModel);
-    ctl.done(id).send();
+    ctl.done(state.addModel(rawModel)).send();
   } catch (e) {
     ctl.error(e).send();
   } finally {
@@ -115,17 +107,12 @@ void _loadModel(LoadModelCtl ctl) {
 
 void _freeModel(FreeModelCtl ctl) {
   try {
-    final model = _models.remove(ctl.model);
-    if (model == null) {
-      throw ArgumentError.value(ctl.model, "not found");
-    } else {
-      final ctxs = _contextsForModel[ctl.model];
-      if (ctxs != null && ctxs.isNotEmpty) {
-        throw StateError(
-            "${ctxs.length} contexts are still active for this model");
-      }
+    final model = state.removeModel(ctl.model);
+    final ctxs = state.contextsForModel[ctl.model];
+    if (ctxs != null && ctxs.isNotEmpty) {
+      throw StateError(
+          "${ctxs.length} contexts are still active for this model");
     }
-
     llama_free_model(model.pointer);
     ctl.done().send();
   } catch (e) {
@@ -136,21 +123,11 @@ void _freeModel(FreeModelCtl ctl) {
 void _newContext(NewContextCtl ctl) {
   try {
     final params = llama_context_default_params()..setSimpleFrom(ctl.params);
-    final model = _models[ctl.model];
-    if (model == null) throw ArgumentError.value(ctl.model, "not found");
+    final model = state.getModel(ctl.model);
     final rawCtx = llama_new_context_with_model(model.pointer, params).address;
-    if (rawCtx == 0) {
-      ctl.error(Exception("failed creating context")).send();
-      return;
-    }
+    if (rawCtx == 0) throw Exception("failed creating context");
 
-    final id = _nextContext++;
-    _contexts[id] = Context(id, rawCtx, model, ctl.params);
-
-    _contextsForModel[ctl.model] ??= {};
-    _contextsForModel[ctl.model]!.add(id);
-
-    ctl.done(id).send();
+    ctl.done(state.addContext(rawCtx, model, ctl.params)).send();
   } catch (e) {
     ctl.error(e).send();
   }
@@ -158,14 +135,13 @@ void _newContext(NewContextCtl ctl) {
 
 void _freeContext(FreeContextCtl ctl) {
   try {
-    final ctx = _contexts.remove(ctl.ctx);
-    if (ctx == null) throw ArgumentError.value(ctl.ctx, "not found");
-    if (!_models.containsKey(ctx.model.id)) {
+    final ctx = state.removeContext(ctl.ctx);
+    if (!state.models.containsKey(ctx.model.id)) {
       throw StateError(
           "found Context#${ctl.ctx}, but missing Model#{${ctx.model.id}");
     }
 
-    final ctxSet = _contextsForModel[ctx.model.id];
+    final ctxSet = state.contextsForModel[ctx.model.id];
     if (ctxSet == null || !ctxSet.remove(ctl.ctx)) {
       throw StateError(
           "found Context#{ctl.ctx}, but missing from _contextsForModel");
@@ -181,8 +157,7 @@ void _freeContext(FreeContextCtl ctl) {
 void _tokenize(TokenizeCtl ctl) {
   TokenBuf? tokens;
   try {
-    final ctx = _contexts[ctl.ctx];
-    if (ctx == null) throw ArgumentError.value(ctl.ctx, "not found");
+    final ctx = state.getContext(ctl.ctx);
     tokens = TokenBuf.fromString(ctx, ctl.prompt);
     ctl.done(tokens.toList(ctx).map(Token.record).toList()).send();
   } catch (e) {
@@ -203,8 +178,7 @@ void _generate(GenerateCtl ctl) async {
     handle.listen((_) => mustCancel = true);
     ctl.handshake(handle.sendPort).send();
 
-    final ctx = _contexts[ctl.ctx];
-    if (ctx == null) throw ArgumentError.value(ctl.ctx, "not found");
+    final ctx = state.getContext(ctl.ctx);
     final contextSize = ctx.params.contextSizeTokens;
     final batchSize = ctx.params.batchSizeTokens;
 
