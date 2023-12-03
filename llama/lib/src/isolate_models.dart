@@ -1,15 +1,17 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
-import 'package:ensemble_llama/src/params.dart' show ContextParams;
 import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/llama.dart' as pub;
+import 'package:ensemble_llama/src/params.dart' show ContextParams;
 
 final class Model {
-  final pub.Model id;
+  static pub.Model _nextModel = 1;
+  final pub.Model id = _nextModel++;
   final int rawPointer;
 
-  const Model(this.id, this.rawPointer);
+  Model(this.rawPointer);
 
   Pointer<llama_model> get pointer =>
       Pointer.fromAddress(rawPointer).cast<llama_model>();
@@ -18,17 +20,27 @@ final class Model {
   String toString() => "Model{$rawPointer}";
 }
 
-final class Context {
-  final pub.Context id;
+final class Context with Disposable {
+  static pub.Context _nextContext = 1;
+  final pub.Context id = _nextContext++;
   final int rawPointer;
   final Model model;
   final ContextParams params;
 
-  // TODO: does Context really need a reference to model?
-  const Context(this.id, this.rawPointer, this.model, this.params);
+  late final TokenBuf toks;
+
+  Context(this.rawPointer, this.model, this.params) {
+    toks = TokenBuf.allocate(params.contextSizeTokens);
+  }
 
   Pointer<llama_context> get pointer =>
       Pointer.fromAddress(rawPointer).cast<llama_context>();
+
+  @override
+  void dispose() {
+    super.dispose();
+    toks.dispose();
+  }
 }
 
 final class Token {
@@ -51,7 +63,7 @@ final class Token {
     );
   }
 
-  static pub.Token record(Token tok) => (id: tok.id, text: tok.text);
+  pub.Token get record => (id: id, text: text);
 
   @override
   bool operator ==(Object other) => other is Token && other.id == id;
@@ -118,25 +130,33 @@ final class Candidates {
   }
 }
 
-final class TokenBuf {
-  int _length;
+final class TokenBuf with Disposable {
+  int _length = 0;
   int get length => _length;
 
   final Pointer<Int32> buf;
   final int capacity;
-  TokenBuf._(this._length, this.buf, this.capacity);
+  TokenBuf._(this.buf, this.capacity);
+
+  factory TokenBuf.allocate(int size) {
+    final buf = calloc.allocate(size * sizeOf<Int32>()).cast<Int32>();
+    return TokenBuf._(buf, size);
+  }
 
   int operator [](int index) {
+    checkDisposed();
     RangeError.checkValidIndex(index, this);
     return buf[index];
   }
 
   void operator []=(int index, int value) {
+    checkDisposed();
     RangeError.checkValidIndex(index, this);
     buf[index] = value;
   }
 
   void add(int tokId) {
+    checkDisposed();
     assert(length <= capacity);
     if (_length == capacity) {
       throw Exception(
@@ -145,12 +165,66 @@ final class TokenBuf {
     buf[_length++] = tokId;
   }
 
+  /// Tokenizes [text] with the [ctx.model] and returns the number of tokens.
+  ///
+  /// This is meant to be called repeatedly with fragments of text, so it does
+  /// not add the BOS (Beginning of Stream) meta-token.
+  int addFromString(Context ctx, String text) {
+    checkDisposed();
+    final int remainingCapacity = capacity - _length;
+    Pointer<Utf8>? utf;
+    try {
+      utf = text.toNativeUtf8(allocator: calloc);
+      final numTokens = llama_tokenize(
+        ctx.model.pointer,
+        utf.cast<Char>(),
+        utf.length,
+        buf.elementAt(_length),
+        remainingCapacity,
+        false, // add Beginning-Of-Stream token
+        false, // tokenize meta tokens (like BOS/EOS)
+      );
+
+      if (numTokens < 0) {
+        throw Exception("llama_tokenize failed with $numTokens");
+      } else if (numTokens >= remainingCapacity) {
+        throw Exception("prompt too large: $numTokens >= $remainingCapacity");
+      }
+
+      _length += numTokens;
+      return numTokens;
+    } finally {
+      if (utf != null) calloc.free(utf);
+    }
+  }
+
   String toStringContext(Context ctx) {
+    checkDisposed();
     final strb = StringBuffer("buf[0:${length - 1}] = ");
     for (var i = 0; i < length; i++) {
       strb.write(Token.fromId(ctx, buf[i]));
     }
     return strb.toString();
+  }
+
+  /// Returns the [Token]s in this buffer.
+  ///
+  /// If [lastN] is provided, will return the tokens in the buffer starting
+  /// from [length - lastN].
+  List<pub.Token> toList(Context ctx, [int? lastN]) {
+    checkDisposed();
+    lastN ??= _length;
+    final List<pub.Token> list = [];
+    for (var i = _length - lastN; i < _length; i++) {
+      list.add(Token.fromId(ctx, buf[i]).record);
+    }
+    return list;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    calloc.free(buf);
   }
 
   factory TokenBuf.fromString(Context ctx, String text) {
@@ -177,21 +251,9 @@ final class TokenBuf {
         throw Exception("prompt too large: $numTokens >= $contextSize tokens");
       }
 
-      return TokenBuf._(numTokens, buf, contextSize);
+      return TokenBuf._(buf, contextSize).._length = numTokens;
     } finally {
       if (textC != null) calloc.free(textC);
     }
-  }
-
-  List<Token> toList(Context ctx) {
-    final List<Token> list = [];
-    for (var i = 0; i < length; i++) {
-      list.add(Token.fromId(ctx, buf[i]));
-    }
-    return list;
-  }
-
-  void dispose() {
-    calloc.free(buf);
   }
 }

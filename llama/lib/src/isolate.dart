@@ -113,7 +113,10 @@ void _freeModel(FreeModelCtl ctl) {
       throw StateError(
           "${ctxs.length} contexts are still active for this model");
     }
+
     llama_free_model(model.pointer);
+    // nothing to dispose... yet
+
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
@@ -148,6 +151,8 @@ void _freeContext(FreeContextCtl ctl) {
     }
 
     llama_free(ctx.pointer);
+    ctx.dispose();
+
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
@@ -155,20 +160,16 @@ void _freeContext(FreeContextCtl ctl) {
 }
 
 void _tokenize(TokenizeCtl ctl) {
-  TokenBuf? tokens;
   try {
     final ctx = state.getContext(ctl.ctx);
-    tokens = TokenBuf.fromString(ctx, ctl.prompt);
-    ctl.done(tokens.toList(ctx).map(Token.record).toList()).send();
+    final numToks = ctx.toks.addFromString(ctx, ctl.text);
+    ctl.done(ctx.toks.toList(ctx, numToks)).send();
   } catch (e) {
     ctl.error(e).send();
-  } finally {
-    tokens?.dispose();
   }
 }
 
 void _generate(GenerateCtl ctl) async {
-  Set<Pointer> allocs = {};
   llama_batch? batch;
   Candidates? candidates;
   TokenBuf? tokens;
@@ -309,10 +310,6 @@ void _generate(GenerateCtl ctl) async {
   } finally {
     for (final s in ctl.samplers) {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).free();
-    }
-
-    for (final p in allocs) {
-      calloc.free(p);
     }
 
     if (batch != null) llama_batch_free(batch);

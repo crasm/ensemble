@@ -5,9 +5,6 @@ import 'package:ensemble_llama/src/params.dart';
 State get state => State._singleton;
 
 final class State {
-  pub.Model _nextModel = 1;
-  pub.Context _nextContext = 1;
-
   final Map<pub.Model, Model> models = {};
   final Map<pub.Context, Context> contexts = {};
   final Map<pub.Model, Set<pub.Context>> contextsForModel = {};
@@ -16,18 +13,18 @@ final class State {
   State._();
 
   pub.Model addModel(int rawModel) {
-    final id = _nextModel++;
-    models[id] = Model(id, rawModel);
-    return id;
+    final model = Model(rawModel);
+    models[model.id] = model;
+    return model.id;
   }
 
   pub.Context addContext(int rawCtx, Model model, ContextParams params) {
-    final id = _nextContext++;
-    contexts[id] = Context(id, rawCtx, model, params);
+    final ctx = Context(rawCtx, model, params);
+    contexts[ctx.id] = ctx;
 
     contextsForModel[model.id] ??= {};
-    contextsForModel[model.id]!.add(id);
-    return id;
+    contextsForModel[model.id]!.add(ctx.id);
+    return ctx.id;
   }
 
   Model removeModel(pub.Model id) =>
