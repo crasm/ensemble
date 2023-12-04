@@ -1,5 +1,7 @@
 import 'dart:isolate';
 
+import 'package:logging/logging.dart';
+
 import 'package:ensemble_llama/llama_ffi.dart' show ggml_log_level;
 
 import 'package:ensemble_llama/src/disposable.dart';
@@ -35,8 +37,10 @@ final class LogMessage {
 }
 
 final class Llama with Disposable {
+  final _log = Logger('Llama');
+
   late final Stream<LogMessage> log;
-  late final Stream<ResponseMessage> _response;
+  late final Stream<ResponseMessage> _responseStream;
 
   final _logPort = ReceivePort();
   final _responsePort = ReceivePort();
@@ -45,7 +49,7 @@ final class Llama with Disposable {
 
   Llama._() {
     log = _logPort.asBroadcastStream().cast<LogMessage>();
-    _response = _responsePort.asBroadcastStream().cast<ResponseMessage>();
+    _responseStream = _responsePort.asBroadcastStream().cast<ResponseMessage>();
   }
 
   static Future<Llama> create() async {
@@ -56,19 +60,35 @@ final class Llama with Disposable {
       (log: llama._logPort.sendPort, response: llama._responsePort.sendPort),
     );
 
-    final resp = await llama._response.first as HandshakeResp;
+    final resp = await llama._responseStream.first as HandshakeResp;
     llama._controlPort = resp.controlPort;
+
+    llama._responseStream.listen((e) {
+      llama._log.finest(() => "received resp $e");
+    });
     return llama;
   }
 
   @override
   Future<void> dispose() async {
     super.dispose();
-    final ctl = ExitCtl();
-    _controlPort.send(ctl);
-    await _response.firstWhere((e) => e is ExitResp && e.id == ctl.id);
+    await _send(ExitCtl());
     _logPort.close();
     _responsePort.close();
+  }
+
+  int _sendCtl(ControlMessage ctl) {
+    _log.finest(() => "sent ctl $ctl");
+    _controlPort.send(ctl);
+    return ctl.id;
+  }
+
+  Future<T> _send<T extends ResponseMessage>(ControlMessage ctl) async {
+    final id = _sendCtl(ctl);
+    T resp =
+        (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
+    resp.throwIfErr();
+    return resp;
   }
 
   Future<Model> loadModel(
@@ -78,52 +98,38 @@ final class Llama with Disposable {
   }) async {
     checkDisposed();
     final ctl = LoadModelCtl(path, params ?? ModelParams());
-    final progressListener = _response
-        .where((e) => e is LoadModelProgressResp && e.id == ctl.id)
+    final progressListener = _responseStream
+        .where(ResponseMessage.matches<LoadModelProgressResp>(ctl.id))
         .cast<LoadModelProgressResp>()
         .listen((e) => progressCallback?.call(e.progress));
 
-    _controlPort.send(ctl);
-    final resp = (await _response.firstWhere(
-        (e) => e is LoadModelResp && e.id == ctl.id)) as LoadModelResp;
-
+    final resp = await _send<LoadModelResp>(ctl);
     progressListener.cancel();
-    resp.throwIfErr();
     return resp.model!;
   }
 
   Future<void> freeModel(Model model) async {
     checkDisposed();
-    final ctl = FreeModelCtl(model);
-    _controlPort.send(ctl);
-    await _response.firstWhere((e) => e is FreeModelResp && e.id == ctl.id);
+    await _send(FreeModelCtl(model));
   }
 
   Future<Context> newContext(Model model, {ContextParams? params}) async {
     checkDisposed();
     final ctl = NewContextCtl(model, params ?? ContextParams());
-    _controlPort.send(ctl);
-    final resp = await _response.firstWhere(
-        (e) => e is NewContextResp && e.id == ctl.id) as NewContextResp
-      ..throwIfErr();
+    final resp = await _send<NewContextResp>(ctl);
     return resp.ctx!;
   }
 
   Future<void> freeContext(Context ctx) async {
     checkDisposed();
-    final ctl = FreeContextCtl(ctx);
-    _controlPort.send(ctl);
-    await _response.firstWhere((e) => e is FreeContextResp && e.id == ctl.id);
+    await _send(FreeContextCtl(ctx));
   }
 
   Future<List<Token>> tokenize(Context ctx, String prompt) async {
     checkDisposed();
-    final ctl = TokenizeCtl(ctx, prompt, addBos: true);
-    _controlPort.send(ctl);
-    final resp = await _response.firstWhere(
-      (e) => e is TokenizeResp && e.id == ctl.id,
-    ) as TokenizeResp
-      ..throwIfErr();
+    final resp = await _send<TokenizeResp>(
+      TokenizeCtl(ctx, prompt, addBos: true),
+    );
     return resp.tokens;
   }
 
@@ -135,13 +141,14 @@ final class Llama with Disposable {
     checkDisposed();
     SendPort? genPort;
     try {
-      if (samplers.isEmpty) {
-        samplers = [Temperature(0.0)];
-      }
-      final ctl = GenerateCtl(ctx, prompt, samplers);
-      _controlPort.send(ctl);
-      await for (final resp in _response) {
-        if (resp.id != ctl.id) continue;
+      if (samplers.isEmpty) samplers = [Temperature(0.0)];
+
+      await _send(TokenizeCtl(ctx, prompt, addBos: true));
+      await _send(IngestCtl(ctx));
+
+      final id = _sendCtl(GenerateCtl(ctx, samplers));
+      await for (final resp in _responseStream) {
+        if (resp.id != id) continue;
         switch (resp) {
           case GenerateTokenResp():
             yield resp.tok;

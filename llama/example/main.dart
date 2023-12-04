@@ -1,8 +1,14 @@
 import 'dart:io';
 
+import 'package:logging/logging.dart';
 import 'package:ensemble_llama/llama.dart';
 
 void main() async {
+  Logger.root.level = Level.FINE;
+  Logger.root.onRecord.listen((e) {
+    print('${e.level.name}: ${e.time}: ${e.message}');
+  });
+
   var llama = await Llama.create();
   llama.log.listen((msg) {
     final msgText = msg.toString();

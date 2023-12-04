@@ -173,60 +173,58 @@ void _tokenize(TokenizeCtl ctl) {
 
 void _ingest(IngestCtl ctl) {
   try {
-    _ingestInner(state.getContext(ctl.ctx));
+    //
+    // Evaluate prompt.
+    //
+    // To do so, we fill up a llama_batch with tokens, call llama_decode()
+    // to load those tokens into the model, and repeat until we run out of
+    // prompt tokens.
+
+    final ctx = state.getContext(ctl.ctx);
+    final batch = ctx.batch;
+    final tokens = ctx.tokens;
+    final batchSize = ctx.params.batchSizeTokens;
+
+    // TODO: make this work when called repeatedly
+    // It should work fine when used in a simple _tokenize() => _ingest() =>
+    // _generate() exactly one time
+    var i = 0; // index into context window
+    var j = 0; // index into current batch
+    while (i + j < tokens.length) {
+      final tokensToDecode = tokens.length - i;
+      final isLastBatch = tokensToDecode <= batchSize;
+      final fillCount = isLastBatch ? tokensToDecode : batchSize;
+
+      batch.n_tokens = fillCount;
+      for (j = 0; j < fillCount; j++) {
+        batch.token[j] = tokens[i + j];
+        batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
+        batch.n_seq_id[j] = 1;
+        batch.seq_id[j][0] = 1;
+        batch.logits[j] = isLastBatch ? 1 : 0;
+      }
+
+      final status = llama_decode(ctx.pointer, batch);
+      if (status != 0) {
+        throw Exception("llama_decode failed with $status");
+      }
+
+      assert(j <= batchSize);
+      if (j == batchSize) {
+        i += batchSize;
+        j = 0;
+      }
+    }
+
+    ctx.i = i;
+    ctx.j = j;
+    ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
   }
 }
 
-(int i, int j) _ingestInner(Context ctx) {
-  //
-  // Evaluate prompt.
-  //
-  // To do so, we fill up a llama_batch with tokens, call llama_decode()
-  // to load those tokens into the model, and repeat until we run out of
-  // prompt tokens.
-
-  final batch = ctx.batch;
-  final tokens = ctx.tokens;
-  final batchSize = ctx.params.batchSizeTokens;
-
-  // TODO: make this work when called repeatedly
-  // It should work fine when used in a simple _tokenize() => _ingest() =>
-  // _generate() exactly one time
-  var i = 0; // index into context window
-  var j = 0; // index into current batch
-  while (i + j < tokens.length) {
-    final tokensToDecode = tokens.length - i;
-    final isLastBatch = tokensToDecode <= batchSize;
-    final fillCount = isLastBatch ? tokensToDecode : batchSize;
-
-    batch.n_tokens = fillCount;
-    for (j = 0; j < fillCount; j++) {
-      batch.token[j] = tokens[i + j];
-      batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
-      batch.n_seq_id[j] = 1;
-      batch.seq_id[j][0] = 1;
-      batch.logits[j] = isLastBatch ? 1 : 0;
-    }
-
-    final status = llama_decode(ctx.pointer, batch);
-    if (status != 0) {
-      throw Exception("llama_decode failed with $status");
-    }
-
-    assert(j <= batchSize);
-    if (j == batchSize) {
-      i += batchSize;
-      j = 0;
-    }
-  }
-  return (i, j);
-}
-
 void _generate(GenerateCtl ctl) async {
-  Candidates? candidates;
-  TokenBuf? tokens;
   ReceivePort handle = ReceivePort();
   try {
     bool mustCancel = false;
@@ -236,19 +234,19 @@ void _generate(GenerateCtl ctl) async {
     final ctx = state.getContext(ctl.ctx);
     final contextSize = ctx.params.contextSizeTokens;
 
-    candidates = Candidates(llama_n_vocab(ctx.model.pointer));
-    tokens = ctx.tokens..addFromString(ctx, ctl.prompt, true);
+    final candidates = ctx.candidates;
+    final tokens = ctx.tokens;
 
     for (final s in ctl.samplers) {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).alloc();
     }
 
-    var (i, j) = _ingestInner(ctx);
-
     //
     // Generate tokens to fill context
     //
 
+    int i = ctx.i;
+    int j = ctx.j;
     i += j; // index into the context for all tokens so far
 
     while (i < contextSize) {
@@ -290,6 +288,9 @@ void _generate(GenerateCtl ctl) async {
       tok ??= _DefaultLastSampler().sample(ctx, candidates, tokens);
 
       // Yield to this isolate's event loop
+      // TODO: this might cause problems if another _onControl(GenerateCtl)
+      // comes in for this context. In that case, we'd have to have some sort
+      // of mutex check where that request should yield until this one finishes.
       await Future.delayed(Duration.zero);
       if (mustCancel) return;
 
@@ -329,7 +330,6 @@ void _generate(GenerateCtl ctl) async {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).free();
     }
 
-    candidates?.dispose();
     handle.close();
   }
 }

@@ -12,6 +12,11 @@ sealed class ResponseMessage {
       throw err!;
     }
   }
+
+  static bool Function(ResponseMessage) matches<T extends ResponseMessage>(
+      int id) {
+    return (resp) => resp is T && resp.id == id;
+  }
 }
 
 final class HandshakeResp extends ResponseMessage {

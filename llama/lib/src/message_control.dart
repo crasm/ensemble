@@ -71,10 +71,9 @@ final class IngestCtl extends ControlMessage {
 
 final class GenerateCtl extends ControlMessage {
   final Context ctx;
-  final String prompt;
   final List<Sampler> samplers;
 
-  GenerateCtl(this.ctx, this.prompt, this.samplers);
+  GenerateCtl(this.ctx, this.samplers);
 
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);

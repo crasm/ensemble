@@ -29,12 +29,16 @@ final class Context with Disposable {
 
   late final TokenBuf tokens;
   late final llama_batch batch;
+  late final Candidates candidates;
 
+  int i = 0; // index into context window
+  int j = 0; // index into current batch
   int decodeOffset = 0;
 
   Context(this.rawPointer, this.model, this.params) {
     tokens = TokenBuf.allocate(params.contextSizeTokens);
     batch = llama_batch_init(params.batchSizeTokens, 0, 1);
+    candidates = Candidates(llama_n_vocab(model.pointer));
   }
 
   Pointer<llama_context> get pointer =>
@@ -45,6 +49,7 @@ final class Context with Disposable {
     super.dispose();
     tokens.dispose();
     llama_batch_free(batch);
+    candidates.dispose();
   }
 }
 
@@ -82,7 +87,7 @@ final class Token {
 }
 
 // Stores an array of candidate tokens and their logit probabilities.
-final class Candidates {
+final class Candidates with Disposable {
   final int vocabSize;
   int get size => pointer.ref.size;
   late final Pointer<llama_token_data> _candidates;
@@ -98,6 +103,7 @@ final class Candidates {
   }
 
   void load(Pointer<Float> logits) {
+    checkDisposed();
     pointer.ref.size = vocabSize;
     pointer.ref.sorted = false;
 
@@ -108,10 +114,18 @@ final class Candidates {
     }
   }
 
-  double getLogit(int tokId) => _candidates[tokId].logit;
-  void setLogit(int tokId, double logit) => _candidates[tokId].logit = logit;
+  double getLogit(int tokId) {
+    checkDisposed();
+    return _candidates[tokId].logit;
+  }
+
+  void setLogit(int tokId, double logit) {
+    checkDisposed();
+    _candidates[tokId].logit = logit;
+  }
 
   String toStringContext(Context ctx) {
+    checkDisposed();
     final List<llama_token_data> copy = [];
     for (var i = 0; i < size; i++) {
       copy.add(_candidates[i]);
@@ -129,7 +143,9 @@ final class Candidates {
     return strb.toString();
   }
 
+  @override
   void dispose() {
+    super.dispose();
     calloc.free(_candidates);
     calloc.free(pointer);
   }
