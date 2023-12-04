@@ -28,9 +28,13 @@ final class Context with Disposable {
   final ContextParams params;
 
   late final TokenBuf tokens;
+  late final llama_batch batch;
+
+  int decodeOffset = 0;
 
   Context(this.rawPointer, this.model, this.params) {
     tokens = TokenBuf.allocate(params.contextSizeTokens);
+    batch = llama_batch_init(params.batchSizeTokens, 0, 1);
   }
 
   Pointer<llama_context> get pointer =>
@@ -40,6 +44,7 @@ final class Context with Disposable {
   void dispose() {
     super.dispose();
     tokens.dispose();
+    llama_batch_free(batch);
   }
 }
 

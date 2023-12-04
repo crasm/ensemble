@@ -61,6 +61,14 @@ class TokenizeCtl extends ControlMessage {
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);
 }
 
+class IngestCtl extends ControlMessage {
+  final Context ctx;
+  IngestCtl(this.ctx);
+
+  IngestResp done() => IngestResp(id);
+  IngestResp error(Object err) => IngestResp(id, err: err);
+}
+
 class GenerateCtl extends ControlMessage {
   final Context ctx;
   final String prompt;

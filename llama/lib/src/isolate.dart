@@ -70,6 +70,8 @@ void _onControl(ControlMessage ctl) {
       _freeContext(ctl);
     case TokenizeCtl():
       _tokenize(ctl);
+    case IngestCtl():
+      _ingest(ctl);
     case GenerateCtl():
       _generate(ctl);
   }
@@ -169,8 +171,60 @@ void _tokenize(TokenizeCtl ctl) {
   }
 }
 
+void _ingest(IngestCtl ctl) {
+  try {
+    _ingestInner(state.getContext(ctl.ctx));
+  } catch (e) {
+    ctl.error(e).send();
+  }
+}
+
+(int i, int j) _ingestInner(Context ctx) {
+  //
+  // Evaluate prompt.
+  //
+  // To do so, we fill up a llama_batch with tokens, call llama_decode()
+  // to load those tokens into the model, and repeat until we run out of
+  // prompt tokens.
+
+  final batch = ctx.batch;
+  final tokens = ctx.tokens;
+  final batchSize = ctx.params.batchSizeTokens;
+
+  // TODO: make this work when called repeatedly
+  // It should work fine when used in a simple _tokenize() => _ingest() =>
+  // _generate() exactly one time
+  var i = 0; // index into context window
+  var j = 0; // index into current batch
+  while (i + j < tokens.length) {
+    final tokensToDecode = tokens.length - i;
+    final isLastBatch = tokensToDecode <= batchSize;
+    final fillCount = isLastBatch ? tokensToDecode : batchSize;
+
+    batch.n_tokens = fillCount;
+    for (j = 0; j < fillCount; j++) {
+      batch.token[j] = tokens[i + j];
+      batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
+      batch.n_seq_id[j] = 1;
+      batch.seq_id[j][0] = 1;
+      batch.logits[j] = isLastBatch ? 1 : 0;
+    }
+
+    final status = llama_decode(ctx.pointer, batch);
+    if (status != 0) {
+      throw Exception("llama_decode failed with $status");
+    }
+
+    assert(j <= batchSize);
+    if (j == batchSize) {
+      i += batchSize;
+      j = 0;
+    }
+  }
+  return (i, j);
+}
+
 void _generate(GenerateCtl ctl) async {
-  llama_batch? batch;
   Candidates? candidates;
   TokenBuf? tokens;
   ReceivePort handle = ReceivePort();
@@ -181,53 +235,15 @@ void _generate(GenerateCtl ctl) async {
 
     final ctx = state.getContext(ctl.ctx);
     final contextSize = ctx.params.contextSizeTokens;
-    final batchSize = ctx.params.batchSizeTokens;
 
     candidates = Candidates(llama_n_vocab(ctx.model.pointer));
     tokens = ctx.tokens..addFromString(ctx, ctl.prompt, true);
-
-    final promptSize = tokens.length;
 
     for (final s in ctl.samplers) {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).alloc();
     }
 
-    //
-    // Evaluate prompt.
-    //
-    // To do so, we fill up a llama_batch with tokens, call llama_decode()
-    // to load those tokens into the model, and repeat until we run out of
-    // prompt tokens.
-
-    batch = llama_batch_init(batchSize, 0, 1);
-
-    var i = 0; // index into context window
-    var j = 0; // index into current batch
-    while (i + j < promptSize) {
-      final promptTokensRemaining = promptSize - i;
-      final isLastBatch = promptTokensRemaining <= batchSize;
-      final fillCount = isLastBatch ? promptTokensRemaining : batchSize;
-
-      batch.n_tokens = fillCount;
-      for (j = 0; j < fillCount; j++) {
-        batch.token[j] = tokens[i + j];
-        batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
-        batch.n_seq_id[j] = 1;
-        batch.seq_id[j][0] = 1;
-        batch.logits[j] = isLastBatch ? 1 : 0;
-      }
-
-      final status = llama_decode(ctx.pointer, batch);
-      if (status != 0) {
-        throw Exception("llama_decode failed with $status");
-      }
-
-      assert(j <= batchSize);
-      if (j == batchSize) {
-        i += batchSize;
-        j = 0;
-      }
-    }
+    var (i, j) = _ingestInner(ctx);
 
     //
     // Generate tokens to fill context
@@ -289,6 +305,7 @@ void _generate(GenerateCtl ctl) async {
       // Decode next token
       //
 
+      final batch = ctx.batch;
       batch.n_tokens = 1;
 
       batch.token[0] = tok.id;
@@ -312,7 +329,6 @@ void _generate(GenerateCtl ctl) async {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).free();
     }
 
-    if (batch != null) llama_batch_free(batch);
     candidates?.dispose();
     handle.close();
   }

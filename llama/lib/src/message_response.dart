@@ -52,6 +52,10 @@ class TokenizeResp extends ResponseMessage {
   const TokenizeResp(super.id, {super.err, this.tokens = const []});
 }
 
+class IngestResp extends ResponseMessage {
+  const IngestResp(super.id, {super.err});
+}
+
 class GenerateResp extends ResponseMessage {
   const GenerateResp(super.id, {super.err});
 }
