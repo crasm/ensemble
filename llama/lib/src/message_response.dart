@@ -14,53 +14,53 @@ sealed class ResponseMessage {
   }
 }
 
-class HandshakeResp extends ResponseMessage {
+final class HandshakeResp extends ResponseMessage {
   final SendPort controlPort;
   const HandshakeResp(this.controlPort, [super.id = 0]);
 }
 
-class ExitResp extends ResponseMessage {
+final class ExitResp extends ResponseMessage {
   const ExitResp(super.id);
 }
 
 // TODO: include mem used, model details?
-class LoadModelResp extends ResponseMessage {
+final class LoadModelResp extends ResponseMessage {
   final Model? model;
   const LoadModelResp(super.id, {super.err, this.model});
 }
 
-class LoadModelProgressResp extends ResponseMessage {
+final class LoadModelProgressResp extends ResponseMessage {
   final double progress;
   const LoadModelProgressResp(super.id, this.progress);
 }
 
-class FreeModelResp extends ResponseMessage {
+final class FreeModelResp extends ResponseMessage {
   const FreeModelResp(super.id, {super.err});
 }
 
-class NewContextResp extends ResponseMessage {
+final class NewContextResp extends ResponseMessage {
   final Context? ctx;
   const NewContextResp(super.id, {super.err, this.ctx});
 }
 
-class FreeContextResp extends ResponseMessage {
+final class FreeContextResp extends ResponseMessage {
   const FreeContextResp(super.id, {super.err});
 }
 
-class TokenizeResp extends ResponseMessage {
+final class TokenizeResp extends ResponseMessage {
   final List<Token> tokens;
   const TokenizeResp(super.id, {super.err, this.tokens = const []});
 }
 
-class IngestResp extends ResponseMessage {
+final class IngestResp extends ResponseMessage {
   const IngestResp(super.id, {super.err});
 }
 
-class GenerateResp extends ResponseMessage {
+final class GenerateResp extends ResponseMessage {
   const GenerateResp(super.id, {super.err});
 }
 
-class GenerateTokenResp extends ResponseMessage {
+final class GenerateTokenResp extends ResponseMessage {
   final Token tok;
   const GenerateTokenResp(super.id, this.tok);
 }

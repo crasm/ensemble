@@ -11,11 +11,11 @@ sealed class ControlMessage {
   ControlMessage();
 }
 
-class ExitCtl extends ControlMessage {
+final class ExitCtl extends ControlMessage {
   ExitResp done() => ExitResp(id);
 }
 
-class LoadModelCtl extends ControlMessage {
+final class LoadModelCtl extends ControlMessage {
   final String path;
   final ModelParams params;
   LoadModelCtl(this.path, this.params);
@@ -26,7 +26,7 @@ class LoadModelCtl extends ControlMessage {
       LoadModelProgressResp(id, progress);
 }
 
-class FreeModelCtl extends ControlMessage {
+final class FreeModelCtl extends ControlMessage {
   final Model model;
   FreeModelCtl(this.model);
 
@@ -34,7 +34,7 @@ class FreeModelCtl extends ControlMessage {
   FreeModelResp error(Object err) => FreeModelResp(id, err: err);
 }
 
-class NewContextCtl extends ControlMessage {
+final class NewContextCtl extends ControlMessage {
   final Model model;
   final ContextParams params;
   NewContextCtl(this.model, this.params);
@@ -43,7 +43,7 @@ class NewContextCtl extends ControlMessage {
   NewContextResp error(Object err) => NewContextResp(id, err: err);
 }
 
-class FreeContextCtl extends ControlMessage {
+final class FreeContextCtl extends ControlMessage {
   final Context ctx;
   FreeContextCtl(this.ctx);
 
@@ -51,7 +51,7 @@ class FreeContextCtl extends ControlMessage {
   FreeContextResp error(Object err) => FreeContextResp(id, err: err);
 }
 
-class TokenizeCtl extends ControlMessage {
+final class TokenizeCtl extends ControlMessage {
   final Context ctx;
   final String text;
   final bool addBos;
@@ -61,7 +61,7 @@ class TokenizeCtl extends ControlMessage {
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);
 }
 
-class IngestCtl extends ControlMessage {
+final class IngestCtl extends ControlMessage {
   final Context ctx;
   IngestCtl(this.ctx);
 
@@ -69,7 +69,7 @@ class IngestCtl extends ControlMessage {
   IngestResp error(Object err) => IngestResp(id, err: err);
 }
 
-class GenerateCtl extends ControlMessage {
+final class GenerateCtl extends ControlMessage {
   final Context ctx;
   final String prompt;
   final List<Sampler> samplers;
