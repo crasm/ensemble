@@ -1,8 +1,6 @@
-import 'dart:isolate';
+import 'dart:isolate'; // for log events from llama.cpp
 
 import 'package:logging/logging.dart';
-
-import 'package:ensemble_llama/llama_ffi.dart' show ggml_log_level;
 
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/isolate.dart';
@@ -15,31 +13,9 @@ typedef Model = int;
 typedef Context = int;
 typedef Token = ({int id, String text});
 
-final class LogMessage {
-  final int level;
-  final String text;
-  const LogMessage({
-    required this.level,
-    required this.text,
-  });
-
-  @override
-  String toString() {
-    String levelStr = switch (level) {
-      ggml_log_level.GGML_LOG_LEVEL_ERROR => 'ERROR',
-      ggml_log_level.GGML_LOG_LEVEL_WARN => 'WARN',
-      ggml_log_level.GGML_LOG_LEVEL_INFO => 'INFO',
-      _ => throw Exception("Unknown log level: $level"),
-    };
-
-    return "$levelStr: $text";
-  }
-}
-
 final class Llama with Disposable {
   final _log = Logger('Llama');
 
-  late final Stream<LogMessage> log;
   late final Stream<ResponseMessage> _responseStream;
 
   final _logPort = ReceivePort();
@@ -48,24 +24,32 @@ final class Llama with Disposable {
   late final SendPort _controlPort;
 
   Llama._() {
-    log = _logPort.asBroadcastStream().cast<LogMessage>();
     _responseStream = _responsePort.asBroadcastStream().cast<ResponseMessage>();
   }
 
-  static Future<Llama> create() async {
+  static Future<Llama> create({bool? disableGgmlLog}) async {
     final llama = Llama._();
 
-    Isolate.spawn(
-      init,
-      (log: llama._logPort.sendPort, response: llama._responsePort.sendPort),
-    );
+    Isolate.spawn(init, (
+      response: llama._responsePort.sendPort,
+      log: llama._logPort.sendPort,
+      logLevel: Logger.root.level,
+      disableGgmlLog: disableGgmlLog ?? false,
+    ));
 
     final resp = await llama._responseStream.first as HandshakeResp;
     llama._controlPort = resp.controlPort;
 
     llama._responseStream.listen((e) {
-      llama._log.finest(() => "received resp $e");
+      llama._log.finest(() => " got $e");
     });
+
+    llama._logPort.listen((e) {
+      // _log._publish(e as LogRecord);
+      final record = e as LogRecord;
+      llama._log.log(record.level, () => record.message);
+    });
+
     return llama;
   }
 
@@ -73,12 +57,12 @@ final class Llama with Disposable {
   Future<void> dispose() async {
     super.dispose();
     await _send(ExitCtl());
-    _logPort.close();
     _responsePort.close();
+    _logPort.close();
   }
 
   int _sendCtl(ControlMessage ctl) {
-    _log.finest(() => "sent ctl $ctl");
+    _log.finest(() => "sent $ctl");
     _controlPort.send(ctl);
     return ctl.id;
   }

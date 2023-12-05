@@ -9,6 +9,8 @@ sealed class ControlMessage {
   static int _nextId = 1;
   final int id = _nextId++;
   ControlMessage();
+  @override
+  String toString() => "$runtimeType #$id";
 }
 
 final class ExitCtl extends ControlMessage {
@@ -19,6 +21,8 @@ final class LoadModelCtl extends ControlMessage {
   final String path;
   final ModelParams params;
   LoadModelCtl(this.path, this.params);
+  @override
+  String toString() => "LoadModelCtl #$id {\n  path: $path\n}"; // TODO: params?
 
   LoadModelResp done(Model model) => LoadModelResp(id, model: model);
   LoadModelResp error(Object err) => LoadModelResp(id, err: err);
@@ -29,6 +33,8 @@ final class LoadModelCtl extends ControlMessage {
 final class FreeModelCtl extends ControlMessage {
   final Model model;
   FreeModelCtl(this.model);
+  @override
+  String toString() => "FreeModelCtl #$id { model: $model }";
 
   FreeModelResp done() => FreeModelResp(id);
   FreeModelResp error(Object err) => FreeModelResp(id, err: err);
@@ -38,6 +44,8 @@ final class NewContextCtl extends ControlMessage {
   final Model model;
   final ContextParams params;
   NewContextCtl(this.model, this.params);
+  @override
+  String toString() => "NewContextCtl #$id { model: $model }"; // TODO: params?
 
   NewContextResp done(Context ctx) => NewContextResp(id, ctx: ctx);
   NewContextResp error(Object err) => NewContextResp(id, err: err);
@@ -46,6 +54,8 @@ final class NewContextCtl extends ControlMessage {
 final class FreeContextCtl extends ControlMessage {
   final Context ctx;
   FreeContextCtl(this.ctx);
+  @override
+  String toString() => "FreeContextCtl #$id { ctx: $ctx }";
 
   FreeContextResp done() => FreeContextResp(id);
   FreeContextResp error(Object err) => FreeContextResp(id, err: err);
@@ -56,6 +66,9 @@ final class TokenizeCtl extends ControlMessage {
   final String text;
   final bool addBos;
   TokenizeCtl(this.ctx, this.text, {required this.addBos});
+  @override
+  String toString() =>
+      "TokenizeCtl #$id { ctx: $ctx, addBos: $addBos, text: ```\n$text\n```}";
 
   TokenizeResp done(List<Token> tokens) => TokenizeResp(id, tokens: tokens);
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);
@@ -64,6 +77,8 @@ final class TokenizeCtl extends ControlMessage {
 final class IngestCtl extends ControlMessage {
   final Context ctx;
   IngestCtl(this.ctx);
+  @override
+  String toString() => "IngestCtl #$id { ctx: $ctx }";
 
   IngestResp done() => IngestResp(id);
   IngestResp error(Object err) => IngestResp(id, err: err);
@@ -72,8 +87,10 @@ final class IngestCtl extends ControlMessage {
 final class GenerateCtl extends ControlMessage {
   final Context ctx;
   final List<Sampler> samplers;
-
   GenerateCtl(this.ctx, this.samplers);
+  @override
+  String toString() =>
+      "GenerateCtl #$id { ctx: $ctx, samplers: [\n${samplers.map((s) => '  $s').join('\n')}\n]}";
 
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);

@@ -1,4 +1,5 @@
 import 'package:ensemble_llama/llama.dart';
+import 'package:ensemble_llama/src/common.dart';
 
 import 'dart:io';
 
@@ -13,14 +14,7 @@ void _tokenize(String text) async {
     ctx = await llama.newContext(model);
     final tokens = await llama.tokenize(ctx, text);
     for (var i = 0; i < tokens.length; i++) {
-      stdout.write(i.toString().padLeft(4));
-      stdout.write(":");
-      stdout.write(tokens[i].id.toString().padLeft(6));
-      stdout.write(" = ");
-      stdout.write(
-        tokens[i].text.replaceAll(" ", "▁").replaceAll("\n", "<0x0A>"),
-      );
-      stdout.writeln();
+      stdout.writeln(tokens[i].toLogString(i));
     }
   } finally {
     if (ctx != null) llama?.freeContext(ctx);

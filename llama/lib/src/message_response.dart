@@ -17,6 +17,9 @@ sealed class ResponseMessage {
       int id) {
     return (resp) => resp is T && resp.id == id;
   }
+
+  @override
+  String toString() => "$runtimeType #$id";
 }
 
 final class HandshakeResp extends ResponseMessage {
@@ -32,11 +35,16 @@ final class ExitResp extends ResponseMessage {
 final class LoadModelResp extends ResponseMessage {
   final Model? model;
   const LoadModelResp(super.id, {super.err, this.model});
+  @override
+  String toString() => "LoadModelResp #$id { model: $model }";
 }
 
 final class LoadModelProgressResp extends ResponseMessage {
   final double progress;
   const LoadModelProgressResp(super.id, this.progress);
+  @override
+  String toString() =>
+      "LoadModelProgressResp #$id { progress: ${progress.toStringAsFixed(5)} }";
 }
 
 final class FreeModelResp extends ResponseMessage {
@@ -46,6 +54,8 @@ final class FreeModelResp extends ResponseMessage {
 final class NewContextResp extends ResponseMessage {
   final Context? ctx;
   const NewContextResp(super.id, {super.err, this.ctx});
+  @override
+  String toString() => "NewContextResp #$id { ctx: $ctx }";
 }
 
 final class FreeContextResp extends ResponseMessage {
@@ -55,6 +65,17 @@ final class FreeContextResp extends ResponseMessage {
 final class TokenizeResp extends ResponseMessage {
   final List<Token> tokens;
   const TokenizeResp(super.id, {super.err, this.tokens = const []});
+  @override
+  String toString() {
+    final buf = StringBuffer("TokenizeResp#");
+    buf.write(id);
+    buf.write("{tokens: [\n");
+    for (int i = 0; i < tokens.length; i++) {
+      buf.writeln(tokens[i].toLogString(i));
+    }
+    buf.writeln("]}");
+    return buf.toString();
+  }
 }
 
 final class IngestResp extends ResponseMessage {
@@ -68,4 +89,6 @@ final class GenerateResp extends ResponseMessage {
 final class GenerateTokenResp extends ResponseMessage {
   final Token tok;
   const GenerateTokenResp(super.id, this.tok);
+  @override
+  String toString() => "GenerateTokenResp #$id { ${tok.toLogString()} }";
 }

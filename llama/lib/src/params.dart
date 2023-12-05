@@ -1,30 +1,10 @@
 import 'package:ensemble_llama/llama_ffi.dart';
 import 'package:ensemble_llama/src/common.dart';
 
-bool between(num x, num a, num b) => x >= a && x <= b;
-
 extension on num {
-  void checkNotNaN(String name) {
-    if (isNaN) {
-      throw RangeError.value(this, name);
-    }
-  }
-
   void checkIncInc(num start, num end, String name) {
     if (!(this >= start && this <= end)) {
       throw RangeError.value(this, name, "must be between [$start, $end]");
-    }
-  }
-
-  void checkZeroToOne(String name) {
-    if (!(this >= 0.0 && this <= 1.0)) {
-      throw RangeError.value(this, name, "must be between [0.0, 1.0]");
-    }
-  }
-
-  void checkGT(num min, String name) {
-    if (!(this > min)) {
-      throw RangeError.value(this, name, "must be greater than $min");
     }
   }
 

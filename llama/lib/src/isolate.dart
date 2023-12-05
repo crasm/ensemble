@@ -2,9 +2,9 @@ import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
+import 'package:logging/logging.dart';
 
 import 'package:ensemble_llama/llama_ffi.dart';
-import 'package:ensemble_llama/src/llama.dart' as pub;
 import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/sampling.dart';
@@ -29,29 +29,52 @@ final class _DefaultLastSampler implements Sampler {
       Token.fromId(ctx, llama_sample_token(ctx.pointer, cands.pointer));
 }
 
-late final SendPort _log;
+final _log = Logger('LlamaCppIsolate');
+
+late final SendPort _logPort;
 late final SendPort _response;
 
 final ReceivePort _controlPort = ReceivePort();
 final Stream<ControlMessage> _control = _controlPort.cast<ControlMessage>();
 
-void init(({SendPort log, SendPort response}) args) {
-  _log = args.log;
+void init(
+    ({
+      SendPort response,
+      SendPort log,
+      Level logLevel,
+      bool disableGgmlLog,
+    }) args) {
   _response = args.response;
+
+  _logPort = args.log;
+  Logger.root.level = args.logLevel;
+  Logger.root.onRecord.listen(_logPort.send);
 
   _control.listen(_onControl);
   HandshakeResp(_controlPort.sendPort).send();
 
   llama_backend_init(false);
-  llama_log_set(
-    Pointer.fromFunction(_onLlamaLog),
-    Pointer.fromAddress(0), // not used
-  );
+  if (!args.disableGgmlLog) {
+    _log.info("llama.cpp logs enabled");
+    llama_log_set(
+      Pointer.fromFunction(_onLlamaLog),
+      Pointer.fromAddress(0), // not used
+    );
+  } else {
+    _log.info("llama.cpp logs disabled");
+  }
 }
 
-void _onLlamaLog(int level, Pointer<Char> text, Pointer<Void> userData) =>
-    _log.send(pub.LogMessage(
-        level: level, text: text.cast<Utf8>().toDartString().trimRight()));
+void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
+  final level = switch (levelGgml) {
+    ggml_log_level.GGML_LOG_LEVEL_ERROR => Level.SEVERE,
+    ggml_log_level.GGML_LOG_LEVEL_WARN => Level.WARNING,
+    ggml_log_level.GGML_LOG_LEVEL_INFO => Level.FINER,
+    _ => throw Exception("Unknown log level: $levelGgml"),
+  };
+
+  _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
+}
 
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
     LoadModelProgressResp(id.address, progress).send();
