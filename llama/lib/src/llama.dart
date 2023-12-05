@@ -69,8 +69,7 @@ final class Llama with Disposable {
 
   Future<T> _send<T extends ResponseMessage>(ControlMessage ctl) async {
     final id = _sendCtl(ctl);
-    T resp =
-        (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
+    T resp = (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
     resp.throwIfErr();
     return resp;
   }
@@ -142,8 +141,7 @@ final class Llama with Disposable {
           case HandshakeResp():
             genPort = resp.controlPort;
           default:
-            throw AssertionError(
-                "unexpected response ($resp), but valid id (${resp.id})");
+            throw AssertionError("unexpected response ($resp), but valid id (${resp.id})");
         }
       }
     } finally {

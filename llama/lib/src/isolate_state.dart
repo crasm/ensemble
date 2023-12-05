@@ -33,8 +33,7 @@ final class State {
   Context removeContext(pub.Context id) =>
       contexts.remove(id) ?? (throw ArgumentError.value(id, "not found"));
 
-  Model getModel(pub.Model id) =>
-      models[id] ?? (throw ArgumentError.value(id, "not found"));
+  Model getModel(pub.Model id) => models[id] ?? (throw ArgumentError.value(id, "not found"));
 
   Context getContext(pub.Context id) =>
       contexts[id] ?? (throw ArgumentError.value(id, "not found"));

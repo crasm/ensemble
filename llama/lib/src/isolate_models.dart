@@ -13,8 +13,7 @@ final class Model {
 
   Model(this.rawPointer);
 
-  Pointer<llama_model> get pointer =>
-      Pointer.fromAddress(rawPointer).cast<llama_model>();
+  Pointer<llama_model> get pointer => Pointer.fromAddress(rawPointer).cast<llama_model>();
 
   @override
   String toString() => "Model{$rawPointer}";
@@ -41,8 +40,7 @@ final class Context with Disposable {
     candidates = Candidates(llama_n_vocab(model.pointer));
   }
 
-  Pointer<llama_context> get pointer =>
-      Pointer.fromAddress(rawPointer).cast<llama_context>();
+  Pointer<llama_context> get pointer => Pointer.fromAddress(rawPointer).cast<llama_context>();
 
   @override
   void dispose() {
@@ -61,8 +59,7 @@ final class Token {
   const Token(this.id, this.text, this.rawText);
 
   factory Token.fromId(Context ctx, int id) {
-    final str =
-        llama_token_get_text(ctx.model.pointer, id).cast<Utf8>().toDartString();
+    final str = llama_token_get_text(ctx.model.pointer, id).cast<Utf8>().toDartString();
     return Token(
       id,
       str
@@ -180,8 +177,7 @@ final class TokenBuf with Disposable {
     checkDisposed();
     assert(length <= capacity);
     if (_length == capacity) {
-      throw Exception(
-          "tried to store $_length tokens in $capacity token buffer");
+      throw Exception("tried to store $_length tokens in $capacity token buffer");
     }
     buf[_length++] = tokId;
   }

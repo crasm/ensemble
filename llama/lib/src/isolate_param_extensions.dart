@@ -21,8 +21,8 @@ extension ContextParamConverter on llama_context_params {
     n_threads = p.threads;
     n_threads_batch = p.batchThreads;
 
-    rope_scaling_type = p.rope?.llamaRopeScalingType() ??
-        llama_rope_scaling_type.LLAMA_ROPE_SCALING_UNSPECIFIED;
+    rope_scaling_type =
+        p.rope?.llamaRopeScalingType() ?? llama_rope_scaling_type.LLAMA_ROPE_SCALING_UNSPECIFIED;
     if (p.rope is RopeLinear) {
       final rope = p.rope as RopeLinear;
       rope_freq_base = rope.freqBase;

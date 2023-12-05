@@ -10,7 +10,8 @@ void _tokenize(String text) async {
   try {
     llama = await Llama.create();
     model = await llama.loadModel(
-        "/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf");
+      "/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf",
+    );
     ctx = await llama.newContext(model);
     final tokens = await llama.tokenize(ctx, text);
     for (var i = 0; i < tokens.length; i++) {

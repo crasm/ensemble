@@ -13,8 +13,7 @@ sealed class ResponseMessage {
     }
   }
 
-  static bool Function(ResponseMessage) matches<T extends ResponseMessage>(
-      int id) {
+  static bool Function(ResponseMessage) matches<T extends ResponseMessage>(int id) {
     return (resp) => resp is T && resp.id == id;
   }
 
@@ -43,8 +42,7 @@ final class LoadModelProgressResp extends ResponseMessage {
   final double progress;
   const LoadModelProgressResp(super.id, this.progress);
   @override
-  String toString() =>
-      "LoadModelProgressResp #$id { progress: ${progress.toStringAsFixed(5)} }";
+  String toString() => "LoadModelProgressResp #$id { progress: ${progress.toStringAsFixed(5)} }";
 }
 
 final class FreeModelResp extends ResponseMessage {

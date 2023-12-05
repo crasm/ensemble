@@ -20,8 +20,7 @@ void main(List<String> args) async {
   final src = path.join(buildConfig.packageRoot.toFilePath(), 'src').toString();
 
   stderr.writeln(buildConfig);
-  final proc =
-      await Process.start('make', ['libllama.so'], workingDirectory: src);
+  final proc = await Process.start('make', ['libllama.so'], workingDirectory: src);
 
   proc.stdout.transform(utf8.decoder).forEach(stderr.write);
   proc.stderr.transform(utf8.decoder).forEach(stderr.write);

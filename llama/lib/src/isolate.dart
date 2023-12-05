@@ -135,8 +135,7 @@ void _freeModel(FreeModelCtl ctl) {
     final model = state.removeModel(ctl.model);
     final ctxs = state.contextsForModel[ctl.model];
     if (ctxs != null && ctxs.isNotEmpty) {
-      throw StateError(
-          "${ctxs.length} contexts are still active for this model");
+      throw StateError("${ctxs.length} contexts are still active for this model");
     }
 
     llama_free_model(model.pointer);
@@ -165,14 +164,12 @@ void _freeContext(FreeContextCtl ctl) {
   try {
     final ctx = state.removeContext(ctl.ctx);
     if (!state.models.containsKey(ctx.model.id)) {
-      throw StateError(
-          "found Context#${ctl.ctx}, but missing Model#{${ctx.model.id}");
+      throw StateError("found Context#${ctl.ctx}, but missing Model#{${ctx.model.id}");
     }
 
     final ctxSet = state.contextsForModel[ctx.model.id];
     if (ctxSet == null || !ctxSet.remove(ctl.ctx)) {
-      throw StateError(
-          "found Context#{ctl.ctx}, but missing from _contextsForModel");
+      throw StateError("found Context#{ctl.ctx}, but missing from _contextsForModel");
     }
 
     llama_free(ctx.pointer);
@@ -346,7 +343,6 @@ void _generate(GenerateCtl ctl) async {
 
     ctl.done().send();
   } catch (e) {
-    // rethrow; // for debugging
     ctl.error(e).send();
   } finally {
     for (final s in ctl.samplers) {

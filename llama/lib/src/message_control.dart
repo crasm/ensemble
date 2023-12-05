@@ -26,8 +26,7 @@ final class LoadModelCtl extends ControlMessage {
 
   LoadModelResp done(Model model) => LoadModelResp(id, model: model);
   LoadModelResp error(Object err) => LoadModelResp(id, err: err);
-  LoadModelProgressResp progress(double progress) =>
-      LoadModelProgressResp(id, progress);
+  LoadModelProgressResp progress(double progress) => LoadModelProgressResp(id, progress);
 }
 
 final class FreeModelCtl extends ControlMessage {
@@ -67,8 +66,7 @@ final class TokenizeCtl extends ControlMessage {
   final bool addBos;
   TokenizeCtl(this.ctx, this.text, {required this.addBos});
   @override
-  String toString() =>
-      "TokenizeCtl #$id { ctx: $ctx, addBos: $addBos, text: ```\n$text\n```}";
+  String toString() => "TokenizeCtl #$id { ctx: $ctx, addBos: $addBos, text: ```\n$text\n```}";
 
   TokenizeResp done(List<Token> tokens) => TokenizeResp(id, tokens: tokens);
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);

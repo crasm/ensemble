@@ -13,8 +13,7 @@ extension TokenLogString on Token {
     }
     buf.write(id.toString().padLeft(6));
     buf.write(" = ");
-    buf.write(
-        text.replaceAll(" ", "▁").replaceAll("\n", "<0x0A>").padRight(10));
+    buf.write(text.replaceAll(" ", "▁").replaceAll("\n", "<0x0A>").padRight(10));
     return buf.toString();
   }
 }

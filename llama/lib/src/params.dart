@@ -10,8 +10,7 @@ extension on num {
 
   void checkGTE(num min, String name) {
     if (!(this >= min)) {
-      throw RangeError.value(
-          this, name, "must be greater than or equal to $min");
+      throw RangeError.value(this, name, "must be greater than or equal to $min");
     }
   }
 }
@@ -89,8 +88,7 @@ final class RopeLinear extends Rope {
         assert(freqScale > 0.0 && freqScale <= 1.0);
 
   @override
-  int llamaRopeScalingType() =>
-      llama_rope_scaling_type.LLAMA_ROPE_SCALING_LINEAR;
+  int llamaRopeScalingType() => llama_rope_scaling_type.LLAMA_ROPE_SCALING_LINEAR;
 }
 
 // TODO: test yarn

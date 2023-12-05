@@ -237,8 +237,7 @@ final class MirostatV1 extends Mirostat {
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     final m = 100;
-    final tokId = llama_sample_token_mirostat(
-        ctx.pointer, cands.pointer, tau, eta, m, _mu);
+    final tokId = llama_sample_token_mirostat(ctx.pointer, cands.pointer, tau, eta, m, _mu);
     return Token.fromId(ctx, tokId);
   }
 }
@@ -247,8 +246,7 @@ final class MirostatV2 extends Mirostat {
   MirostatV2([super.tau, super.eta]);
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
-    final tokId = llama_sample_token_mirostat_v2(
-        ctx.pointer, cands.pointer, tau, eta, _mu);
+    final tokId = llama_sample_token_mirostat_v2(ctx.pointer, cands.pointer, tau, eta, _mu);
     return Token.fromId(ctx, tokId);
   }
 }
