@@ -5,9 +5,9 @@ import 'package:ensemble_llama/src/params.dart';
 State get state => State._singleton;
 
 final class State {
-  final Map<pub.Model, Model> models = {};
-  final Map<pub.Context, Context> contexts = {};
-  final Map<pub.Model, Set<pub.Context>> contextsForModel = {};
+  final Map<int, Model> models = {}; // modelId => Model
+  final Map<int, Context> contexts = {}; // ctxId => Context
+  final Map<int, Set<int>> contextsForModel = {}; // modelId => { ctxId, ctxId, ... }
 
   static final State _singleton = State._();
   State._();
@@ -15,7 +15,7 @@ final class State {
   pub.Model addModel(int rawModel) {
     final model = Model(rawModel);
     models[model.id] = model;
-    return model.id;
+    return pub.Model(model.id);
   }
 
   pub.Context addContext(int rawCtx, Model model, ContextParams params) {
@@ -24,17 +24,18 @@ final class State {
 
     contextsForModel[model.id] ??= {};
     contextsForModel[model.id]!.add(ctx.id);
-    return ctx.id;
+    return pub.Context(ctx.id);
   }
 
-  Model removeModel(pub.Model id) =>
-      models.remove(id) ?? (throw ArgumentError.value(id, "not found"));
+  Model removeModel(pub.Model model) =>
+      models.remove(model.id) ?? (throw ArgumentError.value(model, "not found"));
 
-  Context removeContext(pub.Context id) =>
-      contexts.remove(id) ?? (throw ArgumentError.value(id, "not found"));
+  Context removeContext(pub.Context ctx) =>
+      contexts.remove(ctx.id) ?? (throw ArgumentError.value(ctx, "not found"));
 
-  Model getModel(pub.Model id) => models[id] ?? (throw ArgumentError.value(id, "not found"));
+  Model getModel(pub.Model model) =>
+      models[model.id] ?? (throw ArgumentError.value(model, "not found"));
 
-  Context getContext(pub.Context id) =>
-      contexts[id] ?? (throw ArgumentError.value(id, "not found"));
+  Context getContext(pub.Context ctx) =>
+      contexts[ctx.id] ?? (throw ArgumentError.value(ctx, "not found"));
 }

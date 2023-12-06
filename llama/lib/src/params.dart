@@ -1,20 +1,6 @@
 import 'package:ensemble_llama/llama_ffi.dart';
 import 'package:ensemble_llama/src/common.dart';
 
-extension on num {
-  void checkIncInc(num start, num end, String name) {
-    if (!(this >= start && this <= end)) {
-      throw RangeError.value(this, name, "must be between [$start, $end]");
-    }
-  }
-
-  void checkGTE(num min, String name) {
-    if (!(this >= min)) {
-      throw RangeError.value(this, name, "must be greater than or equal to $min");
-    }
-  }
-}
-
 // TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
 final class ModelParams {
   final int gpuLayers;

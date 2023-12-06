@@ -9,8 +9,32 @@ import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
 import 'package:ensemble_llama/src/sampling.dart';
 
-typedef Model = int;
-typedef Context = int;
+final class Model {
+  final int id;
+  const Model(this.id);
+
+  @override
+  String toString() => "Model #$id";
+
+  @override
+  bool operator ==(Object? other) => other is Model && other.id == id;
+  @override
+  int get hashCode => id.hashCode;
+}
+
+final class Context {
+  final int id;
+  const Context(this.id);
+
+  @override
+  String toString() => "Context #$id";
+
+  @override
+  bool operator ==(Object? other) => other is Context && other.id == id;
+  @override
+  int get hashCode => id.hashCode;
+}
+
 typedef Token = ({int id, String text});
 
 final class Llama with Disposable {
@@ -109,21 +133,23 @@ final class Llama with Disposable {
   }
 
   /// Tokenize and add [text] to this [ctx].
+  ///
+  /// This does not ingest or decode the text, so it computationally cheap.
   Future<List<Token>> add(Context ctx, String text) async {
     checkDisposed();
     final tokens = (await _send<TokenizeResp>(TokenizeCtl(ctx, text))).tokens;
     return tokens;
   }
 
-  /// Resets the stored tokens in [ctx] in preparation for adding new ones.
+  /// Clears and resets the stored tokens in [ctx].
   Future<void> clear(Context ctx) async {
     checkDisposed();
-    // TODO
-    // await _send<EditResp>(EditCtl(offset: 0));
+    await _send<EditResp>(EditCtl(ctx, length: 0));
   }
 
-  /// Decodes the tokens that have been added to [ctx] in preparation for
-  /// generating tokens.
+  /// Decodes the tokens that have been added to [ctx].
+  ///
+  /// This is computationally expensive.
   Future<void> ingest(Context ctx) async {
     checkDisposed();
     await _send<IngestResp>(IngestCtl(ctx));

@@ -71,6 +71,17 @@ final class TokenizeCtl extends ControlMessage {
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);
 }
 
+final class EditCtl extends ControlMessage {
+  final Context ctx;
+  final int? length;
+  EditCtl(this.ctx, {this.length});
+  @override
+  String toString() => "EditCtl #$id { ctx: $ctx, offset: $length }";
+
+  EditResp done() => EditResp(id);
+  EditResp error(Object err) => EditResp(id, err: err);
+}
+
 final class IngestCtl extends ControlMessage {
   final Context ctx;
   IngestCtl(this.ctx);

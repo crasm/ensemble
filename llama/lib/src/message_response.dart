@@ -76,6 +76,10 @@ final class TokenizeResp extends ResponseMessage {
   }
 }
 
+final class EditResp extends ResponseMessage {
+  const EditResp(super.id, {super.err});
+}
+
 final class IngestResp extends ResponseMessage {
   const IngestResp(super.id, {super.err});
 }

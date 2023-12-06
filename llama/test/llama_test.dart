@@ -132,6 +132,22 @@ void main() {
       assert(false, "no error thrown");
     });
 
-    // test('tokenize ingest tokenize ingest generate', () async {});
+    test('tokenize multiple add/ingest generate', () async {
+      ctx = await llama.newContext(model,
+          params: ContextParams(
+            seed: 1,
+            contextSizeTokens: 19,
+            batchSizeTokens: 19,
+          ));
+      await llama.add(ctx, "It's the end");
+      await llama.ingest(ctx);
+      await llama.add(ctx, " of the world");
+      await llama.ingest(ctx);
+      await llama.add(ctx, " as we know it, and");
+      await llama.ingest(ctx);
+
+      final gen = await llama.generate(ctx).map((a) => a.text).reduce((a, b) => a + b);
+      expect(gen, " I feel fine.");
+    });
   });
 }

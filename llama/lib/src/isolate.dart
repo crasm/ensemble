@@ -93,6 +93,8 @@ void _onControl(ControlMessage ctl) {
       _freeContext(ctl);
     case TokenizeCtl():
       _tokenize(ctl);
+    case EditCtl():
+      _edit(ctl);
     case IngestCtl():
       _ingest(ctl);
     case GenerateCtl():
@@ -164,12 +166,12 @@ void _freeContext(FreeContextCtl ctl) {
   try {
     final ctx = state.removeContext(ctl.ctx);
     if (!state.models.containsKey(ctx.model.id)) {
-      throw StateError("found Context#${ctl.ctx}, but missing Model#{${ctx.model.id}");
+      throw StateError("found ${ctl.ctx}, but missing ${ctx.model}");
     }
 
     final ctxSet = state.contextsForModel[ctx.model.id];
-    if (ctxSet == null || !ctxSet.remove(ctl.ctx)) {
-      throw StateError("found Context#{ctl.ctx}, but missing from _contextsForModel");
+    if (ctxSet == null || !ctxSet.remove(ctl.ctx.id)) {
+      throw StateError("found ${ctl.ctx}, but not associated with a model");
     }
 
     llama_free(ctx.pointer);
@@ -186,6 +188,18 @@ void _tokenize(TokenizeCtl ctl) {
     final ctx = state.getContext(ctl.ctx);
     final numToks = ctx.tokens.addFromString(ctx, ctl.text);
     ctl.done(ctx.tokens.toList(ctx, numToks)).send();
+  } catch (e) {
+    ctl.error(e).send();
+  }
+}
+
+void _edit(EditCtl ctl) {
+  try {
+    final ctx = state.getContext(ctl.ctx);
+    if (ctl.length != null) {
+      ctx.tokens.length = ctl.length!;
+    }
+    ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
   }

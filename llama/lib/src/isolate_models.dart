@@ -4,13 +4,14 @@ import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
 
 import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/llama.dart' as pub;
 import 'package:ensemble_llama/src/params.dart' show ContextParams;
 
 final class Model {
-  static pub.Model _nextModel = 1;
-  final pub.Model id = _nextModel++;
+  static int _nextId = 1;
+  final int id = _nextId++;
   final int rawPointer;
 
   Model(this.rawPointer);
@@ -22,8 +23,8 @@ final class Model {
 }
 
 final class Context with Disposable {
-  static pub.Context _nextContext = 1;
-  final pub.Context id = _nextContext++;
+  static int _nextId = 1;
+  final int id = _nextId++;
   final int rawPointer;
   final Model model;
   final ContextParams params;
@@ -78,14 +79,13 @@ final class Token {
   pub.Token get record => (id: id, text: text);
 
   @override
-  bool operator ==(Object other) => other is Token && other.id == id;
-
-  @override
-  int get hashCode => id;
-
-  @override
   String toString() => text;
   String toStringForLogging() => "${id.toString().padLeft(5)} = $rawText\n";
+
+  @override
+  bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
+  @override
+  int get hashCode => id.hashCode + rawText.hashCode;
 }
 
 // Stores an array of candidate tokens and their logit probabilities.
@@ -159,6 +159,12 @@ final class TokenBuf with Disposable {
   int _length = 0;
   int get length => _length;
   bool get isEmpty => _length == 0;
+
+  set length(int value) {
+    checkDisposed();
+    value.checkIncInc(0, capacity, 'length');
+    _length = value;
+  }
 
   final Pointer<Int32> buf;
   final int capacity;
