@@ -71,7 +71,7 @@ final class TokenizeResp extends ResponseMessage {
     for (int i = 0; i < tokens.length; i++) {
       buf.writeln(tokens[i].toLogString(i));
     }
-    buf.writeln("]}");
+    buf.write("]}");
     return buf.toString();
   }
 }

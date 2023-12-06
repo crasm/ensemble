@@ -108,26 +108,49 @@ final class Llama with Disposable {
     await _send(FreeContextCtl(ctx));
   }
 
-  Future<List<Token>> tokenize(Context ctx, String prompt) async {
+  /// Tokenize and add [text] to this [ctx].
+  Future<List<Token>> add(Context ctx, String text) async {
     checkDisposed();
-    final resp = await _send<TokenizeResp>(
-      TokenizeCtl(ctx, prompt, addBos: true),
-    );
-    return resp.tokens;
+    final tokens = (await _send<TokenizeResp>(TokenizeCtl(ctx, text))).tokens;
+    return tokens;
   }
 
+  /// Resets the stored tokens in [ctx] in preparation for adding new ones.
+  Future<void> clear(Context ctx) async {
+    checkDisposed();
+    // TODO
+    // await _send<EditResp>(EditCtl(offset: 0));
+  }
+
+  /// Decodes the tokens that have been added to [ctx] in preparation for
+  /// generating tokens.
+  Future<void> ingest(Context ctx) async {
+    checkDisposed();
+    await _send<IngestResp>(IngestCtl(ctx));
+  }
+
+  /// Runs inference to generate new tokens, constrained by [samplers].
+  ///
+  /// If no samplers are provided, greedy sampling will be used.
+  ///
+  /// If [prompt] is not null, then any existing token state in [ctx] will be
+  /// cleared and [prompt] will be added to the context/ingested.
   Stream<Token> generate(
-    Context ctx,
-    String prompt, {
+    Context ctx, {
+    String? prompt,
     List<Sampler> samplers = const [],
   }) async* {
     checkDisposed();
     SendPort? genPort;
     try {
       if (samplers.isEmpty) samplers = [Temperature(0.0)];
-
-      await _send(TokenizeCtl(ctx, prompt, addBos: true));
-      await _send(IngestCtl(ctx));
+      if (prompt != null) {
+        await clear(ctx);
+        await add(ctx, prompt);
+        _log.info("set context tokens to prompt");
+        await ingest(ctx);
+        _log.info("finished ingesting prompt");
+      }
 
       final id = _sendCtl(GenerateCtl(ctx, samplers));
       await for (final resp in _responseStream) {
@@ -136,6 +159,7 @@ final class Llama with Disposable {
           case GenerateTokenResp():
             yield resp.tok;
           case GenerateResp():
+            genPort = null;
             resp.throwIfErr();
             return;
           case HandshakeResp():
@@ -145,7 +169,10 @@ final class Llama with Disposable {
         }
       }
     } finally {
-      genPort?.send(0);
+      if (genPort != null) {
+        genPort.send(0);
+        _log.info("generation canceled");
+      }
     }
   }
 }

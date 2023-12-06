@@ -37,7 +37,7 @@ void main() async {
 
     final tokStream = llama.generate(
       ctx,
-      "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
+      prompt: "A chat.\nUser: How can I make my own peanut butter?\nAssistant:",
       samplers: [
         RepetitionPenalty(lastN: 256, penalty: 1.1),
         Temperature(0.45),

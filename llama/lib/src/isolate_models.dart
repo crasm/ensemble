@@ -1,6 +1,8 @@
 import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
+import 'package:logging/logging.dart';
+
 import 'package:ensemble_llama/llama_ffi.dart';
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/llama.dart' as pub;
@@ -49,6 +51,9 @@ final class Context with Disposable {
     llama_batch_free(batch);
     candidates.dispose();
   }
+
+  @override
+  String toString() => "Context #$id";
 }
 
 final class Token {
@@ -149,8 +154,11 @@ final class Candidates with Disposable {
 }
 
 final class TokenBuf with Disposable {
+  static final _log = Logger('TokenBuf');
+
   int _length = 0;
   int get length => _length;
+  bool get isEmpty => _length == 0;
 
   final Pointer<Int32> buf;
   final int capacity;
@@ -182,15 +190,18 @@ final class TokenBuf with Disposable {
     buf[_length++] = tokId;
   }
 
-  /// Tokenizes [text] with the [ctx.model] and returns the number of tokens.
+  /// Tokenizes [text] with the [ctx.model], adds them to this [TokenBuf], and
+  /// returns the number of tokens.
   ///
-  /// [addBos] should only be true when tokenizing the initial prompt.
-  int addFromString(Context ctx, String text, bool addBos) {
+  /// Does not modify [ctx].
+  int addFromString(Context ctx, String text) {
     checkDisposed();
     final int remainingCapacity = capacity - _length;
     Pointer<Utf8>? utf;
     try {
       utf = text.toNativeUtf8(allocator: calloc);
+
+      final addBos = isEmpty;
       final numTokens = llama_tokenize(
         ctx.model.pointer,
         utf.cast<Char>(),
@@ -200,6 +211,8 @@ final class TokenBuf with Disposable {
         addBos, // add Beginning-Of-Stream token
         false, // tokenize meta tokens (like BOS/EOS)
       );
+
+      if (addBos) _log.fine(() => "Added BOS token to $ctx");
 
       if (numTokens < 0) {
         throw Exception("llama_tokenize failed with $numTokens");

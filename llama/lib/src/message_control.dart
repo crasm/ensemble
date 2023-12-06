@@ -63,10 +63,9 @@ final class FreeContextCtl extends ControlMessage {
 final class TokenizeCtl extends ControlMessage {
   final Context ctx;
   final String text;
-  final bool addBos;
-  TokenizeCtl(this.ctx, this.text, {required this.addBos});
+  TokenizeCtl(this.ctx, this.text);
   @override
-  String toString() => "TokenizeCtl #$id { ctx: $ctx, addBos: $addBos, text: ```\n$text\n```}";
+  String toString() => "TokenizeCtl #$id { ctx: $ctx, text: ```\n$text\n```}";
 
   TokenizeResp done(List<Token> tokens) => TokenizeResp(id, tokens: tokens);
   TokenizeResp error(Object err) => TokenizeResp(id, err: err);

@@ -27,7 +27,7 @@ void main() {
 
     test('tokenize', () async {
       ctx = await llama.newContext(model, params: ContextParams(seed: 1));
-      final tokens = await llama.tokenize(ctx, "peanut");
+      final tokens = await llama.add(ctx, "peanut");
       expect(tokens.length, 4);
       expect(tokens[0].id, 1); // BOS
       expect(tokens[1].id, 1236);
@@ -42,7 +42,7 @@ void main() {
             contextSizeTokens: 19,
             batchSizeTokens: 19,
           ));
-      final tokStream = llama.generate(ctx, "It's the end of the world as we know it, and");
+      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -57,7 +57,7 @@ void main() {
             contextSizeTokens: 19,
             batchSizeTokens: 1,
           ));
-      final tokStream = llama.generate(ctx, "It's the end of the world as we know it, and");
+      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -73,18 +73,19 @@ void main() {
             batchSizeTokens: 1,
           ));
 
-      final tokStream = llama.generate(ctx, "");
+      final tokStream = llama.generate(ctx, prompt: "");
       expect((await tokStream.single).text, " hopefully");
     });
 
     test('repeat penalty', () async {
       ctx = await llama.newContext(model,
           params: ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
-      final tokStream = llama
-          .generate(ctx, "paint it black, paint it black, paint it black, paint it", samplers: [
-        RepetitionPenalty(lastN: 64, penalty: 2.0),
-        Temperature(tinyFloat),
-      ]);
+      final tokStream = llama.generate(ctx,
+          prompt: "paint it black, paint it black, paint it black, paint it",
+          samplers: [
+            RepetitionPenalty(lastN: 64, penalty: 2.0),
+            Temperature(tinyFloat),
+          ]);
       final tok = await tokStream.first;
       expect(tok.id, isNot(4628)); // "▁black"
       expect(tok.id, 13); // <0x0A> or "\n"
@@ -93,7 +94,7 @@ void main() {
     test('temperature non-greedy', () async {
       ctx = await llama.newContext(model,
           params: ContextParams(seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
-      final tokStream = llama.generate(ctx, " a a a a a a a", samplers: [
+      final tokStream = llama.generate(ctx, prompt: " a a a a a a a", samplers: [
         RepetitionPenalty(lastN: 64, penalty: 1.1),
         Temperature(tinyFloat),
       ]);
@@ -105,7 +106,7 @@ void main() {
     test('repeat penalty last N = -1', () async {
       ctx = await llama.newContext(model,
           params: ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
-      final tokStream = llama.generate(ctx, "a a a a a a a", samplers: [
+      final tokStream = llama.generate(ctx, prompt: "a a a a a a a", samplers: [
         RepetitionPenalty(lastN: -1, penalty: 1.0 + tinyFloat),
         Temperature(tinyFloat),
       ]);
@@ -118,7 +119,7 @@ void main() {
       ctx = await llama.newContext(model, params: ContextParams(seed: 1));
       final invalidSampler = TopK(40);
       try {
-        await llama.generate(ctx, "Holly", samplers: [
+        await llama.generate(ctx, prompt: "Holly", samplers: [
           Temperature(0.0),
           invalidSampler,
         ]).first;
@@ -131,6 +132,6 @@ void main() {
       assert(false, "no error thrown");
     });
 
-    test('interleaved tokenize/ingest', () async {});
+    // test('tokenize ingest tokenize ingest generate', () async {});
   });
 }

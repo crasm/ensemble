@@ -184,7 +184,7 @@ void _freeContext(FreeContextCtl ctl) {
 void _tokenize(TokenizeCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
-    final numToks = ctx.tokens.addFromString(ctx, ctl.text, ctl.addBos);
+    final numToks = ctx.tokens.addFromString(ctx, ctl.text);
     ctl.done(ctx.tokens.toList(ctx, numToks)).send();
   } catch (e) {
     ctl.error(e).send();
