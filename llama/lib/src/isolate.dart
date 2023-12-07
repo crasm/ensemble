@@ -200,21 +200,23 @@ void _tokenize(TokenizeCtl ctl) {
 
 void _edit(EditCtl ctl) {
   try {
-    final ctx = state.getContext(ctl.ctx);
-    final len = ctl.length;
-    if (len != null) {
-      _log.info(() => "length changed from ${ctx.tokens.length} to $len");
-      ctx.tokens.length = len;
-      if (ctx.decodeIndex > len) {
-        _log.info(() => "discarding last ${ctx.decodeIndex - len} tokens from decode");
-        ctx.decodeIndex = len;
-        llama_kv_cache_seq_rm(
-            ctx.pointer,
-            1, // seq_id
-            len,
-            -1);
+    () {
+      final ctx = state.getContext(ctl.ctx);
+      final newLen = ctl.length;
+      if (newLen == null) return;
+      if (ctx.tokens.length == newLen) {
+        _log.info(() => "length unchanged");
+        return;
       }
-    }
+
+      ctx.tokens.length = newLen;
+      _log.info(() => "length changed from ${ctx.tokens.length} to $newLen");
+      if (ctx.decodeIndex > newLen) {
+        _log.info(() => "discarding last ${ctx.decodeIndex - newLen} tokens from decode");
+        ctx.decodeIndex = newLen;
+        llama_kv_cache_seq_rm(ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
+      }
+    }();
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();

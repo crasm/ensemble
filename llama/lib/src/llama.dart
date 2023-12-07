@@ -38,6 +38,9 @@ final class Context with Disposable {
   final Llama llama;
   final Model model;
   final int id;
+
+  final List<Token> tokens = [];
+
   Context._(this.llama, this.model, this.id);
 
   @override
@@ -53,7 +56,8 @@ final class Context with Disposable {
   /// This does not ingest or decode the text, so it computationally cheap.
   Future<List<Token>> add(String text) async {
     checkDisposed();
-    final tokens = (await llama._send<TokenizeResp>(TokenizeCtl(id, text))).tokens;
+    final textTokens = (await llama._send<TokenizeResp>(TokenizeCtl(id, text))).tokens;
+    tokens.addAll(textTokens);
     return tokens;
   }
 
@@ -63,9 +67,10 @@ final class Context with Disposable {
     setLength(0);
   }
 
-  Future<void> setLength(int size) async {
+  Future<void> setLength(int length) async {
     checkDisposed();
-    await llama._send<EditResp>(EditCtl(id, length: size));
+    await llama._send<EditResp>(EditCtl(id, length: length));
+    tokens.length = length;
   }
 
   /// Decodes the tokens that have been added to this context.
@@ -85,7 +90,6 @@ final class Context with Disposable {
   }) async* {
     checkDisposed();
     SendPort? genPort;
-    // int tokensGenerated = 0;
     try {
       if (samplers.isEmpty) samplers = [Temperature(0.0)];
 
@@ -94,7 +98,7 @@ final class Context with Disposable {
         if (resp.id != ctlId) continue;
         switch (resp) {
           case GenerateTokenResp():
-            // tokensGenerated++;
+            tokens.add(resp.tok);
             yield resp.tok;
           case GenerateResp():
             genPort = null;
@@ -111,9 +115,15 @@ final class Context with Disposable {
         genPort.send(0);
         _log.info("generation canceled");
       }
-      // TODO: this fails on repeated calls because in the main isolate, we
-      // don't know the length of the token buffer
-      // await _send(EditCtl(ctx, length: tokensGenerated));
+      // This is necessary in the case that a token is generated (and therefore
+      // altered and within the llama.cpp state) but we have already canceled
+      // generation and stopped listening.
+      //
+      // This is very unlikely, since decoding tokens is much slower than
+      // sending messages across isolates, and tokens are not committed before
+      // checking for cancellation. However, I think it's possible if main is
+      // starved for CPU and llama.cpp decodes tokens at full speed using GPU.
+      await llama._send(EditCtl(id, length: tokens.length));
     }
   }
 

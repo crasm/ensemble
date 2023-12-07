@@ -19,7 +19,10 @@ void main() async {
     Logger.root.onRecord.listen((e) {
       final diff = e.time.difference(startTime);
       file?.writeln(
-          '${e.level.name}: ${diff.inMilliseconds.toString().padLeft(6, '0')}: ${e.message}');
+        "${e.level.name.padRight(7)}: "
+        "${diff.inMilliseconds.toString().padLeft(6, '0')}: "
+        "${e.message}",
+      );
     });
 
     final llama = add(Llama(disableGgmlLog: true));
