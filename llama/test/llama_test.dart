@@ -56,8 +56,7 @@ void main() {
             contextSizeTokens: 19,
             batchSizeTokens: 19,
           ));
-      final tokStream = llama.generate(ctx,
-          prompt: "It's the end of the world as we know it, and");
+      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -72,8 +71,7 @@ void main() {
             contextSizeTokens: 19,
             batchSizeTokens: 1,
           ));
-      final tokStream = llama.generate(ctx,
-          prompt: "It's the end of the world as we know it, and");
+      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -95,8 +93,7 @@ void main() {
 
     test('repeat penalty', () async {
       ctx = await llama.newContext(model,
-          params: ContextParams(
-              seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
+          params: ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
       final tokStream = llama.generate(ctx,
           prompt: "paint it black, paint it black, paint it black, paint it",
           samplers: [
@@ -110,10 +107,8 @@ void main() {
 
     test('temperature non-greedy', () async {
       ctx = await llama.newContext(model,
-          params: ContextParams(
-              seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
-      final tokStream =
-          llama.generate(ctx, prompt: " a a a a a a a", samplers: [
+          params: ContextParams(seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
+      final tokStream = llama.generate(ctx, prompt: " a a a a a a a", samplers: [
         RepetitionPenalty(lastN: 64, penalty: 1.1),
         Temperature(tinyFloat),
       ]);
@@ -124,8 +119,7 @@ void main() {
 
     test('repeat penalty last N = -1', () async {
       ctx = await llama.newContext(model,
-          params:
-              ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
+          params: ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
       final tokStream = llama.generate(ctx, prompt: "a a a a a a a", samplers: [
         RepetitionPenalty(lastN: -1, penalty: 1.0 + tinyFloat),
         Temperature(tinyFloat),
@@ -167,9 +161,13 @@ void main() {
       await llama.add(ctx, "as we know it, and");
       await llama.ingest(ctx);
 
-      final gen =
-          await llama.generate(ctx).map((a) => a.text).reduce((a, b) => a + b);
+      final gen = await llama.generate(ctx).map((a) => a.text).reduce((a, b) => a + b);
       expect(gen, " I feel fine.");
     });
+
+    // test('tokenize multiple generate', () async {
+    //   ctx = await llama.newContext(model, params: ContextParams(seed: 1));
+    //   await llama.add("
+    // });
   });
 }

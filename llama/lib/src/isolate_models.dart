@@ -33,9 +33,8 @@ final class Context with Disposable {
   late final llama_batch batch;
   late final Candidates candidates;
 
-  int i = 0; // index into context window
-  int j = 0; // index into current batch
-  int decodeOffset = 0;
+  int decodeIndex = 0; // index into the context for the next token to be decoded
+  int batchIndex = 0; // index into current batch
 
   Context(this.rawPointer, this.model, this.params) {
     tokens = TokenBuf.allocate(params.contextSizeTokens);

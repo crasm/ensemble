@@ -224,8 +224,8 @@ void _ingest(IngestCtl ctl) {
     final tokens = ctx.tokens;
     final batchSize = ctx.params.batchSizeTokens;
 
-    var i = ctx.i; // index into context window
-    var j = 0; // index into current batch
+    var i = ctx.decodeIndex; // index of the next token to be decoded
+    var j = 0; // start batch at zero tokens on every _ingest()
     while (i + j < tokens.length) {
       final tokensToDecode = tokens.length - i;
       final isLastBatch = tokensToDecode <= batchSize;
@@ -252,8 +252,12 @@ void _ingest(IngestCtl ctl) {
       }
     }
 
-    ctx.i = i + j; // index into the context for all tokens so far
-    ctx.j = j; // Needed for _generate() but not for repeated calls to _ingest()
+    // Since we decoded [j] tokens from the batch, the next token to be decoded is
+    // [i + j]
+    ctx.decodeIndex = i + j;
+    // Needed for _generate() to grab the final token from llama_decode
+    ctx.batchIndex = j;
+
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
@@ -277,20 +281,19 @@ void _generate(GenerateCtl ctl) async {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).alloc();
     }
 
+    // TODO: make sure multiple calls to _generate() work
+
     //
     // Generate tokens to fill context
     //
 
-    int i = ctx.i;
-    int j = ctx.j;
-
-    while (i < contextSize) {
+    while (ctx.decodeIndex < contextSize) {
       int logitsIndex;
-      if (j != 0) {
+      if (ctx.batchIndex != 0) {
         // on first iteration, the batch is almost always partially filled,
         // so we need to use the index of the last token in the batch
-        logitsIndex = j - 1;
-        j = 0;
+        logitsIndex = ctx.batchIndex - 1;
+        ctx.batchIndex = 0;
       } else {
         // on future iterations, we use only the first slot in the batch
         logitsIndex = 0;
@@ -345,7 +348,7 @@ void _generate(GenerateCtl ctl) async {
       batch.n_tokens = 1;
 
       batch.token[0] = tok.id;
-      batch.pos[0] = i++;
+      batch.pos[0] = ctx.decodeIndex++;
       batch.n_seq_id[0] = 1;
       batch.seq_id[0][0] = 1;
       batch.logits[0] = 1; // enable logits for this token
