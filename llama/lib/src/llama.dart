@@ -14,7 +14,7 @@ final class Model {
   const Model(this.id);
 
   @override
-  String toString() => "Model #$id";
+  String toString() => "Model#$id";
 
   @override
   bool operator ==(Object? other) => other is Model && other.id == id;
@@ -27,7 +27,7 @@ final class Context {
   const Context(this.id);
 
   @override
-  String toString() => "Context #$id";
+  String toString() => "Context#$id";
 
   @override
   bool operator ==(Object? other) => other is Context && other.id == id;
@@ -65,7 +65,7 @@ final class Llama with Disposable {
     llama._controlPort = resp.controlPort;
 
     llama._responseStream.listen((e) {
-      llama._log.finest(() => " got $e");
+      llama._log.finest(() => "got  $e");
     });
 
     llama._logPort.listen((e) {

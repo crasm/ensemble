@@ -187,7 +187,12 @@ void _tokenize(TokenizeCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
     final numToks = ctx.tokens.addFromString(ctx, ctl.text);
-    ctl.done(ctx.tokens.toList(ctx, numToks)).send();
+    ctl
+        .done(
+          ctx.tokens.toList(ctx, numToks),
+          ctx.tokens.length - numToks,
+        )
+        .send();
   } catch (e) {
     ctl.error(e).send();
   }
@@ -219,10 +224,7 @@ void _ingest(IngestCtl ctl) {
     final tokens = ctx.tokens;
     final batchSize = ctx.params.batchSizeTokens;
 
-    // TODO: make this work when called repeatedly
-    // It should work fine when used in a simple _tokenize() => _ingest() =>
-    // _generate() exactly one time
-    var i = 0; // index into context window
+    var i = ctx.i; // index into context window
     var j = 0; // index into current batch
     while (i + j < tokens.length) {
       final tokensToDecode = tokens.length - i;
@@ -250,8 +252,8 @@ void _ingest(IngestCtl ctl) {
       }
     }
 
-    ctx.i = i;
-    ctx.j = j;
+    ctx.i = i + j; // index into the context for all tokens so far
+    ctx.j = j; // Needed for _generate() but not for repeated calls to _ingest()
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
@@ -281,7 +283,6 @@ void _generate(GenerateCtl ctl) async {
 
     int i = ctx.i;
     int j = ctx.j;
-    i += j; // index into the context for all tokens so far
 
     while (i < contextSize) {
       int logitsIndex;
