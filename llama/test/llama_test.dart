@@ -24,24 +24,15 @@ void main() {
   });
 
   group('main', () {
-    late Llama llama;
-    late Model model;
-    late Context ctx;
-    setUp(() async {
-      llama = await Llama.create();
-      model = await llama.loadModel(
-          "/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf",
-          params: ModelParams(gpuLayers: 1));
-    });
-    tearDown(() async {
-      await llama.freeContext(ctx);
-      await llama.freeModel(model);
-      llama.dispose();
-    });
+    final llama = Llama();
+    final model = llama.initModel(
+        "/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf",
+        params: ModelParams(gpuLayers: 1));
+    Context ctx;
 
     test('tokenize', () async {
-      ctx = await llama.newContext(model, params: ContextParams(seed: 1));
-      final tokens = await llama.add(ctx, "peanut");
+      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      final tokens = await ctx.add("peanut");
       expect(tokens.length, 4);
       expect(tokens[0].id, 1); // BOS
       expect(tokens[1].id, 1236);
@@ -50,13 +41,17 @@ void main() {
     });
 
     test('happy path', () async {
-      ctx = await llama.newContext(model,
-          params: ContextParams(
-            seed: 1,
-            contextSizeTokens: 19,
-            batchSizeTokens: 19,
-          ));
-      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
+      ctx = await llama.initContext(
+        await model,
+        params: ContextParams(
+          seed: 1,
+          contextSizeTokens: 19,
+          batchSizeTokens: 19,
+        ),
+      );
+      await ctx.add("It's the end of the world as we know it, and");
+      await ctx.ingest();
+      final tokStream = ctx.generate();
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -65,13 +60,17 @@ void main() {
     });
 
     test('happy path batch size 1', () async {
-      ctx = await llama.newContext(model,
-          params: ContextParams(
-            seed: 1,
-            contextSizeTokens: 19,
-            batchSizeTokens: 1,
-          ));
-      final tokStream = llama.generate(ctx, prompt: "It's the end of the world as we know it, and");
+      ctx = await llama.initContext(
+        await model,
+        params: ContextParams(
+          seed: 1,
+          contextSizeTokens: 19,
+          batchSizeTokens: 1,
+        ),
+      );
+      await ctx.add("It's the end of the world as we know it, and");
+      await ctx.ingest();
+      final tokStream = ctx.generate();
       final sbuf = StringBuffer();
       await for (final tok in tokStream) {
         sbuf.write(tok.text);
@@ -80,35 +79,41 @@ void main() {
     });
 
     test('gen one token', () async {
-      ctx = await llama.newContext(model,
-          params: ContextParams(
-            seed: 1,
-            contextSizeTokens: 2, // Need +1 for BOS token
-            batchSizeTokens: 1,
-          ));
+      ctx = await llama.initContext(
+        await model,
+        params: ContextParams(
+          seed: 1,
+          contextSizeTokens: 2, // Need +1 for BOS token
+          batchSizeTokens: 1,
+        ),
+      );
 
-      final tokStream = llama.generate(ctx, prompt: "");
+      await ctx.add("");
+      await ctx.ingest();
+      final tokStream = ctx.generate();
       expect((await tokStream.single).text, " hopefully");
     });
 
     test('repeat penalty', () async {
-      ctx = await llama.newContext(model,
+      ctx = await llama.initContext(await model,
           params: ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
-      final tokStream = llama.generate(ctx,
-          prompt: "paint it black, paint it black, paint it black, paint it",
-          samplers: [
-            RepetitionPenalty(lastN: 64, penalty: 2.0),
-            Temperature(tinyFloat),
-          ]);
+      await ctx.add("paint it black, paint it black, paint it black, paint it");
+      await ctx.ingest();
+      final tokStream = ctx.generate(samplers: [
+        RepetitionPenalty(lastN: 64, penalty: 2.0),
+        Temperature(tinyFloat),
+      ]);
       final tok = await tokStream.first;
       expect(tok.id, isNot(4628)); // "▁black"
       expect(tok.id, 13); // <0x0A> or "\n"
     });
 
     test('temperature non-greedy', () async {
-      ctx = await llama.newContext(model,
+      ctx = await llama.initContext(await model,
           params: ContextParams(seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
-      final tokStream = llama.generate(ctx, prompt: " a a a a a a a", samplers: [
+      await ctx.add(" a a a a a a a");
+      await ctx.ingest();
+      final tokStream = ctx.generate(samplers: [
         RepetitionPenalty(lastN: 64, penalty: 1.1),
         Temperature(tinyFloat),
       ]);
@@ -118,9 +123,11 @@ void main() {
     });
 
     test('repeat penalty last N = -1', () async {
-      ctx = await llama.newContext(model,
+      ctx = await llama.initContext(await model,
           params: ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
-      final tokStream = llama.generate(ctx, prompt: "a a a a a a a", samplers: [
+      await ctx.add("a a a a a a a");
+      await ctx.ingest();
+      final tokStream = ctx.generate(samplers: [
         RepetitionPenalty(lastN: -1, penalty: 1.0 + tinyFloat),
         Temperature(tinyFloat),
       ]);
@@ -130,10 +137,12 @@ void main() {
     });
 
     test('unused sampler', () async {
-      ctx = await llama.newContext(model, params: ContextParams(seed: 1));
+      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
       final invalidSampler = TopK(40);
       try {
-        await llama.generate(ctx, prompt: "Holly", samplers: [
+        await ctx.add("Holly");
+        await ctx.ingest();
+        await ctx.generate(samplers: [
           Temperature(0.0),
           invalidSampler,
         ]).first;
@@ -147,27 +156,49 @@ void main() {
     });
 
     test('tokenize multiple add/ingest generate', () async {
-      ctx = await llama.newContext(model,
+      ctx = await llama.initContext(await model,
           params: ContextParams(
             seed: 1,
             contextSizeTokens: 19,
             batchSizeTokens: 19,
           ));
-      await llama.add(ctx, "It's the end");
-      await llama.ingest(ctx);
+      await ctx.add("It's the end");
+      await ctx.ingest();
       // NOTE: need to drop leading space oddly enough
-      await llama.add(ctx, "of the world");
-      await llama.ingest(ctx);
-      await llama.add(ctx, "as we know it, and");
-      await llama.ingest(ctx);
+      await ctx.add("of the world");
+      await ctx.ingest();
+      await ctx.add("as we know it, and");
+      await ctx.ingest();
 
-      final gen = await llama.generate(ctx).map((a) => a.text).reduce((a, b) => a + b);
+      final gen = await ctx.generate().map((a) => a.text).reduce((a, b) => a + b);
       expect(gen, " I feel fine.");
     });
 
-    // test('tokenize multiple generate', () async {
-    //   ctx = await llama.newContext(model, params: ContextParams(seed: 1));
-    //   await llama.add("
-    // });
+    test('tokenize multiple generate', () async {
+      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      List<Token> tokens = [];
+      tokens.addAll(await ctx.add("Samanth"));
+      await ctx.ingest();
+      tokens.add(await ctx.generate().first);
+      expect(tokens.last.text, 'a');
+      // await ctx.setLength(tokens.length);
+
+      tokens.addAll(await ctx.add("stopped going fish"));
+      await ctx.ingest();
+      tokens.add(await ctx.generate().first);
+      expect(tokens.last.text, 'ing');
+      // await ctx.setLength(tokens.length);
+
+      // TODO: The reason why this is failing is because the ctx_batch doesn't
+      // get updated with this new reduced length. Not sure how to actually go
+      // back and get those logits without starting over from zero and relying
+      // on the kv-cache.
+      // I could save more logits within the batch?
+      // May have to just decode the whole buffer every time.
+      await ctx.setLength(4); // [ <BOS> _Sam anth a ]
+      await ctx.ingest();
+      // It should NOT be "Samantha stopped going fishing with"
+      expect((await ctx.generate().first).text, isNot(' with'));
+    });
   });
 }

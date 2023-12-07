@@ -32,16 +32,16 @@ final class ExitResp extends ResponseMessage {
 }
 
 // TODO: include mem used, model details?
-final class LoadModelResp extends ResponseMessage {
-  final Model? model;
-  const LoadModelResp(super.id, {super.err, this.model});
+final class InitModelResp extends ResponseMessage {
+  final int? modelId;
+  const InitModelResp(super.id, {super.err, this.modelId});
   @override
-  String toString() => err == null ? "LoadModelResp#$id{model: $model}" : toStringErr();
+  String toString() => err == null ? "LoadModelResp#$id{model: #$modelId}" : toStringErr();
 }
 
-final class LoadModelProgressResp extends ResponseMessage {
+final class InitModelProgressResp extends ResponseMessage {
   final double progress;
-  const LoadModelProgressResp(super.id, this.progress);
+  const InitModelProgressResp(super.id, this.progress);
   @override
   String toString() => err == null
       ? "LoadModelProgressResp#$id{progress: ${progress.toStringAsFixed(6)}}"
@@ -52,11 +52,11 @@ final class FreeModelResp extends ResponseMessage {
   const FreeModelResp(super.id, {super.err});
 }
 
-final class NewContextResp extends ResponseMessage {
-  final Context? ctx;
-  const NewContextResp(super.id, {super.err, this.ctx});
+final class InitContextResp extends ResponseMessage {
+  final int? ctxId;
+  const InitContextResp(super.id, {super.err, this.ctxId});
   @override
-  String toString() => err == null ? "NewContextResp#$id{ctx: $ctx}" : toStringErr();
+  String toString() => err == null ? "NewContextResp#$id{ctx: #$ctxId}" : toStringErr();
 }
 
 final class FreeContextResp extends ResponseMessage {

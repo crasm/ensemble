@@ -77,17 +77,17 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
 }
 
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
-    LoadModelProgressResp(id.address, progress).send();
+    InitModelProgressResp(id.address, progress).send();
 
 void _onControl(ControlMessage ctl) {
   switch (ctl) {
     case ExitCtl():
       _exit(ctl);
-    case LoadModelCtl():
+    case InitModelCtl():
       _loadModel(ctl);
     case FreeModelCtl():
       _freeModel(ctl);
-    case NewContextCtl():
+    case InitContextCtl():
       _newContext(ctl);
     case FreeContextCtl():
       _freeContext(ctl);
@@ -108,7 +108,7 @@ void _exit(ExitCtl ctl) {
   Isolate.exit(_response, ctl.done());
 }
 
-void _loadModel(LoadModelCtl ctl) {
+void _loadModel(InitModelCtl ctl) {
   Pointer<Char>? pathStrC;
   try {
     final params = llama_model_default_params()..setSimpleFrom(ctl.params);
@@ -149,7 +149,7 @@ void _freeModel(FreeModelCtl ctl) {
   }
 }
 
-void _newContext(NewContextCtl ctl) {
+void _newContext(InitContextCtl ctl) {
   try {
     final params = llama_context_default_params()..setSimpleFrom(ctl.params);
     final model = state.getModel(ctl.model);
@@ -170,7 +170,7 @@ void _freeContext(FreeContextCtl ctl) {
     }
 
     final ctxSet = state.contextsForModel[ctx.model.id];
-    if (ctxSet == null || !ctxSet.remove(ctl.ctx.id)) {
+    if (ctxSet == null || !ctxSet.remove(ctl.ctx)) {
       throw StateError("found ${ctl.ctx}, but not associated with a model");
     }
 
@@ -201,8 +201,19 @@ void _tokenize(TokenizeCtl ctl) {
 void _edit(EditCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
-    if (ctl.length != null) {
-      ctx.tokens.length = ctl.length!;
+    final len = ctl.length;
+    if (len != null) {
+      _log.info(() => "length changed from ${ctx.tokens.length} to $len");
+      ctx.tokens.length = len;
+      if (ctx.decodeIndex > len) {
+        _log.info(() => "discarding last ${ctx.decodeIndex - len} tokens from decode");
+        ctx.decodeIndex = len;
+        llama_kv_cache_seq_rm(
+            ctx.pointer,
+            1, // seq_id
+            len,
+            -1);
+      }
     }
     ctl.done().send();
   } catch (e) {
@@ -252,10 +263,9 @@ void _ingest(IngestCtl ctl) {
       }
     }
 
-    // Since we decoded [j] tokens from the batch, the next token to be decoded is
-    // [i + j]
+    // Include the last batch (typically partially filled) decoded tokens
     ctx.decodeIndex = i + j;
-    // Needed for _generate() to grab the final token from llama_decode
+    // Needed for _generate() to grab the final token from the batch
     ctx.batchIndex = j;
 
     ctl.done().send();
@@ -279,6 +289,10 @@ void _generate(GenerateCtl ctl) async {
 
     for (final s in ctl.samplers) {
       if (s is NativeMemoryUser) (s as NativeMemoryUser).alloc();
+    }
+
+    if (ctx.needsIngesting) {
+      throw StateError("context tokens need to be ingested or removed before generation can begin");
     }
 
     // TODO: make sure multiple calls to _generate() work

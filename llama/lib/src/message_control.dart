@@ -17,55 +17,55 @@ final class ExitCtl extends ControlMessage {
   ExitResp done() => ExitResp(id);
 }
 
-final class LoadModelCtl extends ControlMessage {
+final class InitModelCtl extends ControlMessage {
   final String path;
   final ModelParams params;
-  LoadModelCtl(this.path, this.params);
+  InitModelCtl(this.path, this.params);
   @override
   String toString() => "LoadModelCtl#$id {\n  path: $path\n}"; // TODO: params?
 
-  LoadModelResp done(Model model) => LoadModelResp(id, model: model);
-  LoadModelResp error(Object err) => LoadModelResp(id, err: err);
-  LoadModelProgressResp progress(double progress) => LoadModelProgressResp(id, progress);
+  InitModelResp done(int modelId) => InitModelResp(id, modelId: modelId);
+  InitModelResp error(Object err) => InitModelResp(id, err: err);
+  InitModelProgressResp progress(double progress) => InitModelProgressResp(id, progress);
 }
 
 final class FreeModelCtl extends ControlMessage {
-  final Model model;
+  final int model;
   FreeModelCtl(this.model);
   @override
-  String toString() => "FreeModelCtl#$id{model: $model}";
+  String toString() => "FreeModelCtl#$id{model: Model#$model}";
 
   FreeModelResp done() => FreeModelResp(id);
   FreeModelResp error(Object err) => FreeModelResp(id, err: err);
 }
 
-final class NewContextCtl extends ControlMessage {
-  final Model model;
+final class InitContextCtl extends ControlMessage {
+  final int model;
   final ContextParams params;
-  NewContextCtl(this.model, this.params);
+  InitContextCtl(this.model, this.params);
   @override
-  String toString() => "NewContextCtl#$id{model: $model}"; // TODO: params?
+  String toString() => "NewContextCtl#$id{model: Model#$model}"; // TODO: params?
 
-  NewContextResp done(Context ctx) => NewContextResp(id, ctx: ctx);
-  NewContextResp error(Object err) => NewContextResp(id, err: err);
+  InitContextResp done(int ctxId) => InitContextResp(id, ctxId: ctxId);
+  InitContextResp error(Object err) => InitContextResp(id, err: err);
 }
 
 final class FreeContextCtl extends ControlMessage {
-  final Context ctx;
+  final int ctx;
   FreeContextCtl(this.ctx);
   @override
-  String toString() => "FreeContextCtl#$id{ctx: $ctx}";
+  String toString() => "FreeContextCtl#$id{ctx: Context#$ctx}";
 
   FreeContextResp done() => FreeContextResp(id);
   FreeContextResp error(Object err) => FreeContextResp(id, err: err);
 }
 
 final class TokenizeCtl extends ControlMessage {
-  final Context ctx;
+  final int ctx;
   final String text;
   TokenizeCtl(this.ctx, this.text);
   @override
-  String toString() => "TokenizeCtl#$id{ctx: $ctx, text: ```$text```}";
+  String toString() => "TokenizeCtl#$id{ctx: Context#$ctx, text: ```$text```}";
 
   TokenizeResp done(List<Token> tokens, int firstTokenIndex) =>
       TokenizeResp(id, tokens: tokens, firstTokenIndex: firstTokenIndex);
@@ -73,33 +73,33 @@ final class TokenizeCtl extends ControlMessage {
 }
 
 final class EditCtl extends ControlMessage {
-  final Context ctx;
+  final int ctx;
   final int? length;
   EditCtl(this.ctx, {this.length});
   @override
-  String toString() => "EditCtl#$id{ctx: $ctx, length: $length}";
+  String toString() => "EditCtl#$id{ctx: Context#$ctx, length: $length}";
 
   EditResp done() => EditResp(id);
   EditResp error(Object err) => EditResp(id, err: err);
 }
 
 final class IngestCtl extends ControlMessage {
-  final Context ctx;
+  final int ctx;
   IngestCtl(this.ctx);
   @override
-  String toString() => "IngestCtl#$id{ctx: $ctx}";
+  String toString() => "IngestCtl#$id{ctx: Context#$ctx}";
 
   IngestResp done() => IngestResp(id);
   IngestResp error(Object err) => IngestResp(id, err: err);
 }
 
 final class GenerateCtl extends ControlMessage {
-  final Context ctx;
+  final int ctx;
   final List<Sampler> samplers;
   GenerateCtl(this.ctx, this.samplers);
   @override
   String toString() =>
-      "GenerateCtl#$id{ctx: $ctx, samplers: [\n${samplers.map((s) => '  $s').join('\n')}\n]}";
+      "GenerateCtl#$id{ctx: Context#$ctx, samplers: [\n${samplers.map((s) => '  $s').join('\n')}\n]}";
 
   GenerateResp done() => GenerateResp(id);
   GenerateResp error(Object err) => GenerateResp(id, err: err);

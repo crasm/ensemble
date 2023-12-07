@@ -33,6 +33,8 @@ final class Context with Disposable {
   late final llama_batch batch;
   late final Candidates candidates;
 
+  bool get needsIngesting => decodeIndex < tokens.length;
+
   int decodeIndex = 0; // index into the context for the next token to be decoded
   int batchIndex = 0; // index into current batch
 
