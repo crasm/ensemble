@@ -209,13 +209,15 @@ void _edit(EditCtl ctl) {
         return;
       }
 
+      _log.info(() => "token buffer length changed from ${ctx.tokens.length} to $newLen");
       ctx.tokens.length = newLen;
-      _log.info(() => "length changed from ${ctx.tokens.length} to $newLen");
-      if (ctx.decodeIndex > newLen) {
-        _log.info(() => "discarding last ${ctx.decodeIndex - newLen} tokens from decode");
-        ctx.decodeIndex = newLen;
+      if (ctx.logits.length > newLen) {
+        _log.info(() =>
+            "discarding logits and llama_kv_cache for last last ${ctx.logits.length - newLen} tokens of context window");
+        ctx.logits.length = newLen;
         llama_kv_cache_seq_rm(ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
       }
+      _log.warning(ctx.logits.length);
     }();
     ctl.done().send();
   } catch (e) {
@@ -237,7 +239,7 @@ void _ingest(IngestCtl ctl) {
     final tokens = ctx.tokens;
     final batchSize = ctx.params.batchSizeTokens;
 
-    var i = ctx.decodeIndex; // index of the next token to be decoded
+    var i = ctx.logits.length; // index of the next token to be decoded
     var j = 0; // start batch at zero tokens on every _ingest()
     while (i + j < tokens.length) {
       final tokensToDecode = tokens.length - i;
@@ -250,13 +252,16 @@ void _ingest(IngestCtl ctl) {
         batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
         batch.n_seq_id[j] = 1;
         batch.seq_id[j][0] = 1;
-        batch.logits[j] = isLastBatch ? 1 : 0;
+        // We enable computeAllLogits for every new context, so this should be
+        // unnecessary
+        // batch.logits[j] = 1;
       }
 
       final status = llama_decode(ctx.pointer, batch);
       if (status != 0) {
         throw Exception("llama_decode failed with $status");
       }
+      ctx.logits.add(llama_get_logits(ctx.pointer), batch.n_tokens);
 
       assert(j <= batchSize);
       if (j == batchSize) {
@@ -264,11 +269,6 @@ void _ingest(IngestCtl ctl) {
         j = 0;
       }
     }
-
-    // Include the last batch (typically partially filled) decoded tokens
-    ctx.decodeIndex = i + j;
-    // Needed for _generate() to grab the final token from the batch
-    ctx.batchIndex = j;
 
     ctl.done().send();
   } catch (e) {
@@ -303,20 +303,8 @@ void _generate(GenerateCtl ctl) async {
     // Generate tokens to fill context
     //
 
-    while (ctx.decodeIndex < contextSize) {
-      int logitsIndex;
-      if (ctx.batchIndex != 0) {
-        // on first iteration, the batch is almost always partially filled,
-        // so we need to use the index of the last token in the batch
-        logitsIndex = ctx.batchIndex - 1;
-        ctx.batchIndex = 0;
-      } else {
-        // on future iterations, we use only the first slot in the batch
-        logitsIndex = 0;
-      }
-
-      final logits = llama_get_logits_ith(ctx.pointer, logitsIndex);
-      candidates.load(logits);
+    while (ctx.logits.length < contextSize) {
+      candidates.load(ctx.logits.last);
 
       // Apply each sampler in turn. If we receive a token back, it should
       // be the last sampler. If there are samplers remaining and we already
@@ -364,15 +352,19 @@ void _generate(GenerateCtl ctl) async {
       batch.n_tokens = 1;
 
       batch.token[0] = tok.id;
-      batch.pos[0] = ctx.decodeIndex++;
+      batch.pos[0] = ctx.logits.length;
       batch.n_seq_id[0] = 1;
       batch.seq_id[0][0] = 1;
-      batch.logits[0] = 1; // enable logits for this token
+      // We enable computeAllLogits for every new context, so this should be
+      // unnecessary
+      // batch.logits[0] = 1;
 
       final status = llama_decode(ctx.pointer, batch);
       if (status != 0) {
         throw Exception("llama_decode failed with $status");
       }
+
+      ctx.logits.add(llama_get_logits(ctx.pointer), batch.n_tokens);
     }
 
     ctl.done().send();

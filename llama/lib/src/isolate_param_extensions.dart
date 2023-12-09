@@ -37,7 +37,8 @@ extension ContextParamConverter on llama_context_params {
 
     mul_mat_q = p.cudaUseMulMatQ;
     f16_kv = p.useFloat16KVCache;
-    logits_all = p.computeAllLogits;
+    // Needed for zero-decode generation on matching prompt prefix
+    logits_all = true;
     embedding = p.embeddingModeOnly;
   }
 }

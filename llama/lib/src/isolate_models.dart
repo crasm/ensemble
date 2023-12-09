@@ -19,7 +19,7 @@ final class Model {
   Pointer<llama_model> get pointer => Pointer.fromAddress(rawPointer).cast<llama_model>();
 
   @override
-  String toString() => "Model{$rawPointer}";
+  String toString() => "Model#$id";
 }
 
 final class Context with Disposable {
@@ -30,18 +30,18 @@ final class Context with Disposable {
   final ContextParams params;
 
   late final TokenBuf tokens;
-  late final llama_batch batch;
+  late final Logits logits;
   late final Candidates candidates;
+  late final llama_batch batch;
 
-  bool get needsIngesting => decodeIndex < tokens.length;
-
-  int decodeIndex = 0; // index into the context for the next token to be decoded
-  int batchIndex = 0; // index into current batch
+  bool get needsIngesting => logits.length < tokens.length;
 
   Context(this.rawPointer, this.model, this.params) {
+    final vocabSize = llama_n_vocab(model.pointer);
     tokens = TokenBuf.allocate(params.contextSizeTokens);
+    logits = Logits(params.contextSizeTokens, vocabSize);
+    candidates = Candidates(vocabSize);
     batch = llama_batch_init(params.batchSizeTokens, 0, 1);
-    candidates = Candidates(llama_n_vocab(model.pointer));
   }
 
   Pointer<llama_context> get pointer => Pointer.fromAddress(rawPointer).cast<llama_context>();
@@ -50,12 +50,13 @@ final class Context with Disposable {
   void dispose() {
     super.dispose();
     tokens.dispose();
-    llama_batch_free(batch);
+    logits.dispose();
     candidates.dispose();
+    llama_batch_free(batch);
   }
 
   @override
-  String toString() => "Context #$id";
+  String toString() => "Context#$id";
 }
 
 final class Token {
@@ -87,71 +88,6 @@ final class Token {
   bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
   @override
   int get hashCode => id.hashCode + rawText.hashCode;
-}
-
-// Stores an array of candidate tokens and their logit probabilities.
-final class Candidates with Disposable {
-  final int vocabSize;
-  int get size => pointer.ref.size;
-  late final Pointer<llama_token_data> _candidates;
-  late final Pointer<llama_token_data_array> pointer;
-
-  Candidates(this.vocabSize) {
-    _candidates = calloc.allocate(vocabSize * sizeOf<llama_token_data>());
-    pointer = calloc.allocate(sizeOf<llama_token_data_array>());
-
-    pointer.ref.data = _candidates;
-    pointer.ref.size = vocabSize;
-    pointer.ref.sorted = false;
-  }
-
-  void load(Pointer<Float> logits) {
-    checkDisposed();
-    pointer.ref.size = vocabSize;
-    pointer.ref.sorted = false;
-
-    for (var i = 0; i < size; i++) {
-      _candidates[i].id = i;
-      _candidates[i].logit = logits[i];
-      _candidates[i].p = 0.0;
-    }
-  }
-
-  double getLogit(int tokId) {
-    checkDisposed();
-    return _candidates[tokId].logit;
-  }
-
-  void setLogit(int tokId, double logit) {
-    checkDisposed();
-    _candidates[tokId].logit = logit;
-  }
-
-  String toStringContext(Context ctx) {
-    checkDisposed();
-    final List<llama_token_data> copy = [];
-    for (var i = 0; i < size; i++) {
-      copy.add(_candidates[i]);
-    }
-    copy.sort((a, b) => b.logit.compareTo(a.logit));
-
-    final strb = StringBuffer("cands = ");
-    for (var i = 0; i < 8; i++) {
-      strb.write(Token.fromId(ctx, _candidates[i].id));
-      strb.write("=");
-      strb.write(_candidates[i].logit.toStringAsFixed(2));
-      strb.write(" ");
-    }
-    strb.write("...");
-    return strb.toString();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    calloc.free(_candidates);
-    calloc.free(pointer);
-  }
 }
 
 final class TokenBuf with Disposable {
@@ -291,5 +227,126 @@ final class TokenBuf with Disposable {
     } finally {
       if (textC != null) calloc.free(textC);
     }
+  }
+}
+
+/// Stores the log-odds at each index in the context window. The values are
+/// unmodifiable, but you can set the [length] to trim excess context and [add]
+/// logits produced from a batch decode.
+final class Logits with Disposable {
+  static final _log = Logger('Logits');
+
+  final int contextSize;
+  final int vocabSize;
+
+  int _length = 0;
+  int get length => _length;
+
+  set length(int value) {
+    checkDisposed();
+    value.checkIncInc(0, contextSize, 'length');
+    _length = value;
+  }
+
+  Pointer<Float> get last => this[length - 1];
+
+  late final Pointer<Float> _logits;
+
+  Logits(this.contextSize, this.vocabSize) {
+    final bytes = contextSize * vocabSize * sizeOf<Float>();
+    _log.info("Allocating ${bytes >> 20}MiB for logits");
+    _logits = calloc.allocate(bytes);
+  }
+
+  Pointer<Float> operator [](int tokenIndex) {
+    checkDisposed();
+    tokenIndex.checkIncInc(0, length, 'tokenIndex');
+    return _logits.elementAt(vocabSize * tokenIndex);
+  }
+
+  void add(Pointer<Float> batchLogits, int batchSize) {
+    checkDisposed();
+    (batchSize + length).checkIncInc(0, contextSize, 'batchSize+length');
+    for (int i = 0; i < vocabSize * batchSize; i++) {
+      _logits.elementAt(vocabSize * length + i).value = batchLogits.elementAt(i).value;
+    }
+
+    _length += batchSize;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    _length = -1;
+    calloc.free(_logits);
+  }
+}
+
+/// Wrapper for token generation candidates.
+///
+/// For every possible next token (the size of the model's vocabulary),
+/// [Candidates] stores the log-odds (logits) for the likelihood of that token
+/// to be the next generated token.
+final class Candidates with Disposable {
+  final int vocabSize;
+  int get size => pointer.ref.size;
+  late final Pointer<llama_token_data> _candidates;
+  late final Pointer<llama_token_data_array> pointer;
+
+  Candidates(this.vocabSize) {
+    _candidates = calloc.allocate(vocabSize * sizeOf<llama_token_data>());
+    pointer = calloc.allocate(sizeOf<llama_token_data_array>());
+
+    pointer.ref.data = _candidates;
+    pointer.ref.size = vocabSize;
+    pointer.ref.sorted = false;
+  }
+
+  void load(Pointer<Float> logits) {
+    checkDisposed();
+    pointer.ref.size = vocabSize;
+    pointer.ref.sorted = false;
+
+    for (var i = 0; i < size; i++) {
+      _candidates[i].id = i;
+      _candidates[i].logit = logits[i];
+      _candidates[i].p = 0.0;
+    }
+  }
+
+  double operator [](int tokId) {
+    checkDisposed();
+    return _candidates[tokId].logit;
+  }
+
+  void operator []=(int tokId, double logit) {
+    checkDisposed();
+    _candidates[tokId].logit = logit;
+  }
+
+  String toStringContext(Context ctx) {
+    checkDisposed();
+    final List<llama_token_data> copy = [];
+    for (var i = 0; i < size; i++) {
+      copy.add(_candidates[i]);
+    }
+    copy.sort((a, b) => b.logit.compareTo(a.logit));
+
+    final strb = StringBuffer("cands = ");
+    for (var i = 0; i < 8; i++) {
+      strb.write(Token.fromId(ctx, _candidates[i].id));
+      strb.write("=");
+      strb.write(_candidates[i].logit.toStringAsFixed(2));
+      strb.write(" ");
+    }
+    strb.write("...");
+    return strb.toString();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    calloc.free(_candidates);
+    calloc.free(pointer);
   }
 }

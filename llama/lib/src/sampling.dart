@@ -157,7 +157,7 @@ final class RepetitionPenalty implements Sampler {
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     final nlId = llama_token_nl(ctx.model.pointer);
-    final nlBackupLogit = cands.getLogit(nlId);
+    final nlBackupLogit = cands[nlId];
 
     var lastN = this.lastN;
     if (lastN == -1) {
@@ -186,7 +186,7 @@ final class RepetitionPenalty implements Sampler {
       // llama/common/sampling.cpp uses a loop here, because it's possible for
       // the candidates to be sorted (and therefore newline logit not at index nlId).
       assert(!cands.pointer.ref.sorted);
-      cands.setLogit(nlId, nlBackupLogit);
+      cands[nlId] = nlBackupLogit;
     }
     return null;
   }

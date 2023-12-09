@@ -17,6 +17,7 @@ include: package:lints/recommended.yaml
 
 linter:
   rules:
+    - unawaited_futures
     - unnecessary_statements
 
 # analyzer:

@@ -2,6 +2,7 @@ import 'dart:isolate'; // for log events from llama.cpp
 
 import 'package:logging/logging.dart';
 
+import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/isolate.dart';
 import 'package:ensemble_llama/src/message_control.dart';
@@ -64,11 +65,13 @@ final class Context with Disposable {
   /// Clears and resets the stored tokens in [ctx].
   Future<void> clear() async {
     checkDisposed();
-    setLength(0);
+    await trim(0);
   }
 
-  Future<void> setLength(int length) async {
+  /// Shortens the active content to [length] tokens.
+  Future<void> trim(int length) async {
     checkDisposed();
+    length.checkIncInc(0, tokens.length, 'length');
     await llama._send<EditResp>(EditCtl(id, length: length));
     tokens.length = length;
   }

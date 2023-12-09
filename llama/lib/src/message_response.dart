@@ -1,6 +1,6 @@
 import 'dart:isolate';
 
-import 'package:ensemble_llama/src/llama.dart' show Model, Context, Token;
+import 'package:ensemble_llama/src/llama.dart' show Token;
 import 'package:ensemble_llama/src/common.dart';
 
 sealed class ResponseMessage {

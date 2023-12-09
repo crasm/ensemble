@@ -31,7 +31,8 @@ void main() {
     Context ctx;
 
     test('tokenize', () async {
-      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      ctx =
+          await llama.initContext(await model, params: ContextParams(seed: 1));
       final tokens = await ctx.add("peanut");
       expect(tokens.length, 4);
       expect(tokens[0].id, 1); // BOS
@@ -96,7 +97,8 @@ void main() {
 
     test('repeat penalty', () async {
       ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
+          params: ContextParams(
+              seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
       await ctx.add("paint it black, paint it black, paint it black, paint it");
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -110,7 +112,8 @@ void main() {
 
     test('temperature non-greedy', () async {
       ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
+          params: ContextParams(
+              seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
       await ctx.add(" a a a a a a a");
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -124,7 +127,8 @@ void main() {
 
     test('repeat penalty last N = -1', () async {
       ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
+          params:
+              ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
       await ctx.add("a a a a a a a");
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -137,7 +141,8 @@ void main() {
     });
 
     test('unused sampler', () async {
-      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      ctx =
+          await llama.initContext(await model, params: ContextParams(seed: 1));
       final invalidSampler = TopK(40);
       try {
         await ctx.add("Holly");
@@ -170,35 +175,52 @@ void main() {
       await ctx.add("as we know it, and");
       await ctx.ingest();
 
-      final gen = await ctx.generate().map((a) => a.text).reduce((a, b) => a + b);
+      final gen =
+          await ctx.generate().map((a) => a.text).reduce((a, b) => a + b);
       expect(gen, " I feel fine.");
     });
 
-    test('tokenize multiple generate', () async {
-      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+    test('complex interwoven ctls', () async {
+      ctx = await llama.initContext(
+        await model,
+        params: ContextParams(seed: 1),
+      );
       List<Token> tokens = [];
       tokens.addAll(await ctx.add("Samanth"));
       await ctx.ingest();
       tokens.add(await ctx.generate().first);
       expect(tokens.last.text, 'a');
-      // await ctx.setLength(tokens.length);
 
       tokens.addAll(await ctx.add("stopped going fish"));
       await ctx.ingest();
       tokens.add(await ctx.generate().first);
       expect(tokens.last.text, 'ing');
-      // await ctx.setLength(tokens.length);
 
-      // TODO: The reason why this is failing is because the ctx_batch doesn't
-      // get updated with this new reduced length. Not sure how to actually go
-      // back and get those logits without starting over from zero and relying
-      // on the kv-cache.
-      // I could save more logits within the batch?
-      // May have to just decode the whole buffer every time.
-      await ctx.setLength(4); // [ <BOS> _Sam anth a ]
+      await ctx.clear();
+      tokens
+        ..clear()
+        ..addAll(await ctx.add("peanut"));
       await ctx.ingest();
-      // It should NOT be "Samantha stopped going fishing with"
-      expect((await ctx.generate().first).text, isNot(' with'));
+      final tokStream = ctx.generate();
+      // [ _but ter ]
+      await for (final tok in tokStream.take(2)) {
+        tokens.add(tok);
+      }
+      expect(tokens.last.text, 'ter');
+
+      // Check we can generate tokens using pre-computed logits without needing
+      // to ingest again
+      await ctx.trim(tokens.length - 1);
+      expect((await ctx.generate().first).text, 'ter');
+
+      await ctx.add("is my favorite thing to dip apple");
+      await ctx.ingest();
+      final nextTwoTokens = await ctx
+          .generate()
+          .take(2)
+          .map((a) => a.text)
+          .reduce((a, b) => a + b);
+      expect(nextTwoTokens, ' slices');
     });
   });
 }
