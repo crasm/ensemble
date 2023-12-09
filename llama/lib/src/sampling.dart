@@ -23,7 +23,7 @@ abstract interface class NativeMemoryUser {
 final class Temperature implements Sampler {
   final double temp;
   bool get greedy => temp == 0.0;
-  // TODO: change to temp >= Float32.minValue * 10 or something
+  // TODO(crasm): change to temp >= Float32.minValue * 10 or something
   const Temperature(this.temp) : assert(temp >= 0.0);
 
   @override
@@ -38,7 +38,7 @@ final class Temperature implements Sampler {
   }
 
   @override
-  String toString() => "Temperature{$temp}";
+  String toString() => 'Temperature{$temp}';
 }
 
 final class TopK implements Sampler {
@@ -60,7 +60,7 @@ final class TopK implements Sampler {
   }
 
   @override
-  String toString() => "TopK{$topK}";
+  String toString() => 'TopK{$topK}';
 }
 
 final class TopP implements Sampler {
@@ -77,7 +77,7 @@ final class TopP implements Sampler {
   }
 
   @override
-  String toString() => "TopP{$topP}";
+  String toString() => 'TopP{$topP}';
 }
 
 /// Implements min P sampling.
@@ -98,7 +98,7 @@ final class MinP implements Sampler {
   }
 
   @override
-  String toString() => "MinP{$minP}";
+  String toString() => 'MinP{$minP}';
 }
 
 final class TailFree implements Sampler {
@@ -115,7 +115,7 @@ final class TailFree implements Sampler {
   }
 
   @override
-  String toString() => "TailFree{$z}";
+  String toString() => 'TailFree{$z}';
 }
 
 final class LocallyTypical implements Sampler {
@@ -132,10 +132,10 @@ final class LocallyTypical implements Sampler {
   }
 
   @override
-  String toString() => "LocallyTypical{$p}";
+  String toString() => 'LocallyTypical{$p}';
 }
 
-int _min(List<int> args) => args.fold(args[0], (a, b) => min(a, b));
+int _min(List<int> args) => args.fold(args[0], min);
 
 final class RepetitionPenalty implements Sampler {
   final int lastN;
@@ -193,13 +193,13 @@ final class RepetitionPenalty implements Sampler {
 
   @override
   String toString() =>
-      "RepetitionPenalty{lastN=$lastN, penalty=$penalty, frequencyPenalty=$frequencyPenalty, presencePenalty=$presencePenalty, penalizeNewline=$penalizeNewline}";
+      'RepetitionPenalty{lastN=$lastN, penalty=$penalty, frequencyPenalty=$frequencyPenalty, presencePenalty=$presencePenalty, penalizeNewline=$penalizeNewline}';
 }
 
 mixin MirostatMu implements NativeMemoryUser {
   int? _raw;
 
-  get _mu => Pointer.fromAddress(_raw!).cast<Float>();
+  Pointer<Float> get _mu => Pointer.fromAddress(_raw!).cast<Float>();
 
   @override
   void alloc() {
@@ -225,9 +225,9 @@ sealed class Mirostat with MirostatMu implements Sampler {
   String toString() {
     switch (this) {
       case MirostatV1():
-        return "MirostatV1{tau: $tau, eta: $eta}";
+        return 'MirostatV1{tau: $tau, eta: $eta}';
       case MirostatV2():
-        return "MirostatV2{tau: $tau, eta: $eta}";
+        return 'MirostatV2{tau: $tau, eta: $eta}';
     }
   }
 }
@@ -236,7 +236,7 @@ final class MirostatV1 extends Mirostat {
   MirostatV1([super.tau, super.eta]);
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
-    final m = 100;
+    const m = 100;
     final tokId = llama_sample_token_mirostat(ctx.pointer, cands.pointer, tau, eta, m, _mu);
     return Token.fromId(ctx, tokId);
   }

@@ -8,6 +8,7 @@ import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/llama.dart' as pub;
 import 'package:ensemble_llama/src/params.dart' show ContextParams;
+import 'package:meta/meta.dart';
 
 final class Model {
   static int _nextId = 1;
@@ -19,7 +20,7 @@ final class Model {
   Pointer<llama_model> get pointer => Pointer.fromAddress(rawPointer).cast<llama_model>();
 
   @override
-  String toString() => "Model#$id";
+  String toString() => 'Model#$id';
 }
 
 final class Context with Disposable {
@@ -29,13 +30,6 @@ final class Context with Disposable {
   final Model model;
   final ContextParams params;
 
-  late final TokenBuf tokens;
-  late final Logits logits;
-  late final Candidates candidates;
-  late final llama_batch batch;
-
-  bool get needsIngesting => logits.length < tokens.length;
-
   Context(this.rawPointer, this.model, this.params) {
     final vocabSize = llama_n_vocab(model.pointer);
     tokens = TokenBuf.allocate(params.contextSizeTokens);
@@ -43,6 +37,13 @@ final class Context with Disposable {
     candidates = Candidates(vocabSize);
     batch = llama_batch_init(params.batchSizeTokens, 0, 1);
   }
+
+  late final TokenBuf tokens;
+  late final Logits logits;
+  late final Candidates candidates;
+  late final llama_batch batch;
+
+  bool get needsIngesting => logits.length < tokens.length;
 
   Pointer<llama_context> get pointer => Pointer.fromAddress(rawPointer).cast<llama_context>();
 
@@ -56,13 +57,16 @@ final class Context with Disposable {
   }
 
   @override
-  String toString() => "Context#$id";
+  String toString() => 'Context#$id';
 }
 
+@immutable
 final class Token {
   final int id;
   final String text;
   final String rawText;
+
+  pub.Token get record => (id: id, text: text);
 
   const Token(this.id, this.text, this.rawText);
 
@@ -71,18 +75,16 @@ final class Token {
     return Token(
       id,
       str
-          .replaceAll("▁", " ") // replace U+2581 with a space
-          // TODO: is this the right approach here? What about other cases?
-          .replaceAll("<0x0A>", "\n"),
+          .replaceAll('▁', ' ') // replace U+2581 with a space
+          // TODO(crasm): is this the right approach here? What about other cases?
+          .replaceAll('<0x0A>', '\n'),
       str,
     );
   }
 
-  pub.Token get record => (id: id, text: text);
-
   @override
   String toString() => text;
-  String toStringForLogging() => "${id.toString().padLeft(5)} = $rawText\n";
+  String toStringForLogging() => '${id.toString().padLeft(5)} = $rawText\n';
 
   @override
   bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
@@ -91,114 +93,11 @@ final class Token {
 }
 
 final class TokenBuf with Disposable {
-  static final _log = Logger('TokenBuf');
-
-  int _length = 0;
-  int get length => _length;
-  bool get isEmpty => _length == 0;
-
-  set length(int value) {
-    checkDisposed();
-    value.checkIncInc(0, capacity, 'length');
-    _length = value;
-  }
-
-  final Pointer<Int32> buf;
-  final int capacity;
   TokenBuf._(this.buf, this.capacity);
-
   factory TokenBuf.allocate(int size) {
     final buf = calloc.allocate(size * sizeOf<Int32>()).cast<Int32>();
     return TokenBuf._(buf, size);
   }
-
-  int operator [](int index) {
-    checkDisposed();
-    RangeError.checkValidIndex(index, this);
-    return buf[index];
-  }
-
-  void operator []=(int index, int value) {
-    checkDisposed();
-    RangeError.checkValidIndex(index, this);
-    buf[index] = value;
-  }
-
-  void add(int tokId) {
-    checkDisposed();
-    assert(length <= capacity);
-    if (_length == capacity) {
-      throw Exception("tried to store $_length tokens in $capacity token buffer");
-    }
-    buf[_length++] = tokId;
-  }
-
-  /// Tokenizes [text] with the [ctx.model], adds them to this [TokenBuf], and
-  /// returns the number of tokens.
-  ///
-  /// Does not modify [ctx].
-  int addFromString(Context ctx, String text) {
-    checkDisposed();
-    final int remainingCapacity = capacity - _length;
-    Pointer<Utf8>? utf;
-    try {
-      utf = text.toNativeUtf8(allocator: calloc);
-
-      final addBos = isEmpty;
-      final numTokens = llama_tokenize(
-        ctx.model.pointer,
-        utf.cast<Char>(),
-        utf.length,
-        buf.elementAt(_length),
-        remainingCapacity,
-        addBos, // add Beginning-Of-Stream token
-        false, // tokenize meta tokens (like BOS/EOS)
-      );
-
-      if (addBos) _log.fine(() => "Added BOS token to $ctx");
-
-      if (numTokens < 0) {
-        throw Exception("llama_tokenize failed with $numTokens");
-      } else if (numTokens >= remainingCapacity) {
-        throw Exception("prompt too large: $numTokens >= $remainingCapacity");
-      }
-
-      _length += numTokens;
-      return numTokens;
-    } finally {
-      if (utf != null) calloc.free(utf);
-    }
-  }
-
-  String toStringContext(Context ctx) {
-    checkDisposed();
-    final strb = StringBuffer("buf[0:${length - 1}] = ");
-    for (var i = 0; i < length; i++) {
-      strb.write(Token.fromId(ctx, buf[i]));
-    }
-    return strb.toString();
-  }
-
-  /// Returns the [Token]s in this buffer.
-  ///
-  /// If [lastN] is provided, will return the tokens in the buffer starting
-  /// from [length - lastN].
-  List<pub.Token> toList(Context ctx, [int? lastN]) {
-    checkDisposed();
-    lastN ??= _length;
-    final List<pub.Token> list = [];
-    for (var i = _length - lastN; i < _length; i++) {
-      list.add(Token.fromId(ctx, buf[i]).record);
-    }
-    return list;
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-    calloc.free(buf);
-  }
-
   factory TokenBuf.fromString(Context ctx, String text) {
     final contextSize = ctx.params.contextSizeTokens;
     final model = ctx.model;
@@ -218,15 +117,118 @@ final class TokenBuf with Disposable {
       );
 
       if (numTokens < 0) {
-        throw Exception("llama_tokenize failed with $numTokens");
+        throw Exception('llama_tokenize failed with $numTokens');
       } else if (numTokens >= contextSize) {
-        throw Exception("prompt too large: $numTokens >= $contextSize tokens");
+        throw Exception('prompt too large: $numTokens >= $contextSize tokens');
       }
 
       return TokenBuf._(buf, contextSize).._length = numTokens;
     } finally {
-      if (textC != null) calloc.free(textC);
+      if (textC != null) {
+        calloc.free(textC);
+      }
     }
+  }
+
+  static final _log = Logger('TokenBuf');
+
+  int _length = 0;
+  int get length => _length;
+  bool get isEmpty => _length == 0;
+
+  set length(int value) {
+    checkDisposed();
+    value.checkIncInc(0, capacity, 'length');
+    _length = value;
+  }
+
+  final Pointer<Int32> buf;
+  final int capacity;
+  int operator [](int index) {
+    checkDisposed();
+    RangeError.checkValidIndex(index, this);
+    return buf[index];
+  }
+
+  void operator []=(int index, int value) {
+    checkDisposed();
+    RangeError.checkValidIndex(index, this);
+    buf[index] = value;
+  }
+
+  void add(int tokId) {
+    checkDisposed();
+    assert(length <= capacity);
+    if (_length == capacity) {
+      throw Exception('tried to store $_length tokens in $capacity token buffer');
+    }
+    buf[_length++] = tokId;
+  }
+
+  /// Tokenizes [text], adds them to this [TokenBuf], and returns the number of
+  /// tokens.
+  ///
+  /// Does not modify [ctx].
+  int addFromString(Context ctx, String text) {
+    checkDisposed();
+    final remainingCapacity = capacity - _length;
+    Pointer<Utf8>? utf;
+    try {
+      utf = text.toNativeUtf8(allocator: calloc);
+
+      final addBos = isEmpty;
+      final numTokens = llama_tokenize(
+        ctx.model.pointer,
+        utf.cast<Char>(),
+        utf.length,
+        buf.elementAt(_length),
+        remainingCapacity,
+        addBos, // add Beginning-Of-Stream token
+        false, // tokenize meta tokens (like BOS/EOS)
+      );
+
+      if (addBos) _log.fine(() => 'Added BOS token to $ctx');
+
+      if (numTokens < 0) {
+        throw Exception('llama_tokenize failed with $numTokens');
+      } else if (numTokens >= remainingCapacity) {
+        throw Exception('prompt too large: $numTokens >= $remainingCapacity');
+      }
+
+      _length += numTokens;
+      return numTokens;
+    } finally {
+      if (utf != null) calloc.free(utf);
+    }
+  }
+
+  String toStringContext(Context ctx) {
+    checkDisposed();
+    final strb = StringBuffer('buf[0:${length - 1}] = ');
+    for (var i = 0; i < length; i++) {
+      strb.write(Token.fromId(ctx, buf[i]));
+    }
+    return strb.toString();
+  }
+
+  /// Returns the [Token]s in this buffer.
+  ///
+  /// If [lastN] is provided, will return the tokens in the buffer starting
+  /// from [length - lastN].
+  List<pub.Token> toList(Context ctx, [int? lastN]) {
+    checkDisposed();
+    lastN ??= _length;
+    final list = <pub.Token>[];
+    for (var i = _length - lastN; i < _length; i++) {
+      list.add(Token.fromId(ctx, buf[i]).record);
+    }
+    return list;
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+    calloc.free(buf);
   }
 }
 
@@ -254,7 +256,7 @@ final class Logits with Disposable {
 
   Logits(this.contextSize, this.vocabSize) {
     final bytes = contextSize * vocabSize * sizeOf<Float>();
-    _log.info("Allocating ${bytes >> 20}MiB for logits");
+    _log.info('Allocating ${bytes >> 20}MiB for logits');
     _logits = calloc.allocate(bytes);
   }
 
@@ -267,7 +269,7 @@ final class Logits with Disposable {
   void add(Pointer<Float> batchLogits, int batchSize) {
     checkDisposed();
     (batchSize + length).checkIncInc(0, contextSize, 'batchSize+length');
-    for (int i = 0; i < vocabSize * batchSize; i++) {
+    for (var i = 0; i < vocabSize * batchSize; i++) {
       _logits.elementAt(vocabSize * length + i).value = batchLogits.elementAt(i).value;
     }
 
@@ -326,20 +328,20 @@ final class Candidates with Disposable {
 
   String toStringContext(Context ctx) {
     checkDisposed();
-    final List<llama_token_data> copy = [];
+    final copy = <llama_token_data>[];
     for (var i = 0; i < size; i++) {
       copy.add(_candidates[i]);
     }
     copy.sort((a, b) => b.logit.compareTo(a.logit));
 
-    final strb = StringBuffer("cands = ");
+    final strb = StringBuffer('cands = ');
     for (var i = 0; i < 8; i++) {
       strb.write(Token.fromId(ctx, _candidates[i].id));
-      strb.write("=");
+      strb.write('=');
       strb.write(_candidates[i].logit.toStringAsFixed(2));
-      strb.write(" ");
+      strb.write(' ');
     }
-    strb.write("...");
+    strb.write('...');
     return strb.toString();
   }
 

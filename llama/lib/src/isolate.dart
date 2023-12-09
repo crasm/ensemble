@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_catches_without_on_clauses
+
 import 'dart:ffi';
 import 'dart:isolate';
 
@@ -17,11 +19,8 @@ extension on ResponseMessage {
   void send() => _response.send(this);
 }
 
-/// Samples the next token randomly, using the probabilities in [cands].
-///
-/// This is called last, after any [Sampler] have been called, unless
-/// an alternative [TerminalSampler] is supplied. This does not modify any
-/// probabilities in [cands].
+/// Samples the next token randomly, using the probabilities in the given
+/// [Candidates].
 final class _DefaultLastSampler implements Sampler {
   const _DefaultLastSampler();
   @override
@@ -55,13 +54,13 @@ void init(
 
   llama_backend_init(false);
   if (!args.disableGgmlLog) {
-    _log.info("llama.cpp logs enabled");
+    _log.info('llama.cpp logs enabled');
     llama_log_set(
       Pointer.fromFunction(_onLlamaLog),
       Pointer.fromAddress(0), // not used
     );
   } else {
-    _log.info("llama.cpp logs disabled");
+    _log.info('llama.cpp logs disabled');
   }
 }
 
@@ -70,7 +69,7 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
     ggml_log_level.GGML_LOG_LEVEL_ERROR => Level.SEVERE,
     ggml_log_level.GGML_LOG_LEVEL_WARN => Level.WARNING,
     ggml_log_level.GGML_LOG_LEVEL_INFO => Level.FINER,
-    _ => throw Exception("Unknown log level: $levelGgml"),
+    _ => throw Exception('Unknown log level: $levelGgml'),
   };
 
   _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
@@ -79,7 +78,7 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
 void _onModelLoadProgress(double progress, Pointer<Void> id) =>
     InitModelProgressResp(id.address, progress).send();
 
-void _onControl(ControlMessage ctl) {
+Future<void> _onControl(ControlMessage ctl) async {
   switch (ctl) {
     case ExitCtl():
       _exit(ctl);
@@ -96,9 +95,9 @@ void _onControl(ControlMessage ctl) {
     case EditCtl():
       _edit(ctl);
     case IngestCtl():
-      _ingest(ctl);
+      await _ingest(ctl);
     case GenerateCtl():
-      _generate(ctl);
+      await _generate(ctl);
   }
 }
 
@@ -120,7 +119,7 @@ void _loadModel(InitModelCtl ctl) {
     pathStrC = ctl.path.toNativeUtf8(allocator: calloc).cast<Char>();
     final rawModel = llama_load_model_from_file(pathStrC, params).address;
     if (rawModel == 0) {
-      ctl.error(Exception("failed loading model: ${ctl.path}")).send();
+      ctl.error(Exception('failed loading model: ${ctl.path}')).send();
       return;
     }
 
@@ -137,7 +136,7 @@ void _freeModel(FreeModelCtl ctl) {
     final model = state.removeModel(ctl.model);
     final ctxs = state.contextsForModel[ctl.model];
     if (ctxs != null && ctxs.isNotEmpty) {
-      throw StateError("${ctxs.length} contexts are still active for this model");
+      throw StateError('${ctxs.length} contexts are still active for this model');
     }
 
     llama_free_model(model.pointer);
@@ -154,7 +153,7 @@ void _newContext(InitContextCtl ctl) {
     final params = llama_context_default_params()..setSimpleFrom(ctl.params);
     final model = state.getModel(ctl.model);
     final rawCtx = llama_new_context_with_model(model.pointer, params).address;
-    if (rawCtx == 0) throw Exception("failed creating context");
+    if (rawCtx == 0) throw Exception('failed creating context');
 
     ctl.done(state.addContext(rawCtx, model, ctl.params)).send();
   } catch (e) {
@@ -166,12 +165,12 @@ void _freeContext(FreeContextCtl ctl) {
   try {
     final ctx = state.removeContext(ctl.ctx);
     if (!state.models.containsKey(ctx.model.id)) {
-      throw StateError("found ${ctl.ctx}, but missing ${ctx.model}");
+      throw StateError('found ${ctl.ctx}, but missing ${ctx.model}');
     }
 
     final ctxSet = state.contextsForModel[ctx.model.id];
     if (ctxSet == null || !ctxSet.remove(ctl.ctx)) {
-      throw StateError("found ${ctl.ctx}, but not associated with a model");
+      throw StateError('found ${ctl.ctx}, but not associated with a model');
     }
 
     llama_free(ctx.pointer);
@@ -205,15 +204,15 @@ void _edit(EditCtl ctl) {
       final newLen = ctl.length;
       if (newLen == null) return;
       if (ctx.tokens.length == newLen) {
-        _log.info(() => "length unchanged");
+        _log.info(() => 'length unchanged');
         return;
       }
 
-      _log.info(() => "token buffer length changed from ${ctx.tokens.length} to $newLen");
+      _log.info(() => 'token buffer length changed from ${ctx.tokens.length} to $newLen');
       ctx.tokens.length = newLen;
       if (ctx.logits.length > newLen) {
         _log.info(() =>
-            "discarding logits and llama_kv_cache for last last ${ctx.logits.length - newLen} tokens of context window");
+            'discarding logits and llama_kv_cache for last last ${ctx.logits.length - newLen} tokens of context window');
         ctx.logits.length = newLen;
         llama_kv_cache_seq_rm(ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
       }
@@ -225,9 +224,13 @@ void _edit(EditCtl ctl) {
   }
 }
 
-void _ingest(IngestCtl ctl) {
+Future<void> _ingest(IngestCtl ctl) async {
+  final handle = ReceivePort();
   try {
-    //
+    var mustCancel = false;
+    handle.listen((_) => mustCancel = true);
+    ctl.handshake(handle.sendPort).send();
+
     // Evaluate prompt.
     //
     // To do so, we fill up a llama_batch with tokens, call llama_decode()
@@ -239,9 +242,12 @@ void _ingest(IngestCtl ctl) {
     final tokens = ctx.tokens;
     final batchSize = ctx.params.batchSizeTokens;
 
-    var i = ctx.logits.length; // index of the next token to be decoded
+    final initialLength = ctx.logits.length;
+    final finalLength = ctx.tokens.length;
+
+    int i; // index of the next token to be decoded
     var j = 0; // start batch at zero tokens on every _ingest()
-    while (i + j < tokens.length) {
+    while ((i = ctx.logits.length) + j < tokens.length) {
       final tokensToDecode = tokens.length - i;
       final isLastBatch = tokensToDecode <= batchSize;
       final fillCount = isLastBatch ? tokensToDecode : batchSize;
@@ -257,29 +263,33 @@ void _ingest(IngestCtl ctl) {
         // batch.logits[j] = 1;
       }
 
+      // ignore: inference_failure_on_instance_creation
+      await Future.delayed(Duration.zero);
+      if (mustCancel) return;
       final status = llama_decode(ctx.pointer, batch);
       if (status != 0) {
-        throw Exception("llama_decode failed with $status");
+        throw Exception('llama_decode failed with $status');
       }
       ctx.logits.add(llama_get_logits(ctx.pointer), batch.n_tokens);
+      ctl.progress(i - initialLength, finalLength).send();
 
       assert(j <= batchSize);
-      if (j == batchSize) {
-        i += batchSize;
-        j = 0;
-      }
+      if (j == batchSize) j = 0;
     }
 
+    ctl.progress(i - initialLength, finalLength).send();
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();
+  } finally {
+    handle.close();
   }
 }
 
-void _generate(GenerateCtl ctl) async {
-  ReceivePort handle = ReceivePort();
+Future<void> _generate(GenerateCtl ctl) async {
+  final handle = ReceivePort();
   try {
-    bool mustCancel = false;
+    var mustCancel = false;
     handle.listen((_) => mustCancel = true);
     ctl.handshake(handle.sendPort).send();
 
@@ -294,10 +304,8 @@ void _generate(GenerateCtl ctl) async {
     }
 
     if (ctx.needsIngesting) {
-      throw StateError("context tokens need to be ingested or removed before generation can begin");
+      throw StateError('context tokens need to be ingested or removed before generation can begin');
     }
-
-    // TODO: make sure multiple calls to _generate() work
 
     //
     // Generate tokens to fill context
@@ -320,19 +328,20 @@ void _generate(GenerateCtl ctl) async {
             final unused = ctl.samplers.skip(i + 1).toList(growable: false);
             final buf = StringBuffer()..writeAll(unused);
             throw ArgumentError.value(unused,
-                "Unexpected token from $samp. Unable to process these additional samplers: $buf");
+                'Unexpected token from $samp. Unable to process these additional samplers: $buf');
           }
 
           break;
         }
       }
 
-      tok ??= _DefaultLastSampler().sample(ctx, candidates, tokens);
+      tok ??= const _DefaultLastSampler().sample(ctx, candidates, tokens);
 
       // Yield to this isolate's event loop
-      // TODO: this might cause problems if another _onControl(GenerateCtl)
+      // TODO(crasm): this might cause problems if another _onControl(GenerateCtl)
       // comes in for this context. In that case, we'd have to have some sort
       // of mutex check where that request should yield until this one finishes.
+      // ignore: inference_failure_on_instance_creation
       await Future.delayed(Duration.zero);
       if (mustCancel) return;
 
@@ -361,7 +370,7 @@ void _generate(GenerateCtl ctl) async {
 
       final status = llama_decode(ctx.pointer, batch);
       if (status != 0) {
-        throw Exception("llama_decode failed with $status");
+        throw Exception('llama_decode failed with $status');
       }
 
       ctx.logits.add(llama_get_logits(ctx.pointer), batch.n_tokens);

@@ -3,14 +3,14 @@ import 'package:ensemble_llama/src/common.dart';
 
 import 'dart:io';
 
-void _tokenize(String text) async {
+Future<void> _tokenize(String text) async {
   final disposables = <Disposable>[];
   try {
     final llama = Llama();
     disposables.add(llama);
 
     final model = await llama.initModel(
-      "/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf",
+      '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
     );
     disposables.add(model);
 
@@ -28,6 +28,6 @@ void _tokenize(String text) async {
   }
 }
 
-void main(List<String> args) {
-  _tokenize(args[0]);
+void main(List<String> args) async {
+  await _tokenize(args[0]);
 }

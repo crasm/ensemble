@@ -27,12 +27,12 @@ final class State {
   }
 
   Model removeModel(int model) =>
-      models.remove(model) ?? (throw ArgumentError("Model#$model not found"));
+      models.remove(model) ?? (throw ArgumentError('Model#$model not found'));
 
   Context removeContext(int ctx) =>
-      contexts.remove(ctx) ?? (throw ArgumentError("Context#$ctx not found"));
+      contexts.remove(ctx) ?? (throw ArgumentError('Context#$ctx not found'));
 
-  Model getModel(int model) => models[model] ?? (throw ArgumentError("Model#$model not found"));
+  Model getModel(int model) => models[model] ?? (throw ArgumentError('Model#$model not found'));
 
-  Context getContext(int ctx) => contexts[ctx] ?? (throw ArgumentError("Context#$ctx not found"));
+  Context getContext(int ctx) => contexts[ctx] ?? (throw ArgumentError('Context#$ctx not found'));
 }

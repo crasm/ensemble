@@ -9,11 +9,11 @@ extension TokenLogString on Token {
     final buf = StringBuffer();
     if (i != null) {
       buf.write(i.toString().padLeft(4));
-      buf.write(":");
+      buf.write(':');
     }
     buf.write(id.toString().padLeft(6));
-    buf.write(" = ");
-    buf.write(text.replaceAll(" ", "▁").replaceAll("\n", "<0x0A>").padRight(10));
+    buf.write(' = ');
+    buf.write(text.replaceAll(' ', '▁').replaceAll('\n', '<0x0A>').padRight(10));
     return buf.toString();
   }
 }
@@ -21,13 +21,13 @@ extension TokenLogString on Token {
 extension NumberRangeChecks on num {
   void checkIncInc(num start, num end, String name) {
     if (!(this >= start && this <= end)) {
-      throw RangeError.value(this, name, "must be between [$start, $end]");
+      throw RangeError.value(this, name, 'must be between [$start, $end]');
     }
   }
 
   void checkGTE(num min, String name) {
     if (!(this >= min)) {
-      throw RangeError.value(this, name, "must be greater than or equal to $min");
+      throw RangeError.value(this, name, 'must be greater than or equal to $min');
     }
   }
 }

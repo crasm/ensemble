@@ -1,7 +1,7 @@
 import 'package:ensemble_llama/llama_ffi.dart';
 import 'package:ensemble_llama/src/common.dart';
 
-// TODO: explain all parameters for ModelParams, ContextParams, and SamplingParams
+// TODO(crasm): explain all parameters for ModelParams, ContextParams, and SamplingParams
 final class ModelParams {
   final int gpuLayers;
   final int cudaMainGpu;
@@ -33,7 +33,7 @@ final class ContextParams {
   final Rope? rope;
 
   final bool cudaUseMulMatQ;
-  final bool useFloat16KVCache; // TODO: isn't this deprecated?
+  final bool useFloat16KVCache; // TODO(crasm): isn't this deprecated?
   final bool embeddingModeOnly;
 
   ContextParams({
@@ -75,7 +75,7 @@ final class RopeLinear extends Rope {
   int llamaRopeScalingType() => llama_rope_scaling_type.LLAMA_ROPE_SCALING_LINEAR;
 }
 
-// TODO: test yarn
+// TODO(crasm): test yarn
 final class RopeYarn extends Rope {
   final double extrapolFactor;
   final double attnScaleFactor;

@@ -6,8 +6,8 @@ import 'package:path/path.dart' as path;
 import 'package:native_assets_cli/native_assets_cli.dart';
 
 final class CompileError extends Error {
-  String message;
-  CompileError([this.message = ""]);
+  final String message; // ignore: unreachable_from_main
+  CompileError([this.message = '']);
 }
 
 Future<File> _copy(String filename, String src, String dst) =>
@@ -17,16 +17,16 @@ void main(List<String> args) async {
   final buildConfig = await BuildConfig.fromArgs(args);
   final buildOutput = BuildOutput();
 
-  final src = path.join(buildConfig.packageRoot.toFilePath(), 'src').toString();
+  final src = path.join(buildConfig.packageRoot.toFilePath(), 'src');
 
   stderr.writeln(buildConfig);
   final proc = await Process.start('make', ['libllama.so'], workingDirectory: src);
 
-  proc.stdout.transform(utf8.decoder).forEach(stderr.write);
-  proc.stderr.transform(utf8.decoder).forEach(stderr.write);
-  int exitCode = await proc.exitCode;
+  proc.stdout.transform(utf8.decoder).forEach(stderr.write); // ignore: unawaited_futures
+  proc.stderr.transform(utf8.decoder).forEach(stderr.write); // ignore: unawaited_futures
+  final exitCode = await proc.exitCode;
   if (exitCode != 0) {
-    throw CompileError("make failed: exitCode=$exitCode");
+    throw CompileError('make failed: exitCode=$exitCode');
   }
 
   // $ cp ./src/libllama.so ./.dart_tool/native_assets_builder/<snip>/out/libllama.so

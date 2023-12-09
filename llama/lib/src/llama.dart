@@ -15,22 +15,18 @@ typedef Token = ({int id, String text});
 final class Model with Disposable {
   final Llama llama;
   final int id;
+
   Model._(this.llama, this.id);
 
   @override
-  void dispose() async {
+  Future<void> dispose() async {
     llama.checkDisposed();
     super.dispose();
     await llama._send(FreeModelCtl(id));
   }
 
   @override
-  String toString() => "Model#$id";
-
-  @override
-  bool operator ==(Object? other) => other is Model && other.id == id;
-  @override
-  int get hashCode => id.hashCode;
+  String toString() => 'Model#$id';
 }
 
 final class Context with Disposable {
@@ -45,16 +41,16 @@ final class Context with Disposable {
   Context._(this.llama, this.model, this.id);
 
   @override
-  void dispose() async {
+  Future<void> dispose() async {
     llama.checkDisposed();
     model.checkDisposed();
     super.dispose();
     await llama._send(FreeContextCtl(id));
   }
 
-  /// Tokenize and add [text] to this [ctx].
+  /// Tokenize and add [text] to this context.
   ///
-  /// This does not ingest or decode the text, so it computationally cheap.
+  /// Does not ingest or decode the text, so it computationally cheap.
   Future<List<Token>> add(String text) async {
     checkDisposed();
     final textTokens = (await llama._send<TokenizeResp>(TokenizeCtl(id, text))).tokens;
@@ -62,7 +58,7 @@ final class Context with Disposable {
     return tokens;
   }
 
-  /// Clears and resets the stored tokens in [ctx].
+  /// Clears and resets the stored tokens in this context.
   Future<void> clear() async {
     checkDisposed();
     await trim(0);
@@ -79,9 +75,34 @@ final class Context with Disposable {
   /// Decodes the tokens that have been added to this context.
   ///
   /// This is computationally expensive.
-  Future<void> ingest() async {
+  Future<void> ingest({
+    void Function(int, int)? decodeProgressCallback,
+  }) async {
     checkDisposed();
-    await llama._send<IngestResp>(IngestCtl(id));
+    SendPort? genPort;
+    try {
+      final ctlId = await llama._sendCtl(IngestCtl(id));
+      await for (final resp in llama._responseStream) {
+        if (resp.id != ctlId) continue;
+        switch (resp) {
+          case IngestProgressResp():
+            decodeProgressCallback?.call(resp.done, resp.total);
+          case IngestResp():
+            genPort = null;
+            resp.throwIfErr();
+            return;
+          case HandshakeResp():
+            genPort = resp.controlPort;
+          default:
+            throw AssertionError('unexpected response ($resp), but valid id (${resp.id})');
+        }
+      }
+    } finally {
+      if (genPort != null) {
+        genPort.send(0);
+        _log.info('ingest canceled');
+      }
+    }
   }
 
   /// Runs inference to generate new tokens, constrained by [samplers].
@@ -94,7 +115,7 @@ final class Context with Disposable {
     checkDisposed();
     SendPort? genPort;
     try {
-      if (samplers.isEmpty) samplers = [Temperature(0.0)];
+      if (samplers.isEmpty) samplers = [const Temperature(0.0)];
 
       final ctlId = await llama._sendCtl(GenerateCtl(id, samplers));
       await for (final resp in llama._responseStream) {
@@ -110,13 +131,13 @@ final class Context with Disposable {
           case HandshakeResp():
             genPort = resp.controlPort;
           default:
-            throw AssertionError("unexpected response ($resp), but valid id (${resp.id})");
+            throw AssertionError('unexpected response ($resp), but valid id (${resp.id})');
         }
       }
     } finally {
       if (genPort != null) {
         genPort.send(0);
-        _log.info("generation canceled");
+        _log.info('generate canceled');
       }
       // This is necessary in the case that a token is generated (and therefore
       // altered and within the llama.cpp state) but we have already canceled
@@ -131,12 +152,7 @@ final class Context with Disposable {
   }
 
   @override
-  String toString() => "Context#$id";
-
-  @override
-  bool operator ==(Object? other) => other is Context && other.id == id;
-  @override
-  int get hashCode => id.hashCode;
+  String toString() => 'Context#$id';
 }
 
 final class Llama with Disposable {
@@ -151,12 +167,13 @@ final class Llama with Disposable {
 
   Llama({bool? disableGgmlLog}) {
     _responseStream = _responsePort.asBroadcastStream().cast<ResponseMessage>();
-    _responseStream.listen((e) => _log.finest(() => "got  $e"));
+    _responseStream.listen((e) => _log.finest(() => 'got  $e'));
     _logPort.listen((e) {
       final record = e as LogRecord;
       _log.log(record.level, () => record.message);
     });
 
+    // ignore: discarded_futures
     Isolate.spawn(init, (
       response: _responsePort.sendPort,
       log: _logPort.sendPort,
@@ -164,9 +181,8 @@ final class Llama with Disposable {
       disableGgmlLog: disableGgmlLog ?? false,
     ));
 
-    _controlPort = _responseStream.first.then((resp) {
-      return (resp as HandshakeResp).controlPort;
-    });
+    // ignore: discarded_futures
+    _controlPort = _responseStream.first.then((r) => (r as HandshakeResp).controlPort);
   }
 
   @override
@@ -179,7 +195,7 @@ final class Llama with Disposable {
 
   Future<int> _sendCtl(ControlMessage ctl) async {
     checkDisposed();
-    _log.finest(() => "sent $ctl");
+    _log.finest(() => 'sent $ctl');
     (await _controlPort).send(ctl);
     return ctl.id;
   }
@@ -187,7 +203,7 @@ final class Llama with Disposable {
   Future<T> _send<T extends ResponseMessage>(ControlMessage ctl) async {
     checkDisposed();
     final id = await _sendCtl(ctl);
-    T resp = (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
+    final resp = (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
     resp.throwIfErr();
     return resp;
   }
@@ -205,7 +221,7 @@ final class Llama with Disposable {
         .listen((e) => progressCallback?.call(e.progress));
 
     final resp = await _send<InitModelResp>(ctl);
-    progressListener.cancel();
+    await progressListener.cancel();
     return Model._(this, resp.modelId!);
   }
 

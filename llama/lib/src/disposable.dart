@@ -10,6 +10,8 @@ mixin Disposable {
   /// Throws a [StateError] if this was marked as disposed.
   @protected
   void checkDisposed() {
-    if (_wasDisposed) throw StateError("Tried to access $this, but was already disposed");
+    if (_wasDisposed) {
+      throw StateError('Tried to access $this, but was already disposed');
+    }
   }
 }

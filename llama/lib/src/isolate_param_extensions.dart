@@ -24,11 +24,11 @@ extension ContextParamConverter on llama_context_params {
     rope_scaling_type =
         p.rope?.llamaRopeScalingType() ?? llama_rope_scaling_type.LLAMA_ROPE_SCALING_UNSPECIFIED;
     if (p.rope is RopeLinear) {
-      final rope = p.rope as RopeLinear;
+      final rope = p.rope! as RopeLinear;
       rope_freq_base = rope.freqBase;
       rope_freq_scale = rope.freqScale;
     } else if (p.rope is RopeYarn) {
-      final yarn = p.rope as RopeYarn;
+      final yarn = p.rope! as RopeYarn;
       yarn_ext_factor = yarn.extrapolFactor;
       yarn_beta_fast = yarn.betaFast;
       yarn_beta_slow = yarn.betaSlow;

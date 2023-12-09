@@ -1,31 +1,21 @@
-# This file configures the static analysis results for your project (errors,
-# warnings, and lints).
-#
-# This enables the 'recommended' set of lints from `package:lints`.
-# This set helps identify many issues that may lead to problems when running
-# or consuming Dart code, and enforces writing Dart using a single, idiomatic
-# style and format.
-#
-# If you want a smaller set of lints you can change this to specify
-# 'package:lints/core.yaml'. These are just the most critical lints
-# (the recommended set includes the core lints).
-# The core lints are also what is used by pub.dev for scoring packages.
-
-include: package:lints/recommended.yaml
-
-# Uncomment the following section to specify additional rules.
+# For additional information about configuring this file, see
+# https://dart.dev/guides/language/analysis-options
+include: package:very_good_analysis/analysis_options.yaml
+# include: package:words/core.yaml
 
 linter:
   rules:
-    - unawaited_futures
-    - unnecessary_statements
 
-# analyzer:
-#   exclude:
-#     - path/to/excluded/files/**
-
-# For more information about the core and recommended set of lints, see
-# https://dart.dev/go/core-lints
-
-# For additional information about configuring this file, see
-# https://dart.dev/guides/language/analysis-options
+    always_put_control_body_on_new_line: false
+    avoid_redundant_argument_values: false
+    cascade_invocations: false
+    directives_ordering: false
+    lines_longer_than_80_chars: false
+    one_member_abstracts: false
+    parameter_assignments: false
+    prefer_asserts_with_message: false
+    prefer_expression_function_bodies: false
+    prefer_int_literals: false
+    public_member_api_docs: false # TODO: enable this before publishing
+    require_trailing_commas: false
+    sort_constructors_first: false

@@ -9,6 +9,7 @@ sealed class ResponseMessage {
   const ResponseMessage(this.id, {this.err}) : assert(id <= int32Max);
   void throwIfErr() {
     if (err != null) {
+      // ignore: only_throw_errors
       throw err!;
     }
   }
@@ -18,8 +19,8 @@ sealed class ResponseMessage {
   }
 
   @override
-  String toString() => err == null ? "$runtimeType#$id" : toStringErr();
-  String toStringErr() => "$runtimeType#$id{err: $err}";
+  String toString() => err == null ? '$runtimeType#$id' : toStringErr();
+  String toStringErr() => '$runtimeType#$id{err: $err}';
 }
 
 final class HandshakeResp extends ResponseMessage {
@@ -31,12 +32,12 @@ final class ExitResp extends ResponseMessage {
   const ExitResp(super.id);
 }
 
-// TODO: include mem used, model details?
+// TODO(crasm): include mem used, model details?
 final class InitModelResp extends ResponseMessage {
   final int? modelId;
   const InitModelResp(super.id, {super.err, this.modelId});
   @override
-  String toString() => err == null ? "LoadModelResp#$id{model: #$modelId}" : toStringErr();
+  String toString() => err == null ? 'LoadModelResp#$id{model: #$modelId}' : toStringErr();
 }
 
 final class InitModelProgressResp extends ResponseMessage {
@@ -44,7 +45,7 @@ final class InitModelProgressResp extends ResponseMessage {
   const InitModelProgressResp(super.id, this.progress);
   @override
   String toString() => err == null
-      ? "LoadModelProgressResp#$id{progress: ${progress.toStringAsFixed(6)}}"
+      ? 'LoadModelProgressResp#$id{progress: ${progress.toStringAsFixed(6)}}'
       : toStringErr();
 }
 
@@ -56,7 +57,7 @@ final class InitContextResp extends ResponseMessage {
   final int? ctxId;
   const InitContextResp(super.id, {super.err, this.ctxId});
   @override
-  String toString() => err == null ? "NewContextResp#$id{ctx: #$ctxId}" : toStringErr();
+  String toString() => err == null ? 'NewContextResp#$id{ctx: #$ctxId}' : toStringErr();
 }
 
 final class FreeContextResp extends ResponseMessage {
@@ -77,13 +78,13 @@ final class TokenizeResp extends ResponseMessage {
   String toString() {
     if (err != null) return toStringErr();
 
-    final buf = StringBuffer("TokenizeResp#");
+    final buf = StringBuffer('TokenizeResp#');
     buf.write(id);
-    buf.write("{tokens: [\n");
-    for (int i = 0; i < tokens.length; i++) {
+    buf.write('{tokens: [\n');
+    for (var i = 0; i < tokens.length; i++) {
       buf.writeln(tokens[i].toLogString(firstTokenIndex! + i));
     }
-    buf.write("]}");
+    buf.write(']}');
     return buf.toString();
   }
 }
@@ -96,6 +97,14 @@ final class IngestResp extends ResponseMessage {
   const IngestResp(super.id, {super.err});
 }
 
+final class IngestProgressResp extends ResponseMessage {
+  final int done;
+  final int total;
+  const IngestProgressResp(super.id, this.done, this.total);
+  @override
+  String toString() => 'IngestProgressResp#$id{$done/$total}';
+}
+
 final class GenerateResp extends ResponseMessage {
   const GenerateResp(super.id, {super.err});
 }
@@ -104,5 +113,5 @@ final class GenerateTokenResp extends ResponseMessage {
   final Token tok;
   const GenerateTokenResp(super.id, this.tok);
   @override
-  String toString() => err == null ? "GenerateTokenResp#$id{${tok.toLogString()}}" : toStringErr();
+  String toString() => err == null ? 'GenerateTokenResp#$id{${tok.toLogString()}}' : toStringErr();
 }
