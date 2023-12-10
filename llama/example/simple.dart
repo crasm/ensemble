@@ -12,7 +12,7 @@ void main() async {
       stderr.write((p * 100).truncate());
     },
     modelParams: ModelParams(gpuLayers: 1, useMmap: false),
-    contextParams: ContextParams(contextSizeTokens: 256),
+    contextParams: ContextParams(contextSizeTokens: 256, batchSizeTokens: 1),
     samplers: [
       const RepetitionPenalty(lastN: 256, penalty: 1.1),
       const Temperature(0.45),

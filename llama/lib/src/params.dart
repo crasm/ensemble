@@ -33,7 +33,6 @@ final class ContextParams {
   final Rope? rope;
 
   final bool cudaUseMulMatQ;
-  final bool useFloat16KVCache; // TODO(crasm): isn't this deprecated?
   final bool embeddingModeOnly;
 
   ContextParams({
@@ -44,7 +43,6 @@ final class ContextParams {
     this.batchThreads = GGML_DEFAULT_N_THREADS,
     this.rope,
     this.cudaUseMulMatQ = true,
-    this.useFloat16KVCache = true,
     this.embeddingModeOnly = false,
   }) {
     seed.checkIncInc(0, int32Max, 'seed');

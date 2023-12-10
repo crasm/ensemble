@@ -28,27 +28,18 @@ void main() async {
     final llama = add(Llama(disableGgmlLog: true));
 
     final model = add(await llama.initModel(
-      // '/Users/vczf/llm/models/airoboros-l2-70b-gpt4-1.4.1.Q6_K.gguf',
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
-      params: ModelParams(gpuLayers: 1, useMmap: false),
-      // progressCallback: (p) {
-      //   stderr.write('\r');
-      //   stderr.write((p * 100).truncate());
-      // },
+      params: ModelParams(gpuLayers: 0),
     ));
 
     final ctx = add(await llama.initContext(
       model,
-      params: ContextParams(contextSizeTokens: 256, batchSizeTokens: 1),
+      params: ContextParams(contextSizeTokens: 128, batchSizeTokens: 1),
     ));
 
     await ctx.add('A chat.\nUser: How can I make my own peanut butter?\nAssistant:');
     await ctx.ingest();
-    final tokStream = ctx.generate(samplers: [
-      const RepetitionPenalty(lastN: 256, penalty: 1.1),
-      const Temperature(0.45),
-      MirostatV2(),
-    ]);
+    final tokStream = ctx.generate(samplers: [const Temperature(0.0)]);
 
     await for (final tok in tokStream) {
       stdout.write(tok.text);
