@@ -1,10 +1,11 @@
 # For additional information about configuring this file, see
 # https://dart.dev/guides/language/analysis-options
+
 include: package:very_good_analysis/analysis_options.yaml
-# include: package:words/core.yaml
 
 linter:
   rules:
+    # Keep these sorted
 
     always_put_control_body_on_new_line: false
     avoid_redundant_argument_values: false
