@@ -3,7 +3,7 @@ import 'dart:isolate';
 import 'package:ensemble_llama/src/llama.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/src/sampling.dart';
+import 'package:ensemble_llama/src/samplers.dart';
 
 sealed class ControlMessage {
   static int _nextId = 1;

@@ -1,6 +1,7 @@
 import 'dart:isolate'; // for log events from llama.cpp
 
 import 'package:logging/logging.dart';
+import 'package:meta/meta.dart' show immutable;
 
 import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/disposable.dart';
@@ -8,9 +9,25 @@ import 'package:ensemble_llama/src/isolate.dart';
 import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/message_response.dart';
 import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/src/sampling.dart';
+import 'package:ensemble_llama/src/samplers.dart';
 
-typedef Token = ({int id, String text});
+@immutable
+final class Token {
+  final int id;
+  final String text;
+  final String rawText;
+
+  const Token(this.id, this.text, this.rawText);
+
+  @override
+  String toString() => text;
+  String toStringForLogging() => '${id.toString().padLeft(5)} = $rawText\n';
+
+  @override
+  bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
+  @override
+  int get hashCode => id.hashCode + rawText.hashCode;
+}
 
 final class Model with Disposable {
   final Llama llama;
@@ -75,9 +92,7 @@ final class Context with Disposable {
   /// Decodes the tokens that have been added to this context.
   ///
   /// This is computationally expensive.
-  Future<void> ingest({
-    void Function(int, int)? decodeProgressCallback,
-  }) async {
+  Future<void> ingest() async {
     checkDisposed();
     SendPort? genPort;
     try {

@@ -7,9 +7,10 @@ import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
 
 import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:ensemble_llama/src/llama.dart' show Token;
 import 'package:ensemble_llama/src/message_control.dart';
 import 'package:ensemble_llama/src/message_response.dart';
-import 'package:ensemble_llama/src/sampling.dart';
+import 'package:ensemble_llama/src/samplers.dart';
 
 import 'package:ensemble_llama/src/isolate_models.dart';
 import 'package:ensemble_llama/src/isolate_param_extensions.dart';
@@ -25,7 +26,7 @@ final class _DefaultLastSampler implements Sampler {
   const _DefaultLastSampler();
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf _) =>
-      Token.fromId(ctx, llama_sample_token(ctx.pointer, cands.pointer));
+      ctx.tokenFromId(llama_sample_token(ctx.pointer, cands.pointer));
 }
 
 final _log = Logger('LlamaCppIsolate');
@@ -216,7 +217,6 @@ void _edit(EditCtl ctl) {
         ctx.logits.length = newLen;
         llama_kv_cache_seq_rm(ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
       }
-      _log.warning(ctx.logits.length);
     }();
     ctl.done().send();
   } catch (e) {
@@ -341,7 +341,7 @@ Future<void> _generate(GenerateCtl ctl) async {
       if (mustCancel) return;
 
       tokens.add(tok!.id);
-      ctl.token((id: tok.id, text: tok.text)).send();
+      ctl.token(tok).send();
 
       // Check if end of stream
       if (tok.id == llama_token_eos(ctx.model.pointer)) {

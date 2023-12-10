@@ -3,6 +3,7 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import 'package:ensemble_llama/src/llama.dart' show Token;
 import 'package:ensemble_llama/llama_ffi.dart';
 import 'package:ensemble_llama/src/isolate_models.dart';
 
@@ -30,7 +31,7 @@ final class Temperature implements Sampler {
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     if (temp == 0.0) {
       final tokId = llama_sample_token_greedy(ctx.pointer, cands.pointer);
-      return Token.fromId(ctx, tokId);
+      return ctx.tokenFromId(tokId);
     } else {
       llama_sample_temp(ctx.pointer, cands.pointer, temp);
       return null;
@@ -238,7 +239,7 @@ final class MirostatV1 extends Mirostat {
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     const m = 100;
     final tokId = llama_sample_token_mirostat(ctx.pointer, cands.pointer, tau, eta, m, _mu);
-    return Token.fromId(ctx, tokId);
+    return ctx.tokenFromId(tokId);
   }
 }
 
@@ -247,6 +248,6 @@ final class MirostatV2 extends Mirostat {
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     final tokId = llama_sample_token_mirostat_v2(ctx.pointer, cands.pointer, tau, eta, _mu);
-    return Token.fromId(ctx, tokId);
+    return ctx.tokenFromId(tokId);
   }
 }

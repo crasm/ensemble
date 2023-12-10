@@ -1,8 +1,6 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables, prefer_const_constructors
 // TODO: delete ^^^
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'package:ensemble_common/common.dart';
@@ -13,9 +11,9 @@ Logger _log = Logger('main.dart');
 
 void main() {
   Logger.root.onRecord.listen((record) {
-    debugPrint("${record.level.name}: ${record.time}: "
-        "${record.loggerName}: "
-        "${record.message}");
+    debugPrint('${record.level.name}: ${record.time}: '
+        '${record.loggerName}: '
+        '${record.message}');
   });
 
   runApp(const EnsembleApp());
@@ -96,7 +94,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       options: CallOptions(timeout: const Duration(seconds: 30)),
     );
 
-    _textCtl.text = "A chat.\nUSER: ";
+    _textCtl.text = 'A chat.\nUSER: ';
   }
 
   @override

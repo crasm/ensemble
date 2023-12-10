@@ -37,7 +37,7 @@ final class ContextParams {
 
   ContextParams({
     this.seed = int32Max,
-    this.contextSizeTokens = 512,
+    this.contextSizeTokens = 512, // TODO(crasm): load this from model by default
     this.batchSizeTokens = 512,
     this.threads = GGML_DEFAULT_N_THREADS,
     this.batchThreads = GGML_DEFAULT_N_THREADS,

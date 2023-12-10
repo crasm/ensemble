@@ -8,7 +8,6 @@ import 'package:ensemble_llama/src/common.dart';
 import 'package:ensemble_llama/src/disposable.dart';
 import 'package:ensemble_llama/src/llama.dart' as pub;
 import 'package:ensemble_llama/src/params.dart' show ContextParams;
-import 'package:meta/meta.dart';
 
 final class Model {
   static int _nextId = 1;
@@ -56,23 +55,9 @@ final class Context with Disposable {
     llama_batch_free(batch);
   }
 
-  @override
-  String toString() => 'Context#$id';
-}
-
-@immutable
-final class Token {
-  final int id;
-  final String text;
-  final String rawText;
-
-  pub.Token get record => (id: id, text: text);
-
-  const Token(this.id, this.text, this.rawText);
-
-  factory Token.fromId(Context ctx, int id) {
-    final str = llama_token_get_text(ctx.model.pointer, id).cast<Utf8>().toDartString();
-    return Token(
+  pub.Token tokenFromId(int id) {
+    final str = llama_token_get_text(model.pointer, id).cast<Utf8>().toDartString();
+    return pub.Token(
       id,
       str
           .replaceAll('▁', ' ') // replace U+2581 with a space
@@ -83,13 +68,7 @@ final class Token {
   }
 
   @override
-  String toString() => text;
-  String toStringForLogging() => '${id.toString().padLeft(5)} = $rawText\n';
-
-  @override
-  bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
-  @override
-  int get hashCode => id.hashCode + rawText.hashCode;
+  String toString() => 'Context#$id';
 }
 
 final class TokenBuf with Disposable {
@@ -206,7 +185,7 @@ final class TokenBuf with Disposable {
     checkDisposed();
     final strb = StringBuffer('buf[0:${length - 1}] = ');
     for (var i = 0; i < length; i++) {
-      strb.write(Token.fromId(ctx, buf[i]));
+      strb.write(ctx.tokenFromId(buf[i]));
     }
     return strb.toString();
   }
@@ -220,7 +199,7 @@ final class TokenBuf with Disposable {
     lastN ??= _length;
     final list = <pub.Token>[];
     for (var i = _length - lastN; i < _length; i++) {
-      list.add(Token.fromId(ctx, buf[i]).record);
+      list.add(ctx.tokenFromId(buf[i]));
     }
     return list;
   }
@@ -336,7 +315,7 @@ final class Candidates with Disposable {
 
     final strb = StringBuffer('cands = ');
     for (var i = 0; i < 8; i++) {
-      strb.write(Token.fromId(ctx, _candidates[i].id));
+      strb.write(ctx.tokenFromId(_candidates[i].id));
       strb.write('=');
       strb.write(_candidates[i].logit.toStringAsFixed(2));
       strb.write(' ');

@@ -8,3 +8,5 @@ pubspec_overrides.yaml
 .vscode/
 Session.vim
 build/
+.idea/
+melos*.iml
