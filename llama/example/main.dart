@@ -10,6 +10,7 @@ void main() async {
     return d;
   }
 
+  var isClosing = false;
   IOSink? file;
   try {
     file = File('./main.log').openWrite();
@@ -17,12 +18,14 @@ void main() async {
     final startTime = DateTime.now();
     Logger.root.level = Level.ALL;
     Logger.root.onRecord.listen((e) {
-      final diff = e.time.difference(startTime);
-      file?.writeln(
-        '${e.level.name.padRight(7)}: '
-        '${diff.inMilliseconds.toString().padLeft(6, '0')}: '
-        '${e.message}',
-      );
+      if (!isClosing) {
+        final diff = e.time.difference(startTime);
+        file?.writeln(
+          '${e.level.name.padRight(7)}: '
+          '${diff.inMilliseconds.toString().padLeft(6, '0')}: '
+          '${e.message}',
+        );
+      }
     });
 
     final llama = add(Llama(disableGgmlLog: true));
@@ -48,8 +51,8 @@ void main() async {
     for (final d in disposables.reversed) {
       d.dispose();
     }
+    isClosing = true;
     await file?.flush();
     await file?.close();
-    file = null;
   }
 }
