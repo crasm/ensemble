@@ -97,14 +97,6 @@ final class IngestResp extends ResponseMessage {
   const IngestResp(super.id, {super.err});
 }
 
-final class IngestProgressResp extends ResponseMessage {
-  final int done;
-  final int total;
-  const IngestProgressResp(super.id, this.done, this.total);
-  @override
-  String toString() => 'IngestProgressResp#$id{$done/$total}';
-}
-
 final class GenerateResp extends ResponseMessage {
   const GenerateResp(super.id, {super.err});
 }

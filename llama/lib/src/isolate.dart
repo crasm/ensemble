@@ -242,9 +242,6 @@ Future<void> _ingest(IngestCtl ctl) async {
     final tokens = ctx.tokens;
     final batchSize = ctx.params.batchSizeTokens;
 
-    final initialLength = ctx.logits.length;
-    final finalLength = ctx.tokens.length;
-
     int i; // index of the next token to be decoded
     var j = 0; // start batch at zero tokens on every _ingest()
     while ((i = ctx.logits.length) + j < tokens.length) {
@@ -271,13 +268,11 @@ Future<void> _ingest(IngestCtl ctl) async {
         throw Exception('llama_decode failed with $status');
       }
       ctx.logits.add(llama_get_logits(ctx.pointer), batch.n_tokens);
-      ctl.progress(i - initialLength, finalLength).send();
 
       assert(j <= batchSize);
       if (j == batchSize) j = 0;
     }
 
-    ctl.progress(i - initialLength, finalLength).send();
     ctl.done().send();
   } catch (e) {
     ctl.error(e).send();

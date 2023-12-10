@@ -91,7 +91,6 @@ final class IngestCtl extends ControlMessage {
 
   IngestResp done() => IngestResp(id);
   IngestResp error(Object err) => IngestResp(id, err: err);
-  IngestProgressResp progress(int done, int total) => IngestProgressResp(id, done, total);
   HandshakeResp handshake(SendPort port) => HandshakeResp(port, id);
 }
 

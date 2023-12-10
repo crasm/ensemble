@@ -85,8 +85,6 @@ final class Context with Disposable {
       await for (final resp in llama._responseStream) {
         if (resp.id != ctlId) continue;
         switch (resp) {
-          case IngestProgressResp():
-            decodeProgressCallback?.call(resp.done, resp.total);
           case IngestResp():
             genPort = null;
             resp.throwIfErr();
