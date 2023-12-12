@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
-import 'package:llamacpp/llama.dart';
+import 'package:llamacpp/llamacpp.dart';
 
 // We can't use double.minPositive because that number gets rounded to zero when
 // converted to Float32. We also can't actually use the min float value (for

@@ -3,9 +3,9 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
-import 'package:llamacpp/src/llama.dart' show Token;
-import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/llamacpp_ffi.dart';
 import 'package:llamacpp/src/isolate_models.dart';
+import 'package:llamacpp/src/llama.dart' show Token;
 
 abstract interface class Sampler {
   /// Apply this sampler to [cands] and optionally return a [Token].

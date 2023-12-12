@@ -3,7 +3,7 @@ import 'package:ffi/ffi.dart';
 
 import 'package:logging/logging.dart';
 
-import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/llamacpp_ffi.dart';
 import 'package:llamacpp/src/common.dart';
 import 'package:llamacpp/src/disposable.dart';
 import 'package:llamacpp/src/llama.dart' as pub;

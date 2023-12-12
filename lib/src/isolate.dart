@@ -6,7 +6,7 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
 
-import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/llamacpp_ffi.dart';
 import 'package:llamacpp/src/llama.dart' show Token;
 import 'package:llamacpp/src/message_control.dart';
 import 'package:llamacpp/src/message_response.dart';

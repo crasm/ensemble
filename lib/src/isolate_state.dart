@@ -1,4 +1,4 @@
-import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/llamacpp_ffi.dart';
 import 'package:llamacpp/src/isolate_models.dart';
 
 State get state => State._singleton;

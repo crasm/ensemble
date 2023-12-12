@@ -3,7 +3,7 @@ import 'dart:isolate';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart' show immutable;
 
-import 'package:llamacpp/src/gen/libllama.dart';
+import 'package:llamacpp/llamacpp_ffi.dart';
 
 import 'package:llamacpp/src/common.dart';
 import 'package:llamacpp/src/disposable.dart';
