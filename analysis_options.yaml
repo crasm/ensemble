@@ -13,7 +13,7 @@ linter:
 
     # Keep these sorted
     # lines_longer_than_80_chars: false
-    # public_member_api_docs: false
+    public_member_api_docs: false
     always_put_control_body_on_new_line: false
     avoid_redundant_argument_values: false
     cascade_invocations: false

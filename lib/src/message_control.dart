@@ -1,8 +1,9 @@
 import 'dart:isolate';
 
 import 'package:llamacpp/llamacpp_ffi.dart';
-
 import 'package:llamacpp/src/llama.dart';
+
+import 'package:llamacpp/src/llama_async.dart';
 import 'package:llamacpp/src/message_response.dart';
 import 'package:llamacpp/src/samplers.dart';
 

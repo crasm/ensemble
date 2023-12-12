@@ -1,4 +1,4 @@
-import 'package:llamacpp/llama.dart';
+import 'package:llamacpp/llamacpp.dart';
 import 'package:llamacpp/src/common.dart';
 
 import 'dart:io';

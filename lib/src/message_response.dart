@@ -1,6 +1,6 @@
 import 'dart:isolate';
 
-import 'package:llamacpp/src/llama.dart' show Token;
+import 'package:llamacpp/src/llama.dart';
 import 'package:llamacpp/src/common.dart';
 
 sealed class ResponseMessage {
@@ -14,7 +14,8 @@ sealed class ResponseMessage {
     }
   }
 
-  static bool Function(ResponseMessage) matches<T extends ResponseMessage>(int id) {
+  static bool Function(ResponseMessage) matches<T extends ResponseMessage>(
+      int id) {
     return (resp) => resp is T && resp.id == id;
   }
 
@@ -37,7 +38,8 @@ final class InitModelResp extends ResponseMessage {
   final int? modelId;
   const InitModelResp(super.id, {super.err, this.modelId});
   @override
-  String toString() => err == null ? 'LoadModelResp#$id{model: #$modelId}' : toStringErr();
+  String toString() =>
+      err == null ? 'LoadModelResp#$id{model: #$modelId}' : toStringErr();
 }
 
 final class InitModelProgressResp extends ResponseMessage {
@@ -57,7 +59,8 @@ final class InitContextResp extends ResponseMessage {
   final int? ctxId;
   const InitContextResp(super.id, {super.err, this.ctxId});
   @override
-  String toString() => err == null ? 'NewContextResp#$id{ctx: #$ctxId}' : toStringErr();
+  String toString() =>
+      err == null ? 'NewContextResp#$id{ctx: #$ctxId}' : toStringErr();
 }
 
 final class FreeContextResp extends ResponseMessage {
@@ -105,5 +108,7 @@ final class GenerateTokenResp extends ResponseMessage {
   final Token tok;
   const GenerateTokenResp(super.id, this.tok);
   @override
-  String toString() => err == null ? 'GenerateTokenResp#$id{${tok.toLogString()}}' : toStringErr();
+  String toString() => err == null
+      ? 'GenerateTokenResp#$id{${tok.toLogString()}}'
+      : toStringErr();
 }

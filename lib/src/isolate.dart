@@ -4,10 +4,11 @@ import 'dart:ffi';
 import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
+import 'package:llamacpp/src/sampling.dart';
+import 'package:llamacpp/src/llama.dart';
 import 'package:logging/logging.dart';
 
 import 'package:llamacpp/llamacpp_ffi.dart';
-import 'package:llamacpp/src/llama.dart' show Token;
 import 'package:llamacpp/src/message_control.dart';
 import 'package:llamacpp/src/message_response.dart';
 import 'package:llamacpp/src/samplers.dart';
@@ -17,15 +18,6 @@ import 'package:llamacpp/src/isolate_state.dart';
 
 extension on ResponseMessage {
   void send() => _response.send(this);
-}
-
-/// Samples the next token randomly, using the probabilities in the given
-/// [Candidates].
-final class _DefaultLastSampler implements Sampler {
-  const _DefaultLastSampler();
-  @override
-  Token? sample(Context ctx, Candidates cands, TokenBuf _) =>
-      ctx.tokenFromId(llama_sample_token(ctx.pointer, cands.pointer));
 }
 
 final _log = Logger('LlamaCppIsolate');
@@ -186,10 +178,10 @@ void _freeContext(FreeContextCtl ctl) {
 void _tokenize(TokenizeCtl ctl) {
   try {
     final ctx = state.getContext(ctl.ctx);
-    final numToks = ctx.tokens.addFromString(ctx, ctl.text);
+    final numToks = ctx.tokens.addFromString(ctx.model.pointer, ctl.text);
     ctl
         .done(
-          ctx.tokens.toList(ctx, numToks),
+          ctx.tokens.toList(ctx.model.pointer, numToks),
           ctx.tokens.length - numToks,
         )
         .send();

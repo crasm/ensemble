@@ -1,4 +1,4 @@
-import 'package:llamacpp/src/llama.dart' show Token;
+import 'package:llamacpp/src/llama.dart';
 
 // 4294967295 (32 bit unsigned)
 // -1 (32 bit signed)
@@ -13,7 +13,8 @@ extension TokenLogString on Token {
     }
     buf.write(id.toString().padLeft(6));
     buf.write(' = ');
-    buf.write(text.replaceAll(' ', '▁').replaceAll('\n', '<0x0A>').padRight(10));
+    buf.write(
+        text.replaceAll(' ', '▁').replaceAll('\n', '<0x0A>').padRight(10));
     return buf.toString();
   }
 }
@@ -27,7 +28,8 @@ extension NumberRangeChecks on num {
 
   void checkGTE(num min, String name) {
     if (!(this >= min)) {
-      throw RangeError.value(this, name, 'must be greater than or equal to $min');
+      throw RangeError.value(
+          this, name, 'must be greater than or equal to $min');
     }
   }
 }
