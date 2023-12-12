@@ -1,12 +1,13 @@
+import 'package:llamacpp/llama_ffi.dart';
 import 'package:llamacpp/src/isolate_models.dart';
-import 'package:llamacpp/src/params.dart';
 
 State get state => State._singleton;
 
 final class State {
   final Map<int, Model> models = {}; // modelId => Model
   final Map<int, Context> contexts = {}; // ctxId => Context
-  final Map<int, Set<int>> contextsForModel = {}; // modelId => { ctxId, ctxId, ... }
+  final Map<int, Set<int>> contextsForModel =
+      {}; // modelId => { ctxId, ctxId, ... }
 
   static final State _singleton = State._();
   State._();
@@ -17,7 +18,7 @@ final class State {
     return model.id;
   }
 
-  int addContext(int rawCtx, Model model, ContextParams params) {
+  int addContext(int rawCtx, Model model, llama_context_params params) {
     final ctx = Context(rawCtx, model, params);
     contexts[ctx.id] = ctx;
 
@@ -32,7 +33,9 @@ final class State {
   Context removeContext(int ctx) =>
       contexts.remove(ctx) ?? (throw ArgumentError('Context#$ctx not found'));
 
-  Model getModel(int model) => models[model] ?? (throw ArgumentError('Model#$model not found'));
+  Model getModel(int model) =>
+      models[model] ?? (throw ArgumentError('Model#$model not found'));
 
-  Context getContext(int ctx) => contexts[ctx] ?? (throw ArgumentError('Context#$ctx not found'));
+  Context getContext(int ctx) =>
+      contexts[ctx] ?? (throw ArgumentError('Context#$ctx not found'));
 }

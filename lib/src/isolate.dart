@@ -13,7 +13,6 @@ import 'package:llamacpp/src/message_response.dart';
 import 'package:llamacpp/src/samplers.dart';
 
 import 'package:llamacpp/src/isolate_models.dart';
-import 'package:llamacpp/src/isolate_param_extensions.dart';
 import 'package:llamacpp/src/isolate_state.dart';
 
 extension on ResponseMessage {
@@ -111,7 +110,7 @@ void _exit(ExitCtl ctl) {
 void _loadModel(InitModelCtl ctl) {
   Pointer<Char>? pathStrC;
   try {
-    final params = llama_model_default_params()..setSimpleFrom(ctl.params);
+    final params = ctl.params;
 
     params.progress_callback = Pointer.fromFunction(_onModelLoadProgress);
     // use the pointer value itself to store ctl.id, so we don't need to malloc
@@ -137,7 +136,8 @@ void _freeModel(FreeModelCtl ctl) {
     final model = state.removeModel(ctl.model);
     final ctxs = state.contextsForModel[ctl.model];
     if (ctxs != null && ctxs.isNotEmpty) {
-      throw StateError('${ctxs.length} contexts are still active for this model');
+      throw StateError(
+          '${ctxs.length} contexts are still active for this model');
     }
 
     llama_free_model(model.pointer);
@@ -151,7 +151,7 @@ void _freeModel(FreeModelCtl ctl) {
 
 void _newContext(InitContextCtl ctl) {
   try {
-    final params = llama_context_default_params()..setSimpleFrom(ctl.params);
+    final params = ctl.params;
     final model = state.getModel(ctl.model);
     final rawCtx = llama_new_context_with_model(model.pointer, params).address;
     if (rawCtx == 0) throw Exception('failed creating context');
@@ -209,13 +209,15 @@ void _edit(EditCtl ctl) {
         return;
       }
 
-      _log.info(() => 'token buffer length changed from ${ctx.tokens.length} to $newLen');
+      _log.info(() =>
+          'token buffer length changed from ${ctx.tokens.length} to $newLen');
       ctx.tokens.length = newLen;
       if (ctx.logits.length > newLen) {
         _log.info(() =>
             'discarding logits and llama_kv_cache for last last ${ctx.logits.length - newLen} tokens of context window');
         ctx.logits.length = newLen;
-        llama_kv_cache_seq_rm(ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
+        llama_kv_cache_seq_rm(
+            ctx.pointer, 1, newLen, -1); // seq_id = 1 for everything
       }
     }();
     ctl.done().send();
@@ -240,7 +242,7 @@ Future<void> _ingest(IngestCtl ctl) async {
     final ctx = state.getContext(ctl.ctx);
     final batch = ctx.batch;
     final tokens = ctx.tokens;
-    final batchSize = ctx.params.batchSizeTokens;
+    final batchSize = ctx.params.n_batch;
 
     int i; // index of the next token to be decoded
     var j = 0; // start batch at zero tokens on every _ingest()
@@ -255,9 +257,7 @@ Future<void> _ingest(IngestCtl ctl) async {
         batch.pos[j] = i + j; // is just j sufficient? small numbers anyhow
         batch.n_seq_id[j] = 1;
         batch.seq_id[j][0] = 1;
-        // We enable computeAllLogits for every new context, so this should be
-        // unnecessary
-        // batch.logits[j] = 1;
+        batch.logits[j] = 1;
       }
 
       // ignore: inference_failure_on_instance_creation
@@ -289,7 +289,7 @@ Future<void> _generate(GenerateCtl ctl) async {
     ctl.handshake(handle.sendPort).send();
 
     final ctx = state.getContext(ctl.ctx);
-    final contextSize = ctx.params.contextSizeTokens;
+    final contextSize = ctx.params.n_ctx;
 
     final candidates = ctx.candidates;
     final tokens = ctx.tokens;
@@ -299,7 +299,8 @@ Future<void> _generate(GenerateCtl ctl) async {
     }
 
     if (ctx.needsIngesting) {
-      throw StateError('context tokens need to be ingested or removed before generation can begin');
+      throw StateError(
+          'context tokens need to be ingested or removed before generation can begin');
     }
 
     //
@@ -359,9 +360,7 @@ Future<void> _generate(GenerateCtl ctl) async {
       batch.pos[0] = ctx.logits.length;
       batch.n_seq_id[0] = 1;
       batch.seq_id[0][0] = 1;
-      // We enable computeAllLogits for every new context, so this should be
-      // unnecessary
-      // batch.logits[0] = 1;
+      batch.logits[0] = 1;
 
       final status = llama_decode(ctx.pointer, batch);
       if (status != 0) {

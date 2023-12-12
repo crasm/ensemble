@@ -1,14 +1,15 @@
-import 'dart:isolate'; // for log events from llama.cpp
+import 'dart:isolate';
 
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart' show immutable;
+
+import 'package:llamacpp/src/gen/libllama.dart';
 
 import 'package:llamacpp/src/common.dart';
 import 'package:llamacpp/src/disposable.dart';
 import 'package:llamacpp/src/isolate.dart';
 import 'package:llamacpp/src/message_control.dart';
 import 'package:llamacpp/src/message_response.dart';
-import 'package:llamacpp/src/params.dart';
 import 'package:llamacpp/src/samplers.dart';
 
 @immutable
@@ -24,12 +25,15 @@ final class Token {
   String toStringForLogging() => '${id.toString().padLeft(5)} = $rawText\n';
 
   @override
-  bool operator ==(Object? other) => other is Token && other.id == id && other.rawText == rawText;
+  bool operator ==(Object? other) =>
+      other is Token && other.id == id && other.rawText == rawText;
   @override
   int get hashCode => id.hashCode + rawText.hashCode;
 }
 
 final class Model with Disposable {
+  static llama_model_params get params => llama_model_default_params();
+
   final Llama llama;
   final int id;
 
@@ -48,6 +52,7 @@ final class Model with Disposable {
 
 final class Context with Disposable {
   static final _log = Logger('Context');
+  static llama_context_params get params => llama_context_default_params();
 
   final Llama llama;
   final Model model;
@@ -70,7 +75,8 @@ final class Context with Disposable {
   /// Does not ingest or decode the text, so it computationally cheap.
   Future<List<Token>> add(String text) async {
     checkDisposed();
-    final textTokens = (await llama._send<TokenizeResp>(TokenizeCtl(id, text))).tokens;
+    final textTokens =
+        (await llama._send<TokenizeResp>(TokenizeCtl(id, text))).tokens;
     tokens.addAll(textTokens);
     return tokens;
   }
@@ -107,7 +113,8 @@ final class Context with Disposable {
           case HandshakeResp():
             genPort = resp.controlPort;
           default:
-            throw AssertionError('unexpected response ($resp), but valid id (${resp.id})');
+            throw AssertionError(
+                'unexpected response ($resp), but valid id (${resp.id})');
         }
       }
     } finally {
@@ -144,7 +151,8 @@ final class Context with Disposable {
           case HandshakeResp():
             genPort = resp.controlPort;
           default:
-            throw AssertionError('unexpected response ($resp), but valid id (${resp.id})');
+            throw AssertionError(
+                'unexpected response ($resp), but valid id (${resp.id})');
         }
       }
     } finally {
@@ -195,7 +203,8 @@ final class Llama with Disposable {
     ));
 
     // ignore: discarded_futures
-    _controlPort = _responseStream.first.then((r) => (r as HandshakeResp).controlPort);
+    _controlPort =
+        _responseStream.first.then((r) => (r as HandshakeResp).controlPort);
   }
 
   @override
@@ -216,7 +225,8 @@ final class Llama with Disposable {
   Future<T> _send<T extends ResponseMessage>(ControlMessage ctl) async {
     checkDisposed();
     final id = await _sendCtl(ctl);
-    final resp = (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
+    final resp =
+        (await _responseStream.firstWhere(ResponseMessage.matches<T>(id))) as T;
     resp.throwIfErr();
     return resp;
   }
@@ -224,10 +234,10 @@ final class Llama with Disposable {
   Future<Model> initModel(
     String path, {
     void Function(double progress)? progressCallback,
-    ModelParams? params,
+    llama_model_params? params,
   }) async {
     checkDisposed();
-    final ctl = InitModelCtl(path, params ?? ModelParams());
+    final ctl = InitModelCtl(path, params ?? Model.params);
     final progressListener = _responseStream
         .where(ResponseMessage.matches<InitModelProgressResp>(ctl.id))
         .cast<InitModelProgressResp>()
@@ -238,9 +248,12 @@ final class Llama with Disposable {
     return Model._(this, resp.modelId!);
   }
 
-  Future<Context> initContext(Model model, {ContextParams? params}) async {
+  Future<Context> initContext(
+    Model model, {
+    llama_context_params? params,
+  }) async {
     checkDisposed();
-    final ctl = InitContextCtl(model.id, params ?? ContextParams());
+    final ctl = InitContextCtl(model.id, params ?? Context.params);
     final resp = await _send<InitContextResp>(ctl);
     return Context._(this, model, resp.ctxId!);
   }
@@ -249,15 +262,18 @@ final class Llama with Disposable {
     required String modelPath,
     required String prompt,
     void Function(double progress)? progressCallback,
-    ModelParams? modelParams,
-    ContextParams? contextParams,
+    llama_model_params? modelParams,
+    llama_context_params? contextParams,
     List<Sampler> samplers = const [],
   }) async* {
     checkDisposed();
     final disposables = <Disposable>[];
     try {
-      final model =
-          await initModel(modelPath, progressCallback: progressCallback, params: modelParams);
+      final model = await initModel(
+        modelPath,
+        progressCallback: progressCallback,
+        params: modelParams ?? Model.params,
+      );
       disposables.add(model);
 
       final ctx = await initContext(model, params: contextParams);

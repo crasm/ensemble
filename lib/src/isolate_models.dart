@@ -7,7 +7,6 @@ import 'package:llamacpp/llama_ffi.dart';
 import 'package:llamacpp/src/common.dart';
 import 'package:llamacpp/src/disposable.dart';
 import 'package:llamacpp/src/llama.dart' as pub;
-import 'package:llamacpp/src/params.dart' show ContextParams;
 
 final class Model {
   static int _nextId = 1;
@@ -16,7 +15,8 @@ final class Model {
 
   Model(this.rawPointer);
 
-  Pointer<llama_model> get pointer => Pointer.fromAddress(rawPointer).cast<llama_model>();
+  Pointer<llama_model> get pointer =>
+      Pointer.fromAddress(rawPointer).cast<llama_model>();
 
   @override
   String toString() => 'Model#$id';
@@ -27,14 +27,14 @@ final class Context with Disposable {
   final int id = _nextId++;
   final int rawPointer;
   final Model model;
-  final ContextParams params;
+  final llama_context_params params;
 
   Context(this.rawPointer, this.model, this.params) {
     final vocabSize = llama_n_vocab(model.pointer);
-    tokens = TokenBuf.allocate(params.contextSizeTokens);
-    logits = Logits(params.contextSizeTokens, vocabSize);
+    tokens = TokenBuf.allocate(params.n_ctx);
+    logits = Logits(params.n_ctx, vocabSize);
     candidates = Candidates(vocabSize);
-    batch = llama_batch_init(params.batchSizeTokens, 0, 1);
+    batch = llama_batch_init(params.n_batch, 0, 1);
   }
 
   late final TokenBuf tokens;
@@ -44,7 +44,8 @@ final class Context with Disposable {
 
   bool get needsIngesting => logits.length < tokens.length;
 
-  Pointer<llama_context> get pointer => Pointer.fromAddress(rawPointer).cast<llama_context>();
+  Pointer<llama_context> get pointer =>
+      Pointer.fromAddress(rawPointer).cast<llama_context>();
 
   @override
   void dispose() {
@@ -56,7 +57,8 @@ final class Context with Disposable {
   }
 
   pub.Token tokenFromId(int id) {
-    final str = llama_token_get_text(model.pointer, id).cast<Utf8>().toDartString();
+    final str =
+        llama_token_get_text(model.pointer, id).cast<Utf8>().toDartString();
     return pub.Token(
       id,
       str
@@ -78,7 +80,7 @@ final class TokenBuf with Disposable {
     return TokenBuf._(buf, size);
   }
   factory TokenBuf.fromString(Context ctx, String text) {
-    final contextSize = ctx.params.contextSizeTokens;
+    final contextSize = ctx.params.n_ctx;
     final model = ctx.model;
     Pointer<Char>? textC;
     try {
@@ -139,7 +141,8 @@ final class TokenBuf with Disposable {
     checkDisposed();
     assert(length <= capacity);
     if (_length == capacity) {
-      throw Exception('tried to store $_length tokens in $capacity token buffer');
+      throw Exception(
+          'tried to store $_length tokens in $capacity token buffer');
     }
     buf[_length++] = tokId;
   }
@@ -249,7 +252,8 @@ final class Logits with Disposable {
     checkDisposed();
     (batchSize + length).checkIncInc(0, contextSize, 'batchSize+length');
     for (var i = 0; i < vocabSize * batchSize; i++) {
-      _logits.elementAt(vocabSize * length + i).value = batchLogits.elementAt(i).value;
+      _logits.elementAt(vocabSize * length + i).value =
+          batchLogits.elementAt(i).value;
     }
 
     _length += batchSize;

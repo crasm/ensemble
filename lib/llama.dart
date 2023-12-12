@@ -3,5 +3,4 @@ library;
 
 export 'src/disposable.dart';
 export 'src/llama.dart';
-export 'src/params.dart';
 export 'src/samplers.dart';

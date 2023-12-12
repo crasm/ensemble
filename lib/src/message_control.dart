@@ -1,8 +1,9 @@
 import 'dart:isolate';
 
+import 'package:llamacpp/llama_ffi.dart';
+
 import 'package:llamacpp/src/llama.dart';
 import 'package:llamacpp/src/message_response.dart';
-import 'package:llamacpp/src/params.dart';
 import 'package:llamacpp/src/samplers.dart';
 
 sealed class ControlMessage {
@@ -19,14 +20,15 @@ final class ExitCtl extends ControlMessage {
 
 final class InitModelCtl extends ControlMessage {
   final String path;
-  final ModelParams params;
+  final llama_model_params params;
   InitModelCtl(this.path, this.params);
   @override
   String toString() => 'LoadModelCtl#$id {\n  path: $path\n}';
 
   InitModelResp done(int modelId) => InitModelResp(id, modelId: modelId);
   InitModelResp error(Object err) => InitModelResp(id, err: err);
-  InitModelProgressResp progress(double progress) => InitModelProgressResp(id, progress);
+  InitModelProgressResp progress(double progress) =>
+      InitModelProgressResp(id, progress);
 }
 
 final class FreeModelCtl extends ControlMessage {
@@ -41,7 +43,7 @@ final class FreeModelCtl extends ControlMessage {
 
 final class InitContextCtl extends ControlMessage {
   final int model;
-  final ContextParams params;
+  final llama_context_params params;
   InitContextCtl(this.model, this.params);
   @override
   String toString() => 'NewContextCtl#$id{model: #$model}';

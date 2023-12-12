@@ -32,15 +32,18 @@ void main() async {
 
     final model = add(await llama.initModel(
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
-      params: ModelParams(gpuLayers: 0),
+      params: Model.params..n_gpu_layers = 0,
     ));
 
     final ctx = add(await llama.initContext(
       model,
-      params: ContextParams(contextSizeTokens: 128, batchSizeTokens: 1),
+      params: Context.params
+        ..n_ctx = 128
+        ..n_batch = 1,
     ));
 
-    await ctx.add('A chat.\nUser: How can I make my own peanut butter?\nAssistant:');
+    await ctx
+        .add('A chat.\nUser: How can I make my own peanut butter?\nAssistant:');
     await ctx.ingest();
     final tokStream = ctx.generate(samplers: [const Temperature(0.0)]);
 

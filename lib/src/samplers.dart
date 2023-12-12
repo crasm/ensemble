@@ -162,13 +162,13 @@ final class RepetitionPenalty implements Sampler {
 
     var lastN = this.lastN;
     if (lastN == -1) {
-      lastN = ctx.params.contextSizeTokens;
+      lastN = ctx.params.n_ctx;
     }
 
     lastN = _min([
       toks.capacity,
       lastN,
-      ctx.params.contextSizeTokens,
+      ctx.params.n_ctx,
     ]);
 
     final tokenPointer = toks.buf.elementAt(toks.capacity - lastN);
@@ -238,7 +238,8 @@ final class MirostatV1 extends Mirostat {
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
     const m = 100;
-    final tokId = llama_sample_token_mirostat(ctx.pointer, cands.pointer, tau, eta, m, _mu);
+    final tokId = llama_sample_token_mirostat(
+        ctx.pointer, cands.pointer, tau, eta, m, _mu);
     return ctx.tokenFromId(tokId);
   }
 }
@@ -247,7 +248,8 @@ final class MirostatV2 extends Mirostat {
   MirostatV2([super.tau, super.eta]);
   @override
   Token? sample(Context ctx, Candidates cands, TokenBuf toks) {
-    final tokId = llama_sample_token_mirostat_v2(ctx.pointer, cands.pointer, tau, eta, _mu);
+    final tokId = llama_sample_token_mirostat_v2(
+        ctx.pointer, cands.pointer, tau, eta, _mu);
     return ctx.tokenFromId(tokId);
   }
 }

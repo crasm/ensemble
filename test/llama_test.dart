@@ -27,12 +27,14 @@ void main() {
     final llama = Llama();
     // ignore: discarded_futures
     final model = llama.initModel(
-        '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
-        params: ModelParams(gpuLayers: 1));
+        '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf');
     Context ctx;
 
     test('tokenize', () async {
-      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params..seed = 1,
+      );
       final tokens = await ctx.add('peanut');
       expect(tokens.length, 4);
       expect(tokens[0].id, 1); // BOS
@@ -44,11 +46,10 @@ void main() {
     test('happy path', () async {
       ctx = await llama.initContext(
         await model,
-        params: ContextParams(
-          seed: 1,
-          contextSizeTokens: 19,
-          batchSizeTokens: 19,
-        ),
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 19
+          ..n_batch = 19,
       );
       await ctx.add("It's the end of the world as we know it, and");
       await ctx.ingest();
@@ -63,11 +64,10 @@ void main() {
     test('happy path batch size 1', () async {
       ctx = await llama.initContext(
         await model,
-        params: ContextParams(
-          seed: 1,
-          contextSizeTokens: 19,
-          batchSizeTokens: 1,
-        ),
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 19
+          ..n_batch = 1,
       );
       await ctx.add("It's the end of the world as we know it, and");
       await ctx.ingest();
@@ -82,11 +82,10 @@ void main() {
     test('gen one token', () async {
       ctx = await llama.initContext(
         await model,
-        params: ContextParams(
-          seed: 1,
-          contextSizeTokens: 2, // Need +1 for BOS token
-          batchSizeTokens: 1,
-        ),
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 2 // Need +1 for BOS token
+          ..n_batch = 1,
       );
 
       await ctx.add('');
@@ -96,8 +95,13 @@ void main() {
     });
 
     test('repeat penalty', () async {
-      ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 32, batchSizeTokens: 32));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 32
+          ..n_batch = 32,
+      );
       await ctx.add('paint it black, paint it black, paint it black, paint it');
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -110,8 +114,13 @@ void main() {
     });
 
     test('temperature non-greedy', () async {
-      ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 10, batchSizeTokens: 10));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 10
+          ..n_batch = 10,
+      );
       await ctx.add(' a a a a a a a');
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -124,8 +133,13 @@ void main() {
     });
 
     test('repeat penalty last N = -1', () async {
-      ctx = await llama.initContext(await model,
-          params: ContextParams(seed: 1, contextSizeTokens: 9, batchSizeTokens: 9));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 9
+          ..n_batch = 9,
+      );
       await ctx.add('a a a a a a a');
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: [
@@ -138,7 +152,10 @@ void main() {
     });
 
     test('unused sampler', () async {
-      ctx = await llama.initContext(await model, params: ContextParams(seed: 1));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params..seed = 1,
+      );
       const invalidSampler = TopK(40);
       try {
         await ctx.add('Holly');
@@ -158,12 +175,13 @@ void main() {
     });
 
     test('tokenize multiple add/ingest generate', () async {
-      ctx = await llama.initContext(await model,
-          params: ContextParams(
-            seed: 1,
-            contextSizeTokens: 19,
-            batchSizeTokens: 19,
-          ));
+      ctx = await llama.initContext(
+        await model,
+        params: Context.params
+          ..seed = 1
+          ..n_ctx = 19
+          ..n_batch = 19,
+      );
       await ctx.add("It's the end");
       await ctx.ingest();
       // NOTE: need to drop leading space oddly enough
@@ -172,14 +190,15 @@ void main() {
       await ctx.add('as we know it, and');
       await ctx.ingest();
 
-      final gen = await ctx.generate().map((a) => a.text).reduce((a, b) => a + b);
+      final gen =
+          await ctx.generate().map((a) => a.text).reduce((a, b) => a + b);
       expect(gen, ' I feel fine.');
     });
 
     test('complex interwoven ctls', () async {
       ctx = await llama.initContext(
         await model,
-        params: ContextParams(seed: 1),
+        params: Context.params..seed = 1,
       );
       final tokens = <Token>[];
       tokens.addAll(await ctx.add('Samanth'));
@@ -211,7 +230,11 @@ void main() {
 
       await ctx.add('is my favorite thing to dip apple');
       await ctx.ingest();
-      final nextTwoTokens = await ctx.generate().take(2).map((a) => a.text).reduce((a, b) => a + b);
+      final nextTwoTokens = await ctx
+          .generate()
+          .take(2)
+          .map((a) => a.text)
+          .reduce((a, b) => a + b);
       expect(nextTwoTokens, ' slices');
     });
   });
