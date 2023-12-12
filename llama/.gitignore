@@ -1,1 +1,13 @@
+!/pubspec.lock
+.dart_tool/
+pubspec.lock
+pubspec_overrides.yaml
+
 *.log
+*.exe
+.cache/
+.vscode/
+Session.vim
+build/
+.idea/
+melos*.iml

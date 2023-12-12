@@ -1,8 +1,0 @@
-name: ensemble
-packages:
-  - app
-  - common
-  - llama
-  - server
-  # - app_desktop
-  # - app_common
