@@ -17,7 +17,7 @@ void main(List<String> args) async {
   final buildConfig = await BuildConfig.fromArgs(args);
   final buildOutput = BuildOutput();
 
-  final llamacpp = path.join(buildConfig.packageRoot.toFilePath(), 'llamacpp');
+  final llamacpp = path.join(buildConfig.packageRoot.toFilePath(), 'llama.cpp');
 
   stderr.writeln(buildConfig);
   final proc = await Process.start(
@@ -41,7 +41,7 @@ void main(List<String> args) async {
   await _copy('ggml-metal.metal', llamacpp, dst);
 
   buildOutput.assets.add(Asset(
-    id: 'package:llamacpp/src/libllama.ffigen.dart',
+    id: 'package:llamacpp/src/gen/libllama.dart',
     linkMode: buildConfig.linkModePreference.preferredLinkMode,
     target: buildConfig.target,
     path: AssetPath('absolute', libllama.uri),

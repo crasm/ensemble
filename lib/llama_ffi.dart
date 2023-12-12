@@ -5,4 +5,4 @@
 /// effectively.
 library;
 
-export 'src/libllama.ffigen.dart';
+export 'src/gen/libllama.dart';

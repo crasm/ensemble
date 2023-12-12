@@ -24,7 +24,7 @@ dev_dependencies:
 ffigen:
   name: 'LlamaCpp'
   description: 'FFI bindings for llama.cpp'
-  output: 'lib/src/libllama.ffigen.dart'
+  output: 'lib/src/gen/libllama.dart'
   preamble: |
     // ignore_for_file: unused_field
   headers:

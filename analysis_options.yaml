@@ -12,16 +12,16 @@ linter:
     unnecessary_statements: true
 
     # Keep these sorted
+    # lines_longer_than_80_chars: false
+    # public_member_api_docs: false
     always_put_control_body_on_new_line: false
     avoid_redundant_argument_values: false
     cascade_invocations: false
     directives_ordering: false
-    lines_longer_than_80_chars: false
     one_member_abstracts: false
     parameter_assignments: false
     prefer_asserts_with_message: false
     prefer_expression_function_bodies: false
     prefer_int_literals: false
-    public_member_api_docs: false # TODO: enable this before publishing
     require_trailing_commas: false
     sort_constructors_first: false
