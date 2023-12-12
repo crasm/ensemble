@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:logging/logging.dart';
-import 'package:ensemble_llama/llama.dart';
+import 'package:llamacpp/llama.dart';
 
 void main() async {
   final disposables = <Disposable>[];

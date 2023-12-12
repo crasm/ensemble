@@ -1,5 +1,5 @@
-import 'package:ensemble_llama/llama.dart';
-import 'package:ensemble_llama/src/common.dart';
+import 'package:llamacpp/llama.dart';
+import 'package:llamacpp/src/common.dart';
 
 import 'dart:io';
 

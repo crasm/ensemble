@@ -1,4 +1,4 @@
-name: ensemble_llama
+name: llamacpp
 description: Ensemble's high and low-level dart bindings for llama.cpp
 version: 0.0.1
 repository: https://github.com/crasm/ensemble/llama

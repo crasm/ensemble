@@ -1,9 +1,9 @@
 import 'dart:isolate';
 
-import 'package:ensemble_llama/src/llama.dart';
-import 'package:ensemble_llama/src/message_response.dart';
-import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/src/samplers.dart';
+import 'package:llamacpp/src/llama.dart';
+import 'package:llamacpp/src/message_response.dart';
+import 'package:llamacpp/src/params.dart';
+import 'package:llamacpp/src/samplers.dart';
 
 sealed class ControlMessage {
   static int _nextId = 1;

@@ -1,5 +1,5 @@
-import 'package:ensemble_llama/src/isolate_models.dart';
-import 'package:ensemble_llama/src/params.dart';
+import 'package:llamacpp/src/isolate_models.dart';
+import 'package:llamacpp/src/params.dart';
 
 State get state => State._singleton;
 

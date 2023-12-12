@@ -3,11 +3,11 @@ import 'package:ffi/ffi.dart';
 
 import 'package:logging/logging.dart';
 
-import 'package:ensemble_llama/llama_ffi.dart';
-import 'package:ensemble_llama/src/common.dart';
-import 'package:ensemble_llama/src/disposable.dart';
-import 'package:ensemble_llama/src/llama.dart' as pub;
-import 'package:ensemble_llama/src/params.dart' show ContextParams;
+import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/src/common.dart';
+import 'package:llamacpp/src/disposable.dart';
+import 'package:llamacpp/src/llama.dart' as pub;
+import 'package:llamacpp/src/params.dart' show ContextParams;
 
 final class Model {
   static int _nextId = 1;

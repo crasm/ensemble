@@ -1,7 +1,7 @@
 import 'package:ffi/ffi.dart';
 import 'package:test/test.dart' as t;
 
-import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:llamacpp/llama_ffi.dart';
 
 void main() {
   t.group('A group of tests', () {

@@ -3,13 +3,13 @@ import 'dart:isolate'; // for log events from llama.cpp
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart' show immutable;
 
-import 'package:ensemble_llama/src/common.dart';
-import 'package:ensemble_llama/src/disposable.dart';
-import 'package:ensemble_llama/src/isolate.dart';
-import 'package:ensemble_llama/src/message_control.dart';
-import 'package:ensemble_llama/src/message_response.dart';
-import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/src/samplers.dart';
+import 'package:llamacpp/src/common.dart';
+import 'package:llamacpp/src/disposable.dart';
+import 'package:llamacpp/src/isolate.dart';
+import 'package:llamacpp/src/message_control.dart';
+import 'package:llamacpp/src/message_response.dart';
+import 'package:llamacpp/src/params.dart';
+import 'package:llamacpp/src/samplers.dart';
 
 @immutable
 final class Token {

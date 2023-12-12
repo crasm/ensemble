@@ -1,5 +1,5 @@
-import 'package:ensemble_llama/src/params.dart';
-import 'package:ensemble_llama/llama_ffi.dart';
+import 'package:llamacpp/src/params.dart';
+import 'package:llamacpp/llama_ffi.dart';
 
 extension ModelParamConverter on llama_model_params {
   void setSimpleFrom(ModelParams p) {

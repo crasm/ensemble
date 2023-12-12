@@ -1,7 +1,7 @@
 import 'dart:isolate';
 
-import 'package:ensemble_llama/src/llama.dart' show Token;
-import 'package:ensemble_llama/src/common.dart';
+import 'package:llamacpp/src/llama.dart' show Token;
+import 'package:llamacpp/src/common.dart';
 
 sealed class ResponseMessage {
   final int id;

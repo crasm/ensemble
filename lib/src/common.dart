@@ -1,4 +1,4 @@
-import 'package:ensemble_llama/src/llama.dart' show Token;
+import 'package:llamacpp/src/llama.dart' show Token;
 
 // 4294967295 (32 bit unsigned)
 // -1 (32 bit signed)

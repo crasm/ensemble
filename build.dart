@@ -35,7 +35,7 @@ void main(List<String> args) async {
   await _copy('ggml-metal.metal', src, dst);
 
   buildOutput.assets.add(Asset(
-    id: 'package:ensemble_llama/src/libllama.ffigen.dart',
+    id: 'package:llamacpp/src/libllama.ffigen.dart',
     linkMode: buildConfig.linkModePreference.preferredLinkMode,
     target: buildConfig.target,
     path: AssetPath('absolute', libllama.uri),

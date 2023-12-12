@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:ensemble_llama/llama.dart';
+import 'package:llamacpp/llama.dart';
 
 void main() async {
   final llama = Llama();

@@ -1,5 +1,5 @@
-import 'package:ensemble_llama/llama_ffi.dart';
-import 'package:ensemble_llama/src/common.dart';
+import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/src/common.dart';
 
 // TODO(crasm): explain all parameters for ModelParams, ContextParams, and SamplingParams
 final class ModelParams {

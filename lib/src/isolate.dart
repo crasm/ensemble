@@ -6,15 +6,15 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
 
-import 'package:ensemble_llama/llama_ffi.dart';
-import 'package:ensemble_llama/src/llama.dart' show Token;
-import 'package:ensemble_llama/src/message_control.dart';
-import 'package:ensemble_llama/src/message_response.dart';
-import 'package:ensemble_llama/src/samplers.dart';
+import 'package:llamacpp/llama_ffi.dart';
+import 'package:llamacpp/src/llama.dart' show Token;
+import 'package:llamacpp/src/message_control.dart';
+import 'package:llamacpp/src/message_response.dart';
+import 'package:llamacpp/src/samplers.dart';
 
-import 'package:ensemble_llama/src/isolate_models.dart';
-import 'package:ensemble_llama/src/isolate_param_extensions.dart';
-import 'package:ensemble_llama/src/isolate_state.dart';
+import 'package:llamacpp/src/isolate_models.dart';
+import 'package:llamacpp/src/isolate_param_extensions.dart';
+import 'package:llamacpp/src/isolate_state.dart';
 
 extension on ResponseMessage {
   void send() => _response.send(this);
