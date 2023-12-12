@@ -17,22 +17,28 @@ void main(List<String> args) async {
   final buildConfig = await BuildConfig.fromArgs(args);
   final buildOutput = BuildOutput();
 
-  final src = path.join(buildConfig.packageRoot.toFilePath(), 'src');
+  final llamacpp = path.join(buildConfig.packageRoot.toFilePath(), 'llamacpp');
 
   stderr.writeln(buildConfig);
-  final proc = await Process.start('make', ['libllama.so'], workingDirectory: src);
+  final proc = await Process.start(
+    'make',
+    ['libllama.so'],
+    workingDirectory: llamacpp,
+  );
 
-  proc.stdout.transform(utf8.decoder).forEach(stderr.write); // ignore: unawaited_futures
-  proc.stderr.transform(utf8.decoder).forEach(stderr.write); // ignore: unawaited_futures
+  // ignore: unawaited_futures
+  proc.stdout.transform(utf8.decoder).forEach(stderr.write);
+  // ignore: unawaited_futures
+  proc.stderr.transform(utf8.decoder).forEach(stderr.write);
   final exitCode = await proc.exitCode;
   if (exitCode != 0) {
     throw CompileError('make failed: exitCode=$exitCode');
   }
 
-  // $ cp ./src/libllama.so ./.dart_tool/native_assets_builder/<snip>/out/libllama.so
+  // $ cp ./llama.cpp/libllama.so ./.dart_tool/native_assets_builder/<snip>/out/libllama.so
   final dst = path.fromUri(buildConfig.outDir);
-  final libllama = await _copy('libllama.so', src, dst);
-  await _copy('ggml-metal.metal', src, dst);
+  final libllama = await _copy('libllama.so', llamacpp, dst);
+  await _copy('ggml-metal.metal', llamacpp, dst);
 
   buildOutput.assets.add(Asset(
     id: 'package:llamacpp/src/libllama.ffigen.dart',
