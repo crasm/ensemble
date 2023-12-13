@@ -1,19 +1,74 @@
 import 'dart:ffi';
+
 import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
-import 'package:llamacpp/llamacpp_ffi.dart';
-import 'package:llamacpp/src/sampling.dart';
+import 'package:logging/logging.dart';
+
+import 'package:llamacpp/src/gen/libllama.dart';
 import 'package:llamacpp/src/disposable.dart';
 import 'package:llamacpp/src/llama.dart';
 import 'package:llamacpp/src/samplers.dart';
-import 'package:logging/logging.dart';
+import 'package:llamacpp/src/sampling.dart';
 
-// TODO(crasm): document how to use progress callback
-Model loadModel(String path, {llama_model_params? params}) {
-  final utf = path.toNativeUtf8(allocator: calloc).cast<Char>();
-  final model = llama_load_model_from_file(utf, params ?? Model.defaultParams);
-  calloc.free(utf);
-  return Model(model);
+final _log = Logger('LlamaCpp');
+
+void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
+  final level = switch (levelGgml) {
+    ggml_log_level.GGML_LOG_LEVEL_ERROR => Level.SEVERE,
+    ggml_log_level.GGML_LOG_LEVEL_WARN => Level.WARNING,
+    ggml_log_level.GGML_LOG_LEVEL_INFO => Level.FINEST,
+    _ => throw Exception('Unknown log level: $levelGgml'),
+  };
+
+  _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
+}
+
+typedef ModelLoadProgress = void Function(double progress);
+ModelLoadProgress? _userModelLoadProgressCallback;
+void _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
+  _userModelLoadProgressCallback?.call(progress);
+}
+
+final class LlamaCpp {
+  static bool _isInitialized = false;
+  static void _init() {
+    if (_isInitialized) return;
+
+    // We don't currently call llama_backend_free since it's only used for MPI.
+    // This should be revisited in the future.
+    llama_backend_init(false);
+    llama_log_set(Pointer.fromFunction(_onLlamaLog), Pointer.fromAddress(0));
+
+    _isInitialized = true;
+  }
+
+  static Model loadModel(
+    String path, {
+    llama_model_params? params,
+    ModelLoadProgress? callback,
+  }) {
+    _init();
+    Pointer<Utf8>? utf;
+    try {
+      final utf = path.toNativeUtf8(allocator: calloc);
+      params = params ?? Model.defaultParams;
+      if (callback != null) {
+        _userModelLoadProgressCallback = callback;
+        params.progress_callback =
+            Pointer.fromFunction(_onLlamaModelLoadProgress);
+      }
+
+      final model = llama_load_model_from_file(
+        utf.cast<Char>(),
+        params,
+      );
+      return Model(model);
+    } finally {
+      // ignore: unnecessary_null_comparison
+      if (utf != null) calloc.free(utf);
+      _userModelLoadProgressCallback = null;
+    }
+  }
 }
 
 final class Model with Disposable {
