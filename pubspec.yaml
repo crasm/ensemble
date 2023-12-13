@@ -1,7 +1,7 @@
 name: llamacpp
-description: Ensemble's high and low-level dart bindings for llama.cpp
-version: 0.0.1
-repository: https://github.com/crasm/ensemble/llama
+description: High and low-level dart bindings for llama.cpp
+version: 1.0.0-dev
+repository: https://github.com/crasm/llamacpp-dart
 
 publish_to: none #TODO: remove to publish
 
