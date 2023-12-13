@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:llamacpp/src/llama.dart';
 import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 

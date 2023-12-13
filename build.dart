@@ -1,9 +1,8 @@
 import 'dart:io';
 import 'dart:convert';
 
-import 'package:path/path.dart' as path;
-
 import 'package:native_assets_cli/native_assets_cli.dart';
+import 'package:path/path.dart' as path;
 
 final class CompileError extends Error {
   final String message; // ignore: unreachable_from_main
@@ -41,7 +40,7 @@ void main(List<String> args) async {
   await _copy('ggml-metal.metal', llamacpp, dst);
 
   buildOutput.assets.add(Asset(
-    id: 'package:llamacpp/src/gen/libllama.dart',
+    id: 'package:llamacpp/src/libllama.dart',
     linkMode: buildConfig.linkModePreference.preferredLinkMode,
     target: buildConfig.target,
     path: AssetPath('absolute', libllama.uri),

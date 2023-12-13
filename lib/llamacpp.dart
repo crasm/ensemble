@@ -2,6 +2,5 @@
 library;
 
 export 'src/disposable.dart';
-export 'src/llama.dart';
-export 'src/llama_sync.dart';
+export 'src/llamacpp.dart';
 export 'src/samplers.dart';

@@ -1,30 +1,23 @@
-import 'package:llamacpp/llamacpp.dart';
-import 'package:llamacpp/src/common.dart';
-
 import 'dart:io';
 
-Future<void> _tokenize(String text) async {
-  final disposables = <Disposable>[];
-  try {
-    final llama = Llama();
-    disposables.add(llama);
+import 'package:llamacpp/llamacpp.dart';
 
-    final model = await llama.initModel(
+Future<void> _tokenize(String text) async {
+  Model? model;
+  Context? ctx;
+  try {
+    model = LlamaCpp.loadModel(
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
     );
-    disposables.add(model);
+    ctx = model.newContext();
 
-    final ctx = await llama.initContext(model);
-    disposables.add(ctx);
-
-    final tokens = await ctx.add(text);
+    final tokens = ctx.add(text);
     for (var i = 0; i < tokens.length; i++) {
-      stdout.writeln(tokens[i].toLogString(i));
+      stdout.writeln(tokens[i].toString(i));
     }
   } finally {
-    for (final d in disposables.reversed) {
-      d.dispose();
-    }
+    ctx?.dispose();
+    model?.dispose();
   }
 }
 

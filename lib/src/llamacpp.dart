@@ -1,12 +1,13 @@
+import 'dart:async';
 import 'dart:ffi';
 
 import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
+import 'package:meta/meta.dart';
 import 'package:logging/logging.dart';
 
-import 'package:llamacpp/src/gen/libllama.dart';
+import 'package:llamacpp/src/libllama.dart';
 import 'package:llamacpp/src/disposable.dart';
-import 'package:llamacpp/src/llama.dart';
 import 'package:llamacpp/src/samplers.dart';
 import 'package:llamacpp/src/sampling.dart';
 
@@ -23,8 +24,8 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
   _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
 }
 
-typedef ModelLoadProgress = void Function(double progress);
-ModelLoadProgress? _userModelLoadProgressCallback;
+typedef ModelLoadProgressCallback = void Function(double progress);
+ModelLoadProgressCallback? _userModelLoadProgressCallback;
 void _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
   _userModelLoadProgressCallback?.call(progress);
 }
@@ -45,7 +46,7 @@ final class LlamaCpp {
   static Model loadModel(
     String path, {
     llama_model_params? params,
-    ModelLoadProgress? callback,
+    ModelLoadProgressCallback? callback,
   }) {
     _init();
     Pointer<Utf8>? utf;
@@ -67,6 +68,37 @@ final class LlamaCpp {
       // ignore: unnecessary_null_comparison
       if (utf != null) calloc.free(utf);
       _userModelLoadProgressCallback = null;
+    }
+  }
+
+  static Stream<Token> generate({
+    required String modelPath,
+    required String prompt,
+    llama_model_params? modelParams,
+    llama_context_params? contextParams,
+    ModelLoadProgressCallback? onModelLoadProgress,
+    List<Sampler> samplers = const [Temperature(0.0)],
+  }) async* {
+    Model? model;
+    Context? ctx;
+    try {
+      model = loadModel(
+        modelPath,
+        params: modelParams,
+        callback: onModelLoadProgress,
+      );
+      ctx = model.newContext(contextParams)..add(prompt);
+
+      final completer = Completer<void>();
+      ctx.ingest().then(
+            (_) => completer.complete(null),
+            onError: completer.completeError,
+          );
+      await completer.future;
+      yield* ctx.generate(samplers: samplers);
+    } finally {
+      ctx?.dispose();
+      model?.dispose();
     }
   }
 }
@@ -202,7 +234,7 @@ final class Context with Disposable {
       }
 
       if (needsIngesting) {
-        ingest();
+        throw StateError('must call ingest before generate');
       }
 
       //
@@ -273,4 +305,40 @@ final class Context with Disposable {
       }
     }
   }
+}
+
+@immutable
+final class Token {
+  final int id;
+  final String text;
+  final String rawText;
+
+  const Token(this.id, this.text, this.rawText);
+
+  factory Token.fromId(Pointer<llama_model> modelPointer, int id) {
+    final rawText =
+        llama_token_get_text(modelPointer, id).cast<Utf8>().toDartString();
+    // replace U+2581 with a space
+    final text = rawText.replaceAll('▁', ' ').replaceAll('<0x0A>', '\n');
+    return Token(id, text, rawText);
+  }
+
+  @override
+  String toString([int? i]) {
+    final buf = StringBuffer();
+    if (i != null) {
+      buf.write(i.toString().padLeft(4));
+      buf.write(':');
+    }
+    buf.write(id.toString().padLeft(6));
+    buf.write(' = ');
+    buf.write(rawText);
+    return buf.toString();
+  }
+
+  @override
+  bool operator ==(Object? other) =>
+      other is Token && other.id == id && other.rawText == rawText;
+  @override
+  int get hashCode => id.hashCode + rawText.hashCode;
 }

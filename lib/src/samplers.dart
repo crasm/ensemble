@@ -1,11 +1,10 @@
-import 'dart:math';
 import 'dart:ffi';
+import 'dart:math';
 
 import 'package:ffi/ffi.dart';
 
-import 'package:llamacpp/llamacpp_ffi.dart';
-import 'package:llamacpp/src/llama_sync.dart';
-import 'package:llamacpp/src/llama.dart';
+import 'package:llamacpp/src/libllama.dart';
+import 'package:llamacpp/src/llamacpp.dart';
 
 abstract interface class Sampler {
   /// Apply this sampler to [cands] and optionally return a [Token].

@@ -1,12 +1,12 @@
 import 'dart:ffi';
+
 import 'package:ffi/ffi.dart';
-import 'package:llamacpp/llamacpp_ffi.dart';
-import 'package:llamacpp/src/common.dart';
-import 'package:llamacpp/src/disposable.dart';
-import 'package:llamacpp/src/isolate_models.dart';
-import 'package:llamacpp/src/llama.dart';
-import 'package:llamacpp/src/llama.dart' as pub;
 import 'package:logging/logging.dart';
+
+import 'package:llamacpp/src/disposable.dart';
+import 'package:llamacpp/src/libllama.dart';
+import 'package:llamacpp/src/llamacpp.dart';
+import 'package:llamacpp/src/range.dart';
 
 final class TokenBuf with Disposable {
   static final _log = Logger('TokenBuf');
@@ -100,10 +100,10 @@ final class TokenBuf with Disposable {
   ///
   /// If [lastN] is provided, will return the tokens in the buffer starting
   /// from [length - lastN].
-  List<pub.Token> toList(Pointer<llama_model> modelPointer, [int? lastN]) {
+  List<Token> toList(Pointer<llama_model> modelPointer, [int? lastN]) {
     checkDisposed();
     lastN ??= _length;
-    final list = <pub.Token>[];
+    final list = <Token>[];
     for (var i = _length - lastN; i < _length; i++) {
       list.add(Token.fromId(modelPointer, buf[i]));
     }

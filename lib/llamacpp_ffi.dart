@@ -5,4 +5,4 @@
 /// effectively.
 library;
 
-export 'src/gen/libllama.dart';
+export 'src/libllama.dart';
