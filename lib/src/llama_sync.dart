@@ -88,46 +88,48 @@ final class Context with Disposable {
 
   CancelableOperation<void> ingest() {
     checkDisposed();
-    final completer = CancelableCompleter<void>(onCancel: () {
-      _trimKvCache(logits.length);
-    });
+    final completer = CancelableCompleter<void>();
     completer.complete(_ingest(completer)); // ignore: discarded_futures
     return completer.operation;
   }
 
   Future<void> _ingest(CancelableCompleter<void> completer) async {
-    final batchSize = params.n_batch;
-    var i = logits.length; // index of the next token to be decoded
-    var j = 0; // start batch at zero tokens on every ingest()
+    try {
+      final batchSize = params.n_batch;
+      var i = logits.length; // index of the next token to be decoded
+      var j = 0; // start batch at zero tokens on every ingest()
 
-    int tokensToDecode() => tokens.length - i;
+      int tokensToDecode() => tokens.length - i;
 
-    _log.info('Ingesting ${tokensToDecode()} tokens');
+      _log.info('Ingesting ${tokensToDecode()} tokens');
 
-    while ((i = logits.length) + j < tokens.length) {
-      final isLastBatch = tokensToDecode() <= batchSize;
-      final fillCount = isLastBatch ? tokensToDecode() : batchSize;
+      while ((i = logits.length) + j < tokens.length) {
+        final isLastBatch = tokensToDecode() <= batchSize;
+        final fillCount = isLastBatch ? tokensToDecode() : batchSize;
 
-      batch.n_tokens = fillCount;
-      for (j = 0; j < fillCount; j++) {
-        batch.token[j] = tokens[i + j];
-        batch.pos[j] = i + j;
-        batch.n_seq_id[j] = 1;
-        batch.seq_id[j][0] = 1;
-        batch.logits[j] = 1;
+        batch.n_tokens = fillCount;
+        for (j = 0; j < fillCount; j++) {
+          batch.token[j] = tokens[i + j];
+          batch.pos[j] = i + j;
+          batch.n_seq_id[j] = 1;
+          batch.seq_id[j][0] = 1;
+          batch.logits[j] = 1;
+        }
+
+        // ignore: inference_failure_on_instance_creation
+        await Future.delayed(Duration.zero);
+        if (completer.isCanceled) return;
+        final status = llama_decode(pointer, batch);
+        if (status != 0) {
+          throw Exception('llama_decode failed with $status');
+        }
+        logits.add(llama_get_logits(pointer), batch.n_tokens);
+
+        assert(j <= batchSize);
+        if (j == batchSize) j = 0;
       }
-
-      // ignore: inference_failure_on_instance_creation
-      await Future.delayed(Duration.zero);
-      if (completer.isCanceled) return;
-      final status = llama_decode(pointer, batch);
-      if (status != 0) {
-        throw Exception('llama_decode failed with $status');
-      }
-      logits.add(llama_get_logits(pointer), batch.n_tokens);
-
-      assert(j <= batchSize);
-      if (j == batchSize) j = 0;
+    } finally {
+      _trimKvCache(logits.length);
     }
   }
 
