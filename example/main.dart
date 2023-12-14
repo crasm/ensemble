@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:llamacpp/llamacpp.dart';
 import 'package:logging/logging.dart';
 
+final _log = Logger('main');
+
 void main(List<String> args) async {
   Model? model;
   Context? ctx;
@@ -20,22 +22,22 @@ void main(List<String> args) async {
 
     model = LlamaCpp.loadModel(
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
-      // params: Model.defaultParams..use_mmap = false,
-      // callback: (progress) {
-      //   stderr.write('\r');
-      //   stderr.write((progress * 100).truncate());
-      // },
+      params: Model.defaultParams..use_mmap = false,
+      callback: (progress) {
+        stderr.write('\r');
+        stderr.write((progress * 100).truncate());
+      },
     );
 
+    const prompt =
+        'A chat.\nUser: How can I make my own peanut butter?\nAssistant:';
     ctx = model.newContext(Context.defaultParams..n_ctx = 256);
-    final toks = ctx.add(
-      'A chat.\nUser: How can I make my own peanut butter?\nAssistant:',
-    );
-    await ctx.ingest().value;
-    for (final tok in toks) {
-      stdout.write(tok.text);
+    ctx.add(prompt);
+    await for (final progress in ctx.ingestWithProgress()) {
+      _log.fine(progress);
     }
 
+    stdout.write(prompt);
     await for (final tok in ctx.generate(samplers: const [
       RepetitionPenalty(),
       MinP(0.08),

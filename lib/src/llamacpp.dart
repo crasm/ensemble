@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ffi';
 
-import 'package:async/async.dart';
 import 'package:ffi/ffi.dart';
 import 'package:meta/meta.dart';
 import 'package:logging/logging.dart';
@@ -10,6 +9,18 @@ import 'package:llamacpp/src/libllama.dart';
 import 'package:llamacpp/src/disposable.dart';
 import 'package:llamacpp/src/samplers.dart';
 import 'package:llamacpp/src/sampling.dart';
+
+@immutable
+final class IngestProgressEvent {
+  final int done;
+  final int total;
+  final int batchSize;
+  const IngestProgressEvent(this.done, this.total, this.batchSize);
+
+  @override
+  String toString() =>
+      'IngestProgressEvent{$done of $total, batchSize: $batchSize)';
+}
 
 final _log = Logger('LlamaCpp');
 
@@ -71,7 +82,7 @@ final class LlamaCpp {
     }
   }
 
-  static Stream<Token> generate({
+  static Stream<(IngestProgressEvent? progress, Token? token)> generate({
     required String modelPath,
     required String prompt,
     llama_model_params? modelParams,
@@ -89,13 +100,8 @@ final class LlamaCpp {
       );
       ctx = model.newContext(contextParams)..add(prompt);
 
-      final completer = Completer<void>();
-      ctx.ingest().then(
-            (_) => completer.complete(null),
-            onError: completer.completeError,
-          );
-      await completer.future;
-      yield* ctx.generate(samplers: samplers);
+      yield* ctx.ingestWithProgress().map((progress) => (progress, null));
+      yield* ctx.generate(samplers: samplers).map((token) => (null, token));
     } finally {
       ctx?.dispose();
       model?.dispose();
@@ -164,6 +170,8 @@ final class Context with Disposable {
     llama_kv_cache_seq_rm(pointer, 1, length, -1);
   }
 
+  void clear() => trim(0);
+
   void trim(int length) {
     checkDisposed();
     tokens.length = length;
@@ -173,18 +181,19 @@ final class Context with Disposable {
     }
   }
 
-  CancelableOperation<void> ingest() {
-    checkDisposed();
-    final completer = CancelableCompleter<void>();
-    completer.complete(_ingest(completer)); // ignore: discarded_futures
-    return completer.operation;
+  Future<void> ingest() async {
+    await ingestWithProgress().drain<void>();
   }
 
-  Future<void> _ingest(CancelableCompleter<void> completer) async {
+  Stream<IngestProgressEvent> ingestWithProgress() async* {
+    checkDisposed();
     try {
       final batchSize = params.n_batch;
       var i = logits.length; // index of the next token to be decoded
       var j = 0; // start batch at zero tokens on every ingest()
+
+      final initialLength = logits.length;
+      final finalLength = tokens.length;
 
       int tokensToDecode() => tokens.length - i;
 
@@ -203,14 +212,16 @@ final class Context with Disposable {
           batch.logits[j] = 1;
         }
 
-        // ignore: inference_failure_on_instance_creation
-        await Future.delayed(Duration.zero);
-        if (completer.isCanceled) return;
         final status = llama_decode(pointer, batch);
         if (status != 0) {
           throw Exception('llama_decode failed with $status');
         }
         logits.add(llama_get_logits(pointer), batch.n_tokens);
+        yield IngestProgressEvent(
+          i - initialLength + j,
+          finalLength,
+          batchSize,
+        );
 
         assert(j <= batchSize);
         if (j == batchSize) j = 0;
@@ -270,6 +281,8 @@ final class Context with Disposable {
 
         tok ??= const DefaultLastSampler().sample(this);
 
+        // // ignore: inference_failure_on_instance_creation
+        // await Future.delayed(Duration.zero);
         tokens.add(tok!.id);
         yield tok;
 
