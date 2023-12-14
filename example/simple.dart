@@ -10,6 +10,7 @@ void main() async {
     onModelLoadProgress: (p) {
       stderr.write('\r');
       stderr.write((p * 100).truncate());
+      return true;
     },
     modelParams: Model.defaultParams..use_mmap = false,
     contextParams: Context.defaultParams..n_ctx = 256,

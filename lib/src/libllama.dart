@@ -1077,10 +1077,12 @@ final class llama_model_params extends ffi.Struct {
   /// how to split layers across multiple GPUs (size: LLAMA_MAX_DEVICES)
   external ffi.Pointer<ffi.Float> tensor_split;
 
-  /// called with a progress value between 0 and 1, pass NULL to disable
+  /// Called with a progress value between 0.0 and 1.0. Pass NULL to disable.
+  /// If the provided progress_callback returns true, model loading continues.
+  /// If it returns false, model loading is immediately aborted.
   external ffi.Pointer<
           ffi
-          .NativeFunction<ffi.Void Function(ffi.Float, ffi.Pointer<ffi.Void>)>>
+          .NativeFunction<ffi.Bool Function(ffi.Float, ffi.Pointer<ffi.Void>)>>
       progress_callback;
 
   /// context pointer passed to the progress callback
@@ -1188,7 +1190,7 @@ final class llama_context_params extends ffi.Struct {
   @ffi.Bool()
   external bool mul_mat_q;
 
-  /// the llama_eval() call computes all logits, not just the last one
+  /// the llama_eval() call computes all logits, not just the last one (DEPRECATED - set llama_batch.logits instead)
   @ffi.Bool()
   external bool logits_all;
 
@@ -1298,7 +1300,7 @@ final class ggml_tensor extends ffi.Struct {
 
   external ffi.Pointer<ggml_tensor> grad;
 
-  @ffi.Array.multi([6])
+  @ffi.Array.multi([10])
   external ffi.Array<ffi.Pointer<ggml_tensor>> src;
 
   /// performance
@@ -1393,26 +1395,28 @@ abstract class ggml_op {
 
   /// nearest interpolate
   static const int GGML_OP_UPSCALE = 50;
-  static const int GGML_OP_ARGSORT = 51;
-  static const int GGML_OP_FLASH_ATTN = 52;
-  static const int GGML_OP_FLASH_FF = 53;
-  static const int GGML_OP_FLASH_ATTN_BACK = 54;
-  static const int GGML_OP_WIN_PART = 55;
-  static const int GGML_OP_WIN_UNPART = 56;
-  static const int GGML_OP_GET_REL_POS = 57;
-  static const int GGML_OP_ADD_REL_POS = 58;
-  static const int GGML_OP_UNARY = 59;
-  static const int GGML_OP_MAP_UNARY = 60;
-  static const int GGML_OP_MAP_BINARY = 61;
-  static const int GGML_OP_MAP_CUSTOM1_F32 = 62;
-  static const int GGML_OP_MAP_CUSTOM2_F32 = 63;
-  static const int GGML_OP_MAP_CUSTOM3_F32 = 64;
-  static const int GGML_OP_MAP_CUSTOM1 = 65;
-  static const int GGML_OP_MAP_CUSTOM2 = 66;
-  static const int GGML_OP_MAP_CUSTOM3 = 67;
-  static const int GGML_OP_CROSS_ENTROPY_LOSS = 68;
-  static const int GGML_OP_CROSS_ENTROPY_LOSS_BACK = 69;
-  static const int GGML_OP_COUNT = 70;
+  static const int GGML_OP_PAD = 51;
+  static const int GGML_OP_ARGSORT = 52;
+  static const int GGML_OP_LEAKY_RELU = 53;
+  static const int GGML_OP_FLASH_ATTN = 54;
+  static const int GGML_OP_FLASH_FF = 55;
+  static const int GGML_OP_FLASH_ATTN_BACK = 56;
+  static const int GGML_OP_WIN_PART = 57;
+  static const int GGML_OP_WIN_UNPART = 58;
+  static const int GGML_OP_GET_REL_POS = 59;
+  static const int GGML_OP_ADD_REL_POS = 60;
+  static const int GGML_OP_UNARY = 61;
+  static const int GGML_OP_MAP_UNARY = 62;
+  static const int GGML_OP_MAP_BINARY = 63;
+  static const int GGML_OP_MAP_CUSTOM1_F32 = 64;
+  static const int GGML_OP_MAP_CUSTOM2_F32 = 65;
+  static const int GGML_OP_MAP_CUSTOM3_F32 = 66;
+  static const int GGML_OP_MAP_CUSTOM1 = 67;
+  static const int GGML_OP_MAP_CUSTOM2 = 68;
+  static const int GGML_OP_MAP_CUSTOM3 = 69;
+  static const int GGML_OP_CROSS_ENTROPY_LOSS = 70;
+  static const int GGML_OP_CROSS_ENTROPY_LOSS_BACK = 71;
+  static const int GGML_OP_COUNT = 72;
 }
 
 /// An updateable view of the KV cache.

@@ -10,6 +10,8 @@ import 'package:llamacpp/llamacpp.dart';
 // Temperature) because dividing by such a small number can still become Inf,
 // leading to garbage output.
 const tinyFloat = 5.35e-38;
+const modelPath =
+    '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf';
 
 void main() {
   final startTime = DateTime.now();
@@ -23,9 +25,20 @@ void main() {
     );
   });
 
+  group('model', () {
+    test('model load cancel', () {
+      try {
+        LlamaCpp.loadModel(modelPath, callback: (p) {
+          return p > 0.50;
+        });
+      } on Exception catch (e) {
+        expect(e, isException);
+      }
+    });
+  });
+
   group('main', () {
-    final model = LlamaCpp.loadModel(
-        '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf');
+    final model = LlamaCpp.loadModel(modelPath);
 
     test('tokenize', () {
       final ctx = model.newContext(Context.defaultParams..seed = 1);

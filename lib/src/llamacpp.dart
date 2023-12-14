@@ -35,10 +35,13 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
   _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
 }
 
-typedef ModelLoadProgressCallback = void Function(double progress);
+typedef ModelLoadProgressCallback = bool Function(double progress);
 ModelLoadProgressCallback? _userModelLoadProgressCallback;
-void _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
-  _userModelLoadProgressCallback?.call(progress);
+bool _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
+  // ignore: avoid_bool_literals_in_conditional_expressions
+  return _userModelLoadProgressCallback != null
+      ? _userModelLoadProgressCallback!.call(progress)
+      : true;
 }
 
 final class LlamaCpp {
@@ -67,13 +70,15 @@ final class LlamaCpp {
       if (callback != null) {
         _userModelLoadProgressCallback = callback;
         params.progress_callback =
-            Pointer.fromFunction(_onLlamaModelLoadProgress);
+            Pointer.fromFunction(_onLlamaModelLoadProgress, false);
       }
 
       final model = llama_load_model_from_file(
         utf.cast<Char>(),
         params,
       );
+
+      if (model.address == 0) throw Exception('model failed to load');
       return Model(model);
     } finally {
       // ignore: unnecessary_null_comparison

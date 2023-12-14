@@ -24,8 +24,8 @@ void main(List<String> args) async {
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
       params: Model.defaultParams..use_mmap = false,
       callback: (progress) {
-        stderr.write('\r');
-        stderr.write((progress * 100).truncate());
+        stderr.write('.');
+        return true;
       },
     );
 
