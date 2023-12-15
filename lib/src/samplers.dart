@@ -7,7 +7,7 @@ import 'package:llamacpp/src/libllama.dart';
 import 'package:llamacpp/src/llamacpp.dart';
 
 abstract interface class Sampler {
-  /// Apply this sampler to [cands] and optionally return a [Token].
+  /// Apply this sampler to [ctx] and optionally return a [Token].
   /// Returning a token prevents any further [Sampler] from being called.
   Token? sample(Context ctx);
 }
@@ -199,7 +199,8 @@ final class RepetitionPenalty implements Sampler {
 
     if (!penalizeNewline) {
       // llama/common/sampling.cpp uses a loop here, because it's possible for
-      // the candidates to be sorted (and therefore newline logit not at index nlId).
+      // the candidates to be sorted (and therefore newline logit not at index
+      // nlId).
       assert(!cands.pointer.ref.sorted);
       cands[nlId] = nlBackupLogit;
     }
@@ -207,8 +208,9 @@ final class RepetitionPenalty implements Sampler {
   }
 
   @override
-  String toString() =>
-      'RepetitionPenalty{lastN=$lastN, penalty=$penalty, frequencyPenalty=$frequencyPenalty, presencePenalty=$presencePenalty, penalizeNewline=$penalizeNewline}';
+  String toString() => 'RepetitionPenalty{lastN=$lastN, penalty=$penalty, '
+      'frequencyPenalty=$frequencyPenalty, presencePenalty=$presencePenalty, '
+      'penalizeNewline=$penalizeNewline}';
 }
 
 mixin MirostatMu implements NativeMemoryUser {
