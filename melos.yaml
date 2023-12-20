@@ -1,0 +1,8 @@
+name: ensemble
+packages:
+  - app
+  - common
+  - llamacpp
+  - llamacpp_server
+  # - app_desktop
+  # - app_common

@@ -1,4 +1,5 @@
 *.exe
+*.iml
 *.log
 .cache/
 .idea/

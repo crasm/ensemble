@@ -1,0 +1,6 @@
+# melos_managed_dependency_overrides: ensemble_common,ensemble_llamacpp
+dependency_overrides:
+  ensemble_common:
+    path: ../common
+  ensemble_llamacpp:
+    path: ../llamacpp

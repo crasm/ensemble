@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package llm;
+
+service Llm {
+  // TODO(crasm): if we tokenize as the prompt is written, we send a stream
+  // Token? instead of string
+  rpc Generate(Prompt) returns (stream Token) {}
+}
+
+message Prompt {
+  string text = 1;
+}
+
+message Token {
+  int32 id = 1;
+  optional string text = 2;
+}
