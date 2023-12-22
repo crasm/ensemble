@@ -1,0 +1,11 @@
+# For additional information about configuring this file, see
+# https://dart.dev/guides/language/analysis-options
+
+linter:
+  rules:
+    # Keep these sorted
+    public_member_api_docs: true
+
+analyzer:
+  exclude:
+    - lib/src/libllama.dart

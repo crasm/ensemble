@@ -27,11 +27,12 @@ final class _DefaultLastSampler implements Sampler {
   @override
   Token? sample(Context ctx) {
     final tokId = llama_sample_token(ctx.pointer, ctx._candidates.pointer);
-    return Token.fromId(ctx.model.pointer, tokId);
+    return Token._fromId(ctx.model.pointer, tokId);
   }
 }
 
-/// A temperature sampler.
+/// A temperature sampler, which increases the likelihood of less probable
+/// next-token candidates.
 ///
 /// Typical values for temperature are 0.0 (greedy sampling) or around 0.70.
 ///
@@ -54,7 +55,7 @@ final class Temperature implements Sampler {
         ctx.pointer,
         ctx._candidates.pointer,
       );
-      return Token.fromId(ctx.model.pointer, tokId);
+      return Token._fromId(ctx.model.pointer, tokId);
     } else {
       llama_sample_temp(ctx.pointer, ctx._candidates.pointer, temp);
       return null;
@@ -65,7 +66,10 @@ final class Temperature implements Sampler {
   String toString() => 'Temperature{$temp}';
 }
 
-/// A top-k sampler.
+/// A top-k sampler, which restricts the next-token candidates to the top *k*
+/// most likely tokens.
+///
+/// A typical value for top-k is 40.
 final class TopK implements Sampler {
   /// The top *k* most likely tokens to keep in [Candidates].
   final int topK;
@@ -93,9 +97,18 @@ final class TopK implements Sampler {
   String toString() => 'TopK{$topK}';
 }
 
+/// A top-p sampler, which restricts the next-token candidates to the first *n*
+/// most likely tokens, where the sum of the probabilities from 1..n == p.
+///
+/// A typical value for top-p is 0.95.
 final class TopP implements Sampler {
+  /// The target sum probability.
   final double topP;
+
+  /// The minimum number of candidates to retain.
   final int minKeep;
+
+  /// Defines a top-p sampler.
   const TopP(this.topP, {this.minKeep = 1})
       : assert(topP >= 0.0 && topP <= 1.0),
         assert(minKeep > 0);
@@ -110,10 +123,6 @@ final class TopP implements Sampler {
   String toString() => 'TopP{$topP}';
 }
 
-/// Implements min P sampling.
-///
-/// Generally, this should only be used with [Temperature] sampling and no
-/// other samplers.
 final class MinP implements Sampler {
   final double minP;
   final int minKeep;
@@ -167,6 +176,13 @@ final class LocallyTypical implements Sampler {
 
 int _min(List<int> args) => args.fold(args[0], min);
 
+/// A repetition penalty sampler, which decreases next-token candidate
+/// probabilities based on how often it has appeared previously.
+///
+/// WARNING: [penalizeNewline] set to false will not work unless the
+/// RepetitionSampler is the first sampler. It requires the candidates to be
+/// sorted and indexed by token ID, but after using other samplers this may not
+/// hold.
 final class RepetitionPenalty implements Sampler {
   final int lastN;
   final double penalty;
@@ -204,7 +220,7 @@ final class RepetitionPenalty implements Sampler {
       ctx.params.n_ctx,
     ]);
 
-    final tokenPointer = toks._buf.elementAt(toks.capacity - lastN);
+    final tokenPointer = toks._buf + (toks.capacity - lastN);
 
     llama_sample_repetition_penalties(
       ctx.pointer,
@@ -276,7 +292,7 @@ final class MirostatV1 extends Mirostat {
     const m = 100;
     final tokId = llama_sample_token_mirostat(
         ctx.pointer, ctx._candidates.pointer, tau, eta, m, _mu);
-    return Token.fromId(ctx.model.pointer, tokId);
+    return Token._fromId(ctx.model.pointer, tokId);
   }
 }
 
@@ -286,6 +302,6 @@ final class MirostatV2 extends Mirostat {
   Token? sample(Context ctx) {
     final tokId = llama_sample_token_mirostat_v2(
         ctx.pointer, ctx._candidates.pointer, tau, eta, _mu);
-    return Token.fromId(ctx.model.pointer, tokId);
+    return Token._fromId(ctx.model.pointer, tokId);
   }
 }

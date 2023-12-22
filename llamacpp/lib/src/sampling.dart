@@ -66,7 +66,7 @@ final class ContextTokens with Disposable {
         model,
         utf.cast<Char>(),
         utf.length,
-        _buf.elementAt(_length),
+        _buf + _length,
         remainingCapacity,
         addBos, // add Beginning-Of-Stream token
         false, // tokenize meta tokens (like BOS/EOS)
@@ -96,7 +96,7 @@ final class ContextTokens with Disposable {
     lastN ??= _length;
     final list = <Token>[];
     for (var i = _length - lastN; i < _length; i++) {
-      list.add(Token.fromId(modelPointer, _buf[i]));
+      list.add(Token._fromId(modelPointer, _buf[i]));
     }
     return list;
   }
@@ -151,7 +151,7 @@ final class ContextLogits with Disposable {
   Pointer<Float> operator [](int tokenIndex) {
     checkDisposed();
     tokenIndex.checkIncInc(0, length, 'tokenIndex');
-    return _logits.elementAt(vocabSize * tokenIndex);
+    return _logits + (vocabSize * tokenIndex);
   }
 
   /// Add [batchSize] number of logit sets, copying from [batchLogits].
@@ -159,8 +159,7 @@ final class ContextLogits with Disposable {
     checkDisposed();
     (batchSize + length).checkIncInc(0, contextSize, 'batchSize+length');
     for (var i = 0; i < vocabSize * batchSize; i++) {
-      _logits.elementAt(vocabSize * length + i).value =
-          batchLogits.elementAt(i).value;
+      _logits[vocabSize * length + i] = batchLogits[i];
     }
 
     _length += batchSize;

@@ -138,7 +138,7 @@ final class LlamaCpp {
   ///
   /// The return stream begins with `(IngestProgressEvent, null)` during prompt
   /// ingestion. (See [Context.ingest].) After prompt ingestion is complete, the
-  /// stream events contain `(null, Token)`, where the token is a generated and
+  /// stream events contain `(null, Token)`, where the token is generated and
   /// sampled according to [contextParams] and [samplers]. (See
   /// [Context.generate].)
   static Stream<(IngestProgressEvent? progress, Token? token)> generate({
@@ -326,8 +326,13 @@ final class Context with Disposable {
     llama_kv_cache_seq_rm(pointer, 1, length, -1);
   }
 
+  /// Resets and clears the context.
   void clear() => trim(0);
 
+  /// Trims the context window to [length].
+  ///
+  /// For any tokens beyond [length], it will be as if they were never
+  /// generated.
   void trim(int length) {
     checkDisposed();
     tokens.length = length;
@@ -337,10 +342,15 @@ final class Context with Disposable {
     }
   }
 
+  /// Ingest added tokens.
   Future<void> ingest() async {
     await ingestWithProgress().drain<void>();
   }
 
+  /// Ingest added tokens, controlled by a stream.
+  ///
+  /// The returned stream produces a value on the completion of every batch of
+  /// tokens that have been decoded. You can cancel the stream to abort ingestion.
   Stream<IngestProgressEvent> ingestWithProgress() async* {
     checkDisposed();
     try {
@@ -387,6 +397,17 @@ final class Context with Disposable {
     }
   }
 
+  /// Generate text where the token candidates are processed in-order by
+  /// [samplers].
+  ///
+  /// A typical sampler list is: ```
+  /// samplers: const [
+  ///   RepetitionPenalty(lastN: 256, penalty: 1.1),
+  ///   TopP(0.95),
+  ///   TopK(40),
+  ///   Temperature(0.70)
+  ///  ]
+  /// ```
   Stream<Token> generate({
     List<Sampler> samplers = const [Temperature(0.0)],
   }) async* {
@@ -476,20 +497,30 @@ final class Context with Disposable {
   }
 }
 
+/// A token, which represents a piece of text ranging from a single character to
+/// a word.
 @immutable
 final class Token {
+  /// The id of the token in the model's vocabulary.
   final int id;
+
+  /// The text this token represents.
   final String text;
+
+  /// The raw text produced by the model for this token.
+  ///
+  /// Anything that uses e.g. SentencePiece for tokenization represents spaces
+  /// with '▁' (U+2581) and sequences like '<0x0A>' to encode '\n'.
   final String rawText;
 
-  const Token(this.id, this.text, this.rawText);
+  const Token._(this.id, this.text, this.rawText);
 
-  factory Token.fromId(Pointer<llama_model> modelPointer, int id) {
+  factory Token._fromId(Pointer<llama_model> modelPointer, int id) {
     final rawText =
         llama_token_get_text(modelPointer, id).cast<Utf8>().toDartString();
     // replace U+2581 with a space
     final text = rawText.replaceAll('▁', ' ').replaceAll('<0x0A>', '\n');
-    return Token(id, text, rawText);
+    return Token._(id, text, rawText);
   }
 
   @override

@@ -1,5 +1,6 @@
 import 'package:meta/meta.dart';
 
+/// A resource that can be disposed, or "cleaned up".
 mixin Disposable {
   bool _wasDisposed = false;
 
