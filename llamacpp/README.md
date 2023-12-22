@@ -11,20 +11,21 @@ and the Flutter guide for
 [developing packages and plugins](https://flutter.dev/developing-packages). 
 -->
 
-# ensemble_llamacpp
+# llamacpp-dart
 
 **⚠️This package is incomplete and under active development!⚠️**
 
 This package provides low-level (FFI) and high-level bindings for [llama.cpp][]
-for Native platform Dart for the Ensemble project.
+for Native platform Dart.
 
+Depends on [native_assets_cli][] to integrate with llama.cpp, which requires
+passing the flag `--enable-experiment=native-assets` and possibly a dev-channel
+build of Dart. The easiest way to get a dev-channel build of Dart on a regular
+basis is to install [Flutter][] from GitHub and use the included dart-sdk.
+
+See [example/][] for basic usage of the API.
+
+[Flutter]: https://github.com/flutter/flutter.git
 [llama.cpp]: https://github.com/ggerganov/llama.cpp
 [native_assets_cli]: https://pub.dev/packages/native_assets_cli
-
-Depends on [native_assets_cli][], to integrate with llama.cpp, which requires
-passing the flag `--enable-experiment=native-assets` and possibly a dev-channel
-build of Dart.
-
-See [`example/main.dart`](https://github.com/crasm/ensemble/blob/master/llamacpp/example/main.dart)
-and [`example/simple.dart`](https://github.com/crasm/ensemble/blob/master/llamacpp/example/simple.dart)
-for basic usage of the API.
+[example/]: https://github.com/crasm/llamacpp-dart/tree/master/example

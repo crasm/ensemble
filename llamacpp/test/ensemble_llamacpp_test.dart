@@ -28,7 +28,7 @@ void main() {
   group('model', () {
     test('model load cancel', () {
       try {
-        LlamaCpp.loadModel(modelPath, callback: (p) {
+        LlamaCpp.loadModel(modelPath, progressCallback: (p) {
           return p > 0.50;
         });
       } on Exception catch (e) {

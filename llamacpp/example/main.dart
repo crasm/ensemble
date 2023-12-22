@@ -23,7 +23,7 @@ void main(List<String> args) async {
     model = LlamaCpp.loadModel(
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
       params: Model.defaultParams..use_mmap = false,
-      callback: (progress) {
+      progressCallback: (progress) {
         stderr.write('.');
         return true;
       },

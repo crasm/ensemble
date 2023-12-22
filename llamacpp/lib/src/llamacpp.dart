@@ -1,21 +1,30 @@
 import 'dart:async';
 import 'dart:ffi';
+import 'dart:math';
 
 import 'package:ffi/ffi.dart';
+import 'package:ensemble_llamacpp/src/range.dart';
 import 'package:meta/meta.dart';
 import 'package:logging/logging.dart';
 
 import 'package:ensemble_llamacpp/src/libllama.dart';
 import 'package:ensemble_llamacpp/src/disposable.dart';
-import 'package:ensemble_llamacpp/src/samplers.dart';
-import 'package:ensemble_llamacpp/src/sampling.dart';
 
+part 'samplers.dart';
+part 'sampling.dart';
+
+/// Represents the progress of prompt ingestion (decoding).
 @immutable
 final class IngestProgressEvent {
+  /// Number of tokens that have been ingested.
   final int done;
+
+  /// Total number of tokens to be ingested, including those already [done].
   final int total;
+
+  /// The batch size for ingesting, in tokens.
   final int batchSize;
-  const IngestProgressEvent(this.done, this.total, this.batchSize);
+  const IngestProgressEvent._(this.done, this.total, this.batchSize);
 
   @override
   String toString() =>
@@ -35,6 +44,11 @@ void _onLlamaLog(int levelGgml, Pointer<Char> text, Pointer<Void> userData) {
   _log.log(level, () => text.cast<Utf8>().toDartString().trimRight());
 }
 
+/// Callback to receive the progress (from 0.0 to 1.0, inclusive) of loading the
+/// model.
+///
+/// The [ModelLoadProgressCallback] must return true for the model loading to
+/// continue. Returning false cancels loading the model.
 typedef ModelLoadProgressCallback = bool Function(double progress);
 ModelLoadProgressCallback? _userModelLoadProgressCallback;
 bool _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
@@ -44,6 +58,8 @@ bool _onLlamaModelLoadProgress(double progress, Pointer<Void> userData) {
       : true;
 }
 
+/// Entry point for the llamacpp-dart library, containing the static methods
+/// [loadModel] and [generate].
 final class LlamaCpp {
   static bool _isInitialized = false;
   static void _init() {
@@ -57,18 +73,45 @@ final class LlamaCpp {
     _isInitialized = true;
   }
 
+  /// There is no reason to construct a [LlamaCpp].
+  LlamaCpp._();
+
+  /// Synchronously load a model from the file at [path] using [params].
+  ///
+  /// **This is a blocking call because it calls [llama_load_model_from_file].**
+  ///
+  /// You can cancel the model load by returning false from [progressCallback].
+  /// Do not perform complex operations inside progressCallback, since it will
+  /// block the model from loading. Async operations within progressCallback
+  /// will likely not work as expected.
+  ///
+  /// Setting [llama_model_params.progress_callback] directly is an error.
+  ///
+  /// [llama_model_params.n_gpu_layers] and [llama_model_params.main_gpu] must
+  /// be between 0 and [int32Max], inclusive.
   static Model loadModel(
     String path, {
     llama_model_params? params,
-    ModelLoadProgressCallback? callback,
+    ModelLoadProgressCallback? progressCallback,
   }) {
     _init();
     Pointer<Utf8>? utf;
     try {
       final utf = path.toNativeUtf8(allocator: calloc);
       params = params ?? Model.defaultParams;
-      if (callback != null) {
-        _userModelLoadProgressCallback = callback;
+
+      params.n_gpu_layers.checkIncInc(0, int32Max, 'n_gpu_layers');
+      params.main_gpu.checkIncInc(0, int32Max, 'main_gpu');
+      if (params.progress_callback.address != 0) {
+        throw ArgumentError.value(
+            params.progress_callback,
+            'params.progress_callback',
+            'you cannot set params.progress_callback, use progressCallback '
+                'instead');
+      }
+
+      if (progressCallback != null) {
+        _userModelLoadProgressCallback = progressCallback;
         params.progress_callback =
             Pointer.fromFunction(_onLlamaModelLoadProgress, false);
       }
@@ -79,7 +122,7 @@ final class LlamaCpp {
       );
 
       if (model.address == 0) throw Exception('model failed to load');
-      return Model(model);
+      return Model._(model);
     } finally {
       // ignore: unnecessary_null_comparison
       if (utf != null) calloc.free(utf);
@@ -87,6 +130,17 @@ final class LlamaCpp {
     }
   }
 
+  /// Convenience function for running inference with a single static call.
+  ///
+  /// The model is loaded from [modelPath] using [loadModel] with [modelParams]
+  /// and an optional [onModelLoadProgress] callback. A context is created with
+  /// [Model.newContext] using [contextParams].
+  ///
+  /// The return stream begins with `(IngestProgressEvent, null)` during prompt
+  /// ingestion. (See [Context.ingest].) After prompt ingestion is complete, the
+  /// stream events contain `(null, Token)`, where the token is a generated and
+  /// sampled according to [contextParams] and [samplers]. (See
+  /// [Context.generate].)
   static Stream<(IngestProgressEvent? progress, Token? token)> generate({
     required String modelPath,
     required String prompt,
@@ -101,7 +155,7 @@ final class LlamaCpp {
       model = loadModel(
         modelPath,
         params: modelParams,
-        callback: onModelLoadProgress,
+        progressCallback: onModelLoadProgress,
       );
       ctx = model.newContext(contextParams)..add(prompt);
 
@@ -114,11 +168,15 @@ final class LlamaCpp {
   }
 }
 
+/// Handle to a model that was loaded into memory.
 final class Model with Disposable {
+  /// Default [llama_model_params] defined upstream by llama.cpp
   static llama_model_params get defaultParams => llama_model_default_params();
 
+  /// The pointer to the [llama_model] returned from
+  /// [llama_load_model_from_file] when this model was loaded.
   final Pointer<llama_model> pointer;
-  Model(this.pointer);
+  Model._(this.pointer);
 
   @override
   void dispose() {
@@ -126,37 +184,117 @@ final class Model with Disposable {
     llama_free_model(pointer);
   }
 
+  /// Create a new context for this [Model] based on [params].
+  ///
+  /// Note that dart represents the base C struct number values as 64-bit int
+  /// and double. Int and double values that cannot be represented in the
+  /// parameters below may result in an [ArgumentError].
+  ///
+  /// Annotated [llama_context_params] from `llama.cpp/llama.h`:
+  /// ```
+  /// struct llama_context_params {
+  ///     uint32_t seed;              // RNG seed, -1 for random
+  ///                                    // dart: use [uint32Max] for random
+  ///     uint32_t n_ctx;             // text context, 0 = from model
+  ///     uint32_t n_batch;           // prompt processing maximum batch size
+  ///     uint32_t n_threads;         // number of threads to use for generation
+  ///     uint32_t n_threads_batch;   // number of threads to use for batch processing
+  ///     int8_t   rope_scaling_type; // RoPE scaling type, from `enum llama_rope_scaling_type`
+  ///
+  ///     // ref: https://github.com/ggerganov/llama.cpp/pull/2054
+  ///     float    rope_freq_base;   // RoPE base frequency, 0 = from model
+  ///     float    rope_freq_scale;  // RoPE frequency scaling factor, 0 = from model
+  ///     float    yarn_ext_factor;  // YaRN extrapolation mix factor, negative = from model
+  ///     float    yarn_attn_factor; // YaRN magnitude scaling factor
+  ///     float    yarn_beta_fast;   // YaRN low correction dim
+  ///     float    yarn_beta_slow;   // YaRN high correction dim
+  ///     uint32_t yarn_orig_ctx;    // YaRN original context size
+  ///
+  ///     enum ggml_type type_k; // data type for K cache
+  ///     enum ggml_type type_v; // data type for V cache
+  ///
+  ///     // Keep the booleans together to avoid misalignment during copy-by-value.
+  ///     bool mul_mat_q;   // if true, use experimental mul_mat_q kernels (DEPRECATED - always true)
+  ///     bool logits_all;  // the llama_eval() call computes all logits, not just the last one (DEPRECATED - set llama_batch.logits instead)
+  ///     bool embedding;   // embedding mode only
+  ///     bool offload_kqv; // whether to offload the KQV ops (including the KV cache) to GPU
+  /// };
+  /// ```
   Context newContext([llama_context_params? params]) {
     params ??= Context.defaultParams;
-    return Context(this, params);
+
+    const lcp = 'llama_context_params';
+    (llama_context_params p) {
+      p.seed.checkIncInc(0, uint32Max, '$lcp.seed');
+      p.n_ctx.checkIncInc(0, uint32Max, '$lcp.n_ctx');
+      p.n_batch.checkIncInc(0, uint32Max, '$lcp.n_batch');
+      p.n_threads.checkIncInc(0, uint32Max, '$lcp.n_threads');
+      p.n_threads_batch.checkIncInc(0, uint32Max, '$lcp.n_threads_batch');
+
+      p.rope_scaling_type.checkIncInc(
+          llama_rope_scaling_type.LLAMA_ROPE_SCALING_UNSPECIFIED,
+          llama_rope_scaling_type.LLAMA_ROPE_SCALING_MAX_VALUE,
+          '$lcp.rope_scaling_type');
+
+      p.rope_freq_base.checkIncInc(0.0, float32Max, '$lcp.rope_freq_base');
+      p.rope_freq_scale.checkIncInc(0.0, float32Max, '$lcp.rope_freq_scale');
+      /* llama.cpp uses negative values to represent "load from model" */
+      // p.yarn_ext_factor.checkIncInc(0.0, float32Max, '$lcp.yarn_ext_factor');
+      p.yarn_attn_factor.checkIncInc(0.0, float32Max, '$lcp.yarn_attn_factor');
+      p.yarn_beta_fast.checkIncInc(0.0, float32Max, '$lcp.yarn_beta_fast');
+      p.yarn_beta_slow.checkIncInc(0.0, float32Max, '$lcp.yarn_beta_slow');
+      p.yarn_orig_ctx.checkIncInc(0.0, uint32Max, '$lcp.yarn_orig_ctx');
+
+      p.type_k.checkIncInc(
+          ggml_type.GGML_TYPE_F32, ggml_type.GGML_TYPE_COUNT, '$lcp.type_k');
+      p.type_v.checkIncInc(
+          ggml_type.GGML_TYPE_F32, ggml_type.GGML_TYPE_COUNT, '$lcp.type_v');
+    }(params);
+
+    return Context._(this, params);
   }
 }
 
+/// Handle to a context created for a [Model].
 final class Context with Disposable {
   static final _log = Logger('Context');
+
+  /// Default [llama_context_params] defined upstream by llama.cpp.
   static llama_context_params get defaultParams =>
       llama_context_default_params();
 
+  /// The [Model] this [Context] was created for.
   final Model model;
+
+  /// The params for this context, such as n_ctx and rope_scaling_type.
   final llama_context_params params;
+
+  /// The pointer to the [llama_context] returned from
+  /// [llama_new_context_with_model] when this context was created.
   late final Pointer<llama_context> pointer;
 
-  late final TokenBuf tokens;
-  late final Logits logits;
-  late final Candidates candidates;
-  late final llama_batch batch;
+  /// The current tokens in this context's window.
+  late final ContextTokens tokens;
 
-  bool get needsIngesting => logits.length < tokens.length;
+  /// The logit sets for potential tokens for each position of this context's
+  /// window, pending decoding.
+  late final ContextLogits logits;
 
-  Context(this.model, this.params) {
-    pointer = llama_new_context_with_model(model.pointer, params);
+  late final Candidates _candidates;
+  late final llama_batch _batch;
 
-    // TODO(crasm): sanity check _params for these allocations
+  bool get _needsIngesting => logits.length < tokens.length;
+
+  Context._(this.model, this.params)
+      : assert(model.pointer.address != 0),
+        assert(params.n_ctx >= 0),
+        assert(params.n_batch >= 0) {
     final vocabSize = llama_n_vocab(model.pointer);
-    tokens = TokenBuf.allocate(params.n_ctx);
-    logits = Logits(params.n_ctx, vocabSize);
-    candidates = Candidates(vocabSize);
-    batch = llama_batch_init(params.n_batch, 0, 1);
+    pointer = llama_new_context_with_model(model.pointer, params);
+    tokens = ContextTokens._(params.n_ctx);
+    logits = ContextLogits._(params.n_ctx, vocabSize);
+    _candidates = Candidates(vocabSize);
+    _batch = llama_batch_init(params.n_batch, 0, 1);
   }
 
   @override
@@ -165,6 +303,19 @@ final class Context with Disposable {
     llama_free(pointer);
   }
 
+  /// Tokenize and add [text] to this context.
+  ///
+  /// When text is added to an empty context, the first token will be the BOS
+  /// (Beginning-Of-Stream) token. Subsequent [add] calls will not begin with a
+  /// BOS unless the context is cleared with [clear] or [trim].
+  ///
+  /// Adding tokens incrementally (and subsequently calling [ingest] to process
+  /// them) is possible, but requires careful handling of where text is split.
+  ///
+  /// Leading spaces in [text] will be tokenized, even if the token itself has a
+  /// leading space. For example (as of llama.cpp:55e87c3):
+  /// * `ctx.add('Sam')` => `[ '<s>' '_Sam' ]`
+  /// * `ctx.add(' Sam')` => `[ '<s>' '_' '_Sam' ]`
   List<Token> add(String text) {
     checkDisposed();
     final numToks = tokens.addFromString(model.pointer, text);
@@ -208,21 +359,21 @@ final class Context with Disposable {
         final isLastBatch = tokensToDecode() <= batchSize;
         final fillCount = isLastBatch ? tokensToDecode() : batchSize;
 
-        batch.n_tokens = fillCount;
+        _batch.n_tokens = fillCount;
         for (j = 0; j < fillCount; j++) {
-          batch.token[j] = tokens[i + j];
-          batch.pos[j] = i + j;
-          batch.n_seq_id[j] = 1;
-          batch.seq_id[j][0] = 1;
-          batch.logits[j] = 1;
+          _batch.token[j] = tokens[i + j];
+          _batch.pos[j] = i + j;
+          _batch.n_seq_id[j] = 1;
+          _batch.seq_id[j][0] = 1;
+          _batch.logits[j] = 1;
         }
 
-        final status = llama_decode(pointer, batch);
+        final status = llama_decode(pointer, _batch);
         if (status != 0) {
           throw Exception('llama_decode failed with $status');
         }
-        logits.add(llama_get_logits(pointer), batch.n_tokens);
-        yield IngestProgressEvent(
+        logits.add(llama_get_logits(pointer), _batch.n_tokens);
+        yield IngestProgressEvent._(
           i - initialLength + j,
           finalLength,
           batchSize,
@@ -249,7 +400,7 @@ final class Context with Disposable {
         }
       }
 
-      if (needsIngesting) {
+      if (_needsIngesting) {
         throw StateError('must call ingest before generate');
       }
 
@@ -258,7 +409,7 @@ final class Context with Disposable {
       //
 
       while (logits.length < contextSize) {
-        candidates.load(logits.last);
+        _candidates._load(logits.last);
 
         // Apply each sampler in turn. If we receive a token back, it should
         // be the last sampler. If there are samplers remaining and we already
@@ -284,7 +435,7 @@ final class Context with Disposable {
           }
         }
 
-        tok ??= const DefaultLastSampler().sample(this);
+        tok ??= const _DefaultLastSampler().sample(this);
 
         // // ignore: inference_failure_on_instance_creation
         // await Future.delayed(Duration.zero);
@@ -300,20 +451,20 @@ final class Context with Disposable {
         // Decode next token
         //
 
-        batch.n_tokens = 1;
+        _batch.n_tokens = 1;
 
-        batch.token[0] = tok.id;
-        batch.pos[0] = logits.length;
-        batch.n_seq_id[0] = 1;
-        batch.seq_id[0][0] = 1;
-        batch.logits[0] = 1;
+        _batch.token[0] = tok.id;
+        _batch.pos[0] = logits.length;
+        _batch.n_seq_id[0] = 1;
+        _batch.seq_id[0][0] = 1;
+        _batch.logits[0] = 1;
 
-        final status = llama_decode(pointer, batch);
+        final status = llama_decode(pointer, _batch);
         if (status != 0) {
           throw Exception('llama_decode failed with $status');
         }
 
-        logits.add(llama_get_logits(pointer), batch.n_tokens);
+        logits.add(llama_get_logits(pointer), _batch.n_tokens);
       }
     } finally {
       for (final s in samplers) {
@@ -355,7 +506,7 @@ final class Token {
   }
 
   @override
-  bool operator ==(Object? other) =>
+  bool operator ==(Object other) =>
       other is Token && other.id == id && other.rawText == rawText;
   @override
   int get hashCode => id.hashCode + rawText.hashCode;

@@ -1,38 +1,50 @@
-import 'dart:ffi';
-import 'dart:math';
+part of 'llamacpp.dart';
 
-import 'package:ffi/ffi.dart';
-
-import 'package:ensemble_llamacpp/src/libllama.dart';
-import 'package:ensemble_llamacpp/src/llamacpp.dart';
-
+/// Samplers implement different ways to alter potential [Candidates], such as
+/// [Temperature], [TopK], and [MinP].
 abstract interface class Sampler {
-  /// Apply this sampler to [ctx] and optionally return a [Token].
-  /// Returning a token prevents any further [Sampler] from being called.
+  /// Apply this sampler to [ctx] and optionally end sampling by returning a
+  /// token. If a token is returned, no further samplers will be called.
   Token? sample(Context ctx);
 }
 
+/// Implementers of this interface require native memory allocated using e.g.
+/// [malloc] or [calloc].
+///
+/// With regards to samplers, a [Sampler] that implements NativeMemoryUser will
+/// be allocated at the beginning of [Context.generate] and will be freed after
+/// generation is stopped.
 abstract interface class NativeMemoryUser {
+  /// Allocate native memory.
   void alloc();
+
+  /// Free native memory.
   void free();
 }
 
-final class DefaultLastSampler implements Sampler {
-  const DefaultLastSampler();
+final class _DefaultLastSampler implements Sampler {
+  const _DefaultLastSampler();
   @override
   Token? sample(Context ctx) {
-    final tokId = llama_sample_token(ctx.pointer, ctx.candidates.pointer);
+    final tokId = llama_sample_token(ctx.pointer, ctx._candidates.pointer);
     return Token.fromId(ctx.model.pointer, tokId);
   }
 }
 
-/// Implements temperature based sampling.
+/// A temperature sampler.
 ///
-/// Typically, this sampler should be called last.
+/// Typical values for temperature are 0.0 (greedy sampling) or around 0.70.
+///
+/// * [temp] must be positive.
+/// * `temp == 0.0` creates a greedy sampler, which samples and returns the most
+/// likely next token.
+/// * `temp > 0.0` does not end sampling, but instead alters the [Candidates] to
+/// make tokens with lower probability more likely.
 final class Temperature implements Sampler {
+  /// The temperature of the model.
   final double temp;
-  bool get greedy => temp == 0.0;
-  // TODO(crasm): change to temp >= Float32.minValue * 10 or something
+
+  /// Defines a temperature sampler.
   const Temperature(this.temp) : assert(temp >= 0.0);
 
   @override
@@ -40,11 +52,11 @@ final class Temperature implements Sampler {
     if (temp == 0.0) {
       final tokId = llama_sample_token_greedy(
         ctx.pointer,
-        ctx.candidates.pointer,
+        ctx._candidates.pointer,
       );
       return Token.fromId(ctx.model.pointer, tokId);
     } else {
-      llama_sample_temp(ctx.pointer, ctx.candidates.pointer, temp);
+      llama_sample_temp(ctx.pointer, ctx._candidates.pointer, temp);
       return null;
     }
   }
@@ -53,20 +65,26 @@ final class Temperature implements Sampler {
   String toString() => 'Temperature{$temp}';
 }
 
+/// A top-k sampler.
 final class TopK implements Sampler {
+  /// The top *k* most likely tokens to keep in [Candidates].
   final int topK;
-  final int keepProbs;
-  const TopK(this.topK, {this.keepProbs = 1})
+
+  /// The minimum number of candidates to retain.
+  final int minKeep;
+
+  /// Defines a top-k sampler.
+  const TopK(this.topK, {this.minKeep = 1})
       : assert(topK >= 0),
-        assert(keepProbs > 0);
+        assert(minKeep > 0);
 
   @override
   Token? sample(Context ctx) {
     llama_sample_top_k(
       ctx.pointer,
-      ctx.candidates.pointer,
+      ctx._candidates.pointer,
       topK == 0 ? llama_n_vocab(ctx.model.pointer) : topK,
-      keepProbs,
+      minKeep,
     );
     return null;
   }
@@ -77,14 +95,14 @@ final class TopK implements Sampler {
 
 final class TopP implements Sampler {
   final double topP;
-  final int keepProbs;
-  const TopP(this.topP, {this.keepProbs = 1})
+  final int minKeep;
+  const TopP(this.topP, {this.minKeep = 1})
       : assert(topP >= 0.0 && topP <= 1.0),
-        assert(keepProbs > 0);
+        assert(minKeep > 0);
 
   @override
   Token? sample(Context ctx) {
-    llama_sample_top_p(ctx.pointer, ctx.candidates.pointer, topP, keepProbs);
+    llama_sample_top_p(ctx.pointer, ctx._candidates.pointer, topP, minKeep);
     return null;
   }
 
@@ -98,14 +116,14 @@ final class TopP implements Sampler {
 /// other samplers.
 final class MinP implements Sampler {
   final double minP;
-  final int keepProbs;
-  const MinP(this.minP, {this.keepProbs = 1})
+  final int minKeep;
+  const MinP(this.minP, {this.minKeep = 1})
       : assert(minP >= 0.0 && minP <= 1.0),
-        assert(keepProbs > 0);
+        assert(minKeep > 0);
 
   @override
   Token? sample(Context ctx) {
-    llama_sample_min_p(ctx.pointer, ctx.candidates.pointer, minP, keepProbs);
+    llama_sample_min_p(ctx.pointer, ctx._candidates.pointer, minP, minKeep);
     return null;
   }
 
@@ -115,14 +133,14 @@ final class MinP implements Sampler {
 
 final class TailFree implements Sampler {
   final double z;
-  final int keepProbs;
-  const TailFree(this.z, {this.keepProbs = 1})
+  final int minKeep;
+  const TailFree(this.z, {this.minKeep = 1})
       : assert(z >= 0.0 && z <= 1.0),
-        assert(keepProbs > 0);
+        assert(minKeep > 0);
 
   @override
   Token? sample(Context ctx) {
-    llama_sample_tail_free(ctx.pointer, ctx.candidates.pointer, z, keepProbs);
+    llama_sample_tail_free(ctx.pointer, ctx._candidates.pointer, z, minKeep);
     return null;
   }
 
@@ -132,14 +150,14 @@ final class TailFree implements Sampler {
 
 final class LocallyTypical implements Sampler {
   final double p;
-  final int keepProbs;
-  const LocallyTypical(this.p, {this.keepProbs = 1})
+  final int minKeep;
+  const LocallyTypical(this.p, {this.minKeep = 1})
       : assert(p >= 0.0 && p <= 1.0),
-        assert(keepProbs > 0);
+        assert(minKeep > 0);
 
   @override
   Token? sample(Context ctx) {
-    llama_sample_typical(ctx.pointer, ctx.candidates.pointer, p, keepProbs);
+    llama_sample_typical(ctx.pointer, ctx._candidates.pointer, p, minKeep);
     return null;
   }
 
@@ -169,10 +187,11 @@ final class RepetitionPenalty implements Sampler {
   @override
   Token? sample(Context ctx) {
     final toks = ctx.tokens;
-    final cands = ctx.candidates;
+    final cands = ctx._candidates;
 
+    // TODO(crasm): fix RepetitionPenalty newline ignore to work for arbitrary sampler order
     final nlId = llama_token_nl(ctx.model.pointer);
-    final nlBackupLogit = cands[nlId];
+    final nlData = cands[nlId];
 
     var lastN = this.lastN;
     if (lastN == -1) {
@@ -185,7 +204,7 @@ final class RepetitionPenalty implements Sampler {
       ctx.params.n_ctx,
     ]);
 
-    final tokenPointer = toks.buf.elementAt(toks.capacity - lastN);
+    final tokenPointer = toks._buf.elementAt(toks.capacity - lastN);
 
     llama_sample_repetition_penalties(
       ctx.pointer,
@@ -202,7 +221,8 @@ final class RepetitionPenalty implements Sampler {
       // the candidates to be sorted (and therefore newline logit not at index
       // nlId).
       assert(!cands.pointer.ref.sorted);
-      cands[nlId] = nlBackupLogit;
+      assert(nlData.id == nlId);
+      cands[nlId] = nlData;
     }
     return null;
   }
@@ -255,7 +275,7 @@ final class MirostatV1 extends Mirostat {
   Token? sample(Context ctx) {
     const m = 100;
     final tokId = llama_sample_token_mirostat(
-        ctx.pointer, ctx.candidates.pointer, tau, eta, m, _mu);
+        ctx.pointer, ctx._candidates.pointer, tau, eta, m, _mu);
     return Token.fromId(ctx.model.pointer, tokId);
   }
 }
@@ -265,7 +285,7 @@ final class MirostatV2 extends Mirostat {
   @override
   Token? sample(Context ctx) {
     final tokId = llama_sample_token_mirostat_v2(
-        ctx.pointer, ctx.candidates.pointer, tau, eta, _mu);
+        ctx.pointer, ctx._candidates.pointer, tau, eta, _mu);
     return Token.fromId(ctx.model.pointer, tokId);
   }
 }

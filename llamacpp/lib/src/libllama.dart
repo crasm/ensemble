@@ -76,8 +76,16 @@ external ffi.Pointer<llama_model> llama_get_model(
   ffi.Pointer<llama_context> ctx,
 );
 
-@ffi.Native<ffi.Int Function(ffi.Pointer<llama_context>)>(symbol: 'llama_n_ctx')
+/// TODO: become more consistent with returned int types across the API
+@ffi.Native<ffi.Uint32 Function(ffi.Pointer<llama_context>)>(
+    symbol: 'llama_n_ctx')
 external int llama_n_ctx(
+  ffi.Pointer<llama_context> ctx,
+);
+
+@ffi.Native<ffi.Uint32 Function(ffi.Pointer<llama_context>)>(
+    symbol: 'llama_n_batch')
+external int llama_n_batch(
   ffi.Pointer<llama_context> ctx,
 );
 
@@ -1273,9 +1281,6 @@ final class ggml_tensor extends ffi.Struct {
 
   external ffi.Pointer<ggml_backend_buffer> buffer;
 
-  @ffi.Int()
-  external int n_dims;
-
   /// number of elements
   @ffi.Array.multi([4])
   external ffi.Array<ffi.Int64> ne;
@@ -1326,7 +1331,7 @@ final class ggml_tensor extends ffi.Struct {
   /// extra things e.g. for ggml-cuda.cu
   external ffi.Pointer<ffi.Void> extra;
 
-  @ffi.Array.multi([12])
+  @ffi.Array.multi([8])
   external ffi.Array<ffi.Char> padding;
 }
 
@@ -1609,6 +1614,7 @@ abstract class ggml_log_level {
   static const int GGML_LOG_LEVEL_ERROR = 2;
   static const int GGML_LOG_LEVEL_WARN = 3;
   static const int GGML_LOG_LEVEL_INFO = 4;
+  static const int GGML_LOG_LEVEL_DEBUG = 5;
 }
 
 /// stdio state variables.
