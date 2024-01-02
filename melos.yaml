@@ -1,7 +1,7 @@
 name: ensemble
 packages:
   - app
-  - common
+  - protos
   - llamacpp
   - llamacpp_server
   # - app_desktop

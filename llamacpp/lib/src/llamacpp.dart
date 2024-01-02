@@ -3,13 +3,13 @@ import 'dart:ffi';
 import 'dart:math';
 
 import 'package:ffi/ffi.dart';
-import 'package:ensemble_llamacpp/src/range.dart';
 import 'package:meta/meta.dart';
 import 'package:logging/logging.dart';
 
 import 'package:ensemble_llamacpp/src/libllama.dart';
 import 'package:ensemble_llamacpp/src/disposable.dart';
 
+part 'range.dart';
 part 'samplers.dart';
 part 'sampling.dart';
 
@@ -523,6 +523,10 @@ final class Token {
     return Token._(id, text, rawText);
   }
 
+  /// Construct a string representation of this token.
+  ///
+  /// Parameter [i] is an optional token index that will be placed at the
+  /// beginning of the string.
   @override
   String toString([int? i]) {
     final buf = StringBuffer();

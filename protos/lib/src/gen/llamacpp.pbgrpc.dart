@@ -1,6 +1,6 @@
 //
 //  Generated code. Do not modify.
-//  source: llm.proto
+//  source: llamacpp.proto
 //
 // @dart = 2.12
 
@@ -15,18 +15,18 @@ import 'dart:core' as $core;
 import 'package:grpc/service_api.dart' as $grpc;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import 'llm.pb.dart' as $0;
+import 'llamacpp.pb.dart' as $0;
 
-export 'llm.pb.dart';
+export 'llamacpp.pb.dart';
 
-@$pb.GrpcServiceName('llm.Llm')
-class LlmClient extends $grpc.Client {
+@$pb.GrpcServiceName('LlamaCpp.LlamaCpp')
+class LlamaCppClient extends $grpc.Client {
   static final _$generate = $grpc.ClientMethod<$0.Prompt, $0.Token>(
-      '/llm.Llm/Generate',
+      '/LlamaCpp.LlamaCpp/Generate',
       ($0.Prompt value) => value.writeToBuffer(),
       ($core.List<$core.int> value) => $0.Token.fromBuffer(value));
 
-  LlmClient($grpc.ClientChannel channel,
+  LlamaCppClient($grpc.ClientChannel channel,
       {$grpc.CallOptions? options,
       $core.Iterable<$grpc.ClientInterceptor>? interceptors})
       : super(channel, options: options,
@@ -37,11 +37,11 @@ class LlmClient extends $grpc.Client {
   }
 }
 
-@$pb.GrpcServiceName('llm.Llm')
-abstract class LlmServiceBase extends $grpc.Service {
-  $core.String get $name => 'llm.Llm';
+@$pb.GrpcServiceName('LlamaCpp.LlamaCpp')
+abstract class LlamaCppServiceBase extends $grpc.Service {
+  $core.String get $name => 'LlamaCpp.LlamaCpp';
 
-  LlmServiceBase() {
+  LlamaCppServiceBase() {
     $addMethod($grpc.ServiceMethod<$0.Prompt, $0.Token>(
         'Generate',
         generate_Pre,

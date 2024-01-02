@@ -1,4 +1,4 @@
-# melos_managed_dependency_overrides: ensemble_common
+# melos_managed_dependency_overrides: ensemble_protos
 dependency_overrides:
-  ensemble_common:
-    path: ../common
+  ensemble_protos:
+    path: ../protos

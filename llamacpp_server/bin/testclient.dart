@@ -1,16 +1,18 @@
 import 'dart:io';
-import 'package:ensemble_common/common.dart' as c;
+import 'package:ensemble_protos/llamacpp.dart' as protos;
 import 'package:grpc/grpc.dart' as grpc;
 
 void main(List<String> arguments) async {
-  final channel = grpc.ClientChannel('127.0.0.1',
-      port: 9090,
-      options: const grpc.ChannelOptions(credentials: grpc.ChannelCredentials.insecure()));
+  final channel = grpc.ClientChannel('brick',
+      port: 8888,
+      options: const grpc.ChannelOptions(
+          credentials: grpc.ChannelCredentials.insecure()));
 
-  final stub = c.LlmClient(channel, options: grpc.CallOptions(timeout: Duration(seconds: 30)));
+  final stub = protos.LlamaCppClient(channel,
+      options: grpc.CallOptions(timeout: Duration(seconds: 30)));
 
   try {
-    await for (final tok in stub.generate(c.Prompt(text: arguments[0]))) {
+    await for (final tok in stub.generate(protos.Prompt(text: arguments[0]))) {
       stdout.write(tok.text);
     }
   } catch (e) {

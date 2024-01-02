@@ -1,6 +1,6 @@
 //
 //  Generated code. Do not modify.
-//  source: llm.proto
+//  source: llamacpp.proto
 //
 // @dart = 2.12
 

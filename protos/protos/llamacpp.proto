@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package llm;
+package LlamaCpp;
 
-service Llm {
+service LlamaCpp {
   // TODO(crasm): if we tokenize as the prompt is written, we send a stream
   // Token? instead of string
   rpc Generate(Prompt) returns (stream Token) {}

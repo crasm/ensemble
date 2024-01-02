@@ -1,54 +1,59 @@
 import 'dart:io';
 
-import 'package:ensemble_common/common.dart' as c;
-import 'package:ensemble_llama/llama.dart';
+import 'package:ensemble_protos/llamacpp.dart' as proto;
+import 'package:ensemble_llamacpp/ensemble_llamacpp.dart';
 import 'package:grpc/grpc.dart' as grpc;
 import 'package:logging/logging.dart';
 
-class LlmService extends c.LlmServiceBase with Disposable {
-  final _log = Logger('LlmService');
+class LlmService extends proto.LlamaCppServiceBase with Disposable {
+  // final _log = Logger('LlmService');
 
-  final Llama _llama;
   final Model _model;
   final Context _ctx;
-  LlmService._(this._llama, this._model, this._ctx);
+  LlmService._(this._model, this._ctx);
 
   static Future<LlmService> create() async {
-    final llama = Llama();
-    final model = await llama.initModel(
-      '/Users/vczf/llm/models/airoboros-l2-13b-gpt4-1.4.1.Q4_K_M.gguf',
-      params: ModelParams(gpuLayers: 1),
+    final model = LlamaCpp.loadModel(
+      '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
+      params: Model.defaultParams..n_gpu_layers = 1,
+      progressCallback: (p) {
+        if (p == 1.0) {
+          stderr.writeln('Done!');
+        } else {
+          stderr.writeAll([(100 * p).truncate(), '\r']);
+        }
+        return true;
+      },
     );
-    final ctx = await llama.initContext(model, params: ContextParams(contextSizeTokens: 4096));
 
-    return LlmService._(llama, model, ctx);
+    final ctx = model.newContext(Context.defaultParams..n_ctx = 2048);
+
+    return LlmService._(model, ctx);
   }
 
   @override
-  Future<void> dispose() async {
+  void dispose() async {
     super.dispose();
-    await _ctx.dispose();
-    await _model.dispose();
-    await _llama.dispose();
+    _ctx.dispose();
+    _model.dispose();
   }
 
   @override
-  Stream<c.Token> generate(grpc.ServiceCall call, c.Prompt prompt) async* {
+  Stream<proto.Token> generate(
+      grpc.ServiceCall call, proto.Prompt prompt) async* {
     checkDisposed();
     try {
-      await _ctx.add(prompt.text);
+      _ctx.add(prompt.text);
       await _ctx.ingest();
       await for (final tok in _ctx.generate(samplers: [
-        RepetitionPenalty(),
+        // RepetitionPenalty(),
         MinP(0.18),
         Temperature(1.0),
       ])) {
-        final ct = c.Token(id: tok.id, text: tok.text);
-        _log.fine('received ${tok.toStringForLogging().trimRight()}');
-        yield ct;
+        yield proto.Token(id: tok.id, text: tok.text);
       }
     } finally {
-      await _ctx.clear();
+      _ctx.clear();
     }
   }
 }

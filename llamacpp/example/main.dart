@@ -38,10 +38,13 @@ void main(List<String> args) async {
     }
 
     stdout.write(prompt);
-    await for (final tok in ctx.generate(samplers: const [
+    await for (final tok in ctx.generate(samplers: [
       RepetitionPenalty(),
-      MinP(0.08),
-      Temperature(0.65),
+      // TopP(0.95),
+      // MinP(0.1),
+      // Temperature(0.65),
+      Temperature(1.0),
+      MirostatV2(),
     ])) {
       stdout.write(tok.text);
     }

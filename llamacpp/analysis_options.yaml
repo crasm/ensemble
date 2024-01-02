@@ -3,8 +3,9 @@
 
 linter:
   rules:
+
     # Keep these sorted
-    public_member_api_docs: true
+    # public_member_api_docs: true
 
 analyzer:
   exclude:
