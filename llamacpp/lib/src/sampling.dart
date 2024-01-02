@@ -186,19 +186,24 @@ final class Candidates with Disposable {
   /// candidates to the sampling methods in llama.cpp.
   late final Pointer<llama_token_data_array> pointer;
 
-  /// Create and allocate a [Candidates] of size [vocabSize].
-  Candidates(int vocabSize) {
-    candidates = calloc.allocate(vocabSize * sizeOf<llama_token_data>());
-    pointer = calloc.allocate(sizeOf<llama_token_data_array>());
+  final int _vocabSize;
 
+  void _reset() {
     pointer.ref.data = candidates;
-    pointer.ref.size = vocabSize;
+    pointer.ref.size = _vocabSize;
     pointer.ref.sorted = false;
+  }
+
+  /// Create and allocate a [Candidates] of size [vocabSize].
+  Candidates(this._vocabSize) {
+    candidates = calloc.allocate(_vocabSize * sizeOf<llama_token_data>());
+    pointer = calloc.allocate(sizeOf<llama_token_data_array>());
+    _reset();
   }
 
   void _load(Pointer<Float> logits) {
     checkDisposed();
-    pointer.ref.sorted = false;
+    _reset();
 
     for (var i = 0; i < size; i++) {
       candidates[i].id = i;
