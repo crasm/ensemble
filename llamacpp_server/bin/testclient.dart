@@ -11,8 +11,12 @@ void main(List<String> arguments) async {
   final stub = protos.LlamaCppClient(channel,
       options: grpc.CallOptions(timeout: Duration(seconds: 30)));
 
+  final ctx = await stub.newContext(protos.NewContextRequest());
+  await stub.addText(protos.AddTextRequest(
+      context: ctx, text: protos.Text(text: arguments[0])));
+  await stub.ingest(ctx);
   try {
-    await for (final tok in stub.generate(protos.Prompt(text: arguments[0]))) {
+    await for (final tok in stub.generate(ctx)) {
       stdout.write(tok.text);
     }
   } catch (e) {

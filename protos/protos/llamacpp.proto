@@ -2,17 +2,38 @@ syntax = "proto3";
 
 package LlamaCpp;
 
-service LlamaCpp {
-  // TODO(crasm): if we tokenize as the prompt is written, we send a stream
-  // Token? instead of string
-  rpc Generate(Prompt) returns (stream Token) {}
+message Void {}
+
+message NewContextRequest {
+  // TODO(crasm): model ref and context params
 }
 
-message Prompt {
+message AddTextRequest {
+  Context context = 1;
+  Text    text    = 2;
+}
+
+service LlamaCpp {
+  rpc NewContext(NewContextRequest) returns (Context) {};
+  rpc FreeContext(Context) returns (Void);
+  rpc AddText(AddTextRequest) returns (TokenList);
+  rpc Ingest(Context) returns (Void); // TODO(crasm): return IngestProgressEvent stream
+  rpc Generate(Context) returns (stream Token); // TODO(crasm): samplers
+}
+
+message Context {
+  int32 id = 1;
+}
+
+message Text {
   string text = 1;
 }
 
 message Token {
   int32 id = 1;
   optional string text = 2;
+}
+
+message TokenList {
+  repeated Token toks = 1;
 }

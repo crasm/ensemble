@@ -13,17 +13,61 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
-@$core.Deprecated('Use promptDescriptor instead')
-const Prompt$json = {
-  '1': 'Prompt',
+@$core.Deprecated('Use voidDescriptor instead')
+const Void$json = {
+  '1': 'Void',
+};
+
+/// Descriptor for `Void`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List voidDescriptor = $convert.base64Decode(
+    'CgRWb2lk');
+
+@$core.Deprecated('Use newContextRequestDescriptor instead')
+const NewContextRequest$json = {
+  '1': 'NewContextRequest',
+};
+
+/// Descriptor for `NewContextRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List newContextRequestDescriptor = $convert.base64Decode(
+    'ChFOZXdDb250ZXh0UmVxdWVzdA==');
+
+@$core.Deprecated('Use addTextRequestDescriptor instead')
+const AddTextRequest$json = {
+  '1': 'AddTextRequest',
+  '2': [
+    {'1': 'context', '3': 1, '4': 1, '5': 11, '6': '.LlamaCpp.Context', '10': 'context'},
+    {'1': 'text', '3': 2, '4': 1, '5': 11, '6': '.LlamaCpp.Text', '10': 'text'},
+  ],
+};
+
+/// Descriptor for `AddTextRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List addTextRequestDescriptor = $convert.base64Decode(
+    'Cg5BZGRUZXh0UmVxdWVzdBIrCgdjb250ZXh0GAEgASgLMhEuTGxhbWFDcHAuQ29udGV4dFIHY2'
+    '9udGV4dBIiCgR0ZXh0GAIgASgLMg4uTGxhbWFDcHAuVGV4dFIEdGV4dA==');
+
+@$core.Deprecated('Use contextDescriptor instead')
+const Context$json = {
+  '1': 'Context',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `Context`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List contextDescriptor = $convert.base64Decode(
+    'CgdDb250ZXh0Eg4KAmlkGAEgASgFUgJpZA==');
+
+@$core.Deprecated('Use textDescriptor instead')
+const Text$json = {
+  '1': 'Text',
   '2': [
     {'1': 'text', '3': 1, '4': 1, '5': 9, '10': 'text'},
   ],
 };
 
-/// Descriptor for `Prompt`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List promptDescriptor = $convert.base64Decode(
-    'CgZQcm9tcHQSEgoEdGV4dBgBIAEoCVIEdGV4dA==');
+/// Descriptor for `Text`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List textDescriptor = $convert.base64Decode(
+    'CgRUZXh0EhIKBHRleHQYASABKAlSBHRleHQ=');
 
 @$core.Deprecated('Use tokenDescriptor instead')
 const Token$json = {
@@ -41,4 +85,16 @@ const Token$json = {
 final $typed_data.Uint8List tokenDescriptor = $convert.base64Decode(
     'CgVUb2tlbhIOCgJpZBgBIAEoBVICaWQSFwoEdGV4dBgCIAEoCUgAUgR0ZXh0iAEBQgcKBV90ZX'
     'h0');
+
+@$core.Deprecated('Use tokenListDescriptor instead')
+const TokenList$json = {
+  '1': 'TokenList',
+  '2': [
+    {'1': 'toks', '3': 1, '4': 3, '5': 11, '6': '.LlamaCpp.Token', '10': 'toks'},
+  ],
+};
+
+/// Descriptor for `TokenList`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List tokenListDescriptor = $convert.base64Decode(
+    'CglUb2tlbkxpc3QSIwoEdG9rcxgBIAMoCzIPLkxsYW1hQ3BwLlRva2VuUgR0b2tz');
 

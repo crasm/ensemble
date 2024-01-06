@@ -29,9 +29,12 @@ void main(List<String> args) async {
       },
     );
 
-    const prompt =
-        'A chat.\nUser: How can I make my own peanut butter?\nAssistant:';
-    ctx = model.newContext(Context.defaultParams..n_ctx = 256);
+    const prompt = 'Four score';
+    ctx = model.newContext(
+      Context.defaultParams
+        ..n_ctx = 256
+        ..n_batch = 64,
+    );
     ctx.add(prompt);
     await for (final progress in ctx.ingestWithProgress()) {
       _log.fine(progress);
@@ -40,11 +43,8 @@ void main(List<String> args) async {
     stdout.write(prompt);
     await for (final tok in ctx.generate(samplers: [
       RepetitionPenalty(),
-      // TopP(0.95),
-      // MinP(0.1),
-      // Temperature(0.65),
-      Temperature(1.0),
-      MirostatV2(),
+      MinP(0.2),
+      Temperature(1.00),
     ])) {
       stdout.write(tok.text);
     }

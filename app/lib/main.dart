@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:ensemble_common/common.dart';
+import 'package:ensemble_protos/llamacpp.dart' as pb;
 import 'package:grpc/grpc.dart';
 import 'package:logging/logging.dart';
 
@@ -28,8 +28,10 @@ class EnsembleApp extends StatelessWidget {
       title: 'Ensemble',
       theme: ThemeData(
           useMaterial3: true,
-          colorScheme:
-              ColorScheme.fromSeed(seedColor: Colors.lightBlue, brightness: Brightness.light)),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: Colors.lightBlue,
+            brightness: Brightness.light,
+          )),
       home: Home(),
     );
   }
@@ -72,14 +74,19 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
-  final TextEditingController _textCtl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
 
   late final ClientChannel _channel;
-  late final LlmClient _stub;
-  ResponseStream<Token>? _resp;
-  final StringBuffer _gen = StringBuffer();
+  late final pb.LlamaCppClient _stub;
+
+  late final Future<pb.Context> _ctx;
+
   bool _isGenerating = false;
+
+  ResponseStream<pb.Token>? _resp;
+
+  final TextEditingController _textCtl = TextEditingController();
+  List<pb.Token> _decodedTokens = [];
 
   @override
   void initState() {
@@ -89,12 +96,14 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       port: 8888,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
-    _stub = LlmClient(
+    _stub = pb.LlamaCppClient(
       _channel,
       options: CallOptions(timeout: const Duration(seconds: 30)),
     );
 
     _textCtl.text = 'A chat.\nUSER: ';
+
+    _ctx = _stub.newContext(pb.NewContextRequest());
   }
 
   @override
@@ -105,17 +114,33 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     _channel.shutdown();
   }
 
-  void _startGenerating() {
-    _gen.clear();
-    _gen.write(_textCtl.text);
-    _resp = _stub.generate(Prompt(text: _gen.toString()))
+  String _contextString() {
+    StringBuffer buf = StringBuffer();
+    for (final tok in _decodedTokens) {
+      buf.write(tok.text);
+    }
+    return buf.toString();
+  }
+
+  Future<void> _startGenerating() async {
+    final newText = _textCtl.text;
+    final ctx = await _ctx;
+
+    final addedTokens = await _stub.addText(pb.AddTextRequest(
+      context: ctx,
+      text: pb.Text(text: newText),
+    ));
+
+    _decodedTokens.addAll(addedTokens.toks);
+    _stub.ingest(ctx);
+
+    _resp = _stub.generate(ctx)
       ..listen(
         (tok) {
           if (tok.hasText()) {
-            setState(() {
-              _gen.write(tok.text);
-              _textCtl.text = _gen.toString();
-            });
+            _decodedTokens.add(tok);
+            _textCtl.text = _contextString();
+            setState(() {/* Added a generated token */});
           }
         },
         onDone: () => setState(() => _isGenerating = false),
@@ -152,7 +177,12 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
         return Stack(
           children: [
-            Positioned(top: 0, height: _divTop, left: 0, right: 0, child: _genArea(context)),
+            Positioned(
+                top: 0,
+                height: _divTop,
+                left: 0,
+                right: 0,
+                child: _genArea(context)),
             Positioned(
                 top: _divTop + _divThickness,
                 bottom: 0,
@@ -160,7 +190,11 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
                 right: 0,
                 child: _params(context)),
             Positioned(
-                top: _divTop, left: 0, right: 0, height: _divThickness, child: _divBar(context)),
+                top: _divTop,
+                left: 0,
+                right: 0,
+                height: _divThickness,
+                child: _divBar(context)),
           ],
         );
       }),
@@ -188,7 +222,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       const horizontalPadding = 12.0;
 
       final genText = TextSpan(text: _textCtl.text, style: style);
-      final painter = TextPainter(text: genText, textDirection: TextDirection.ltr);
+      final painter =
+          TextPainter(text: genText, textDirection: TextDirection.ltr);
 
       painter.layout(maxWidth: box.maxWidth - 2 * horizontalPadding);
       final textHeightPadded = painter.height + topPadding;
@@ -205,7 +240,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             GestureDetector(
               onTap: _stopGenerating,
               child: _isGenerating
-                  ? Text(_gen.toString(), style: style)
+                  ? Text(_contextString(), style: style)
                   : TextField(
                       focusNode: _genFocusNode,
                       controller: _textCtl,
@@ -216,7 +251,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             ),
             SizedBox(
                 height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
-                child: GestureDetector(onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
+                child: GestureDetector(
+                    onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
           ],
         ),
       );
@@ -230,7 +266,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   void _focusGenTail() {
     if (!_genFocusNode.hasPrimaryFocus) {
       _genFocusNode.requestFocus();
-      _textCtl.selection = TextSelection.fromPosition(TextPosition(offset: _textCtl.text.length));
+      _textCtl.selection = TextSelection.fromPosition(
+          TextPosition(offset: _textCtl.text.length));
     } else {
       _genFocusNode.unfocus();
     }
@@ -253,7 +290,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           ),
           Column(children: [
             IconButton.filled(
-              onPressed: () => _isGenerating ? _stopGenerating() : _startGenerating(),
+              onPressed: () =>
+                  _isGenerating ? _stopGenerating() : _startGenerating(),
               iconSize: 48,
               icon: Icon(_isGenerating ? Icons.pause : Icons.play_arrow),
             ),
@@ -268,7 +306,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     return GestureDetector(
       onVerticalDragUpdate: (details) {
         setState(() {
-          _divTop = (_divTop + details.delta.dy).clamp(0.0, _maxHeight - _divThickness);
+          _divTop = (_divTop + details.delta.dy)
+              .clamp(0.0, _maxHeight - _divThickness);
         });
       },
       child: Container(

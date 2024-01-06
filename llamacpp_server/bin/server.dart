@@ -5,14 +5,14 @@ import 'package:ensemble_llamacpp/ensemble_llamacpp.dart';
 import 'package:grpc/grpc.dart' as grpc;
 import 'package:logging/logging.dart';
 
-class LlmService extends proto.LlamaCppServiceBase with Disposable {
-  // final _log = Logger('LlmService');
+class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
+  final _log = Logger('LlmService');
 
   final Model _model;
-  final Context _ctx;
-  LlmService._(this._model, this._ctx);
+  final Context _ctx; // TODO(crasm): support multiple contexts
+  LlamaCppService._(this._model, this._ctx);
 
-  static Future<LlmService> create() async {
+  static Future<LlamaCppService> create() async {
     final model = LlamaCpp.loadModel(
       '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
       params: Model.defaultParams..n_gpu_layers = 1,
@@ -28,7 +28,7 @@ class LlmService extends proto.LlamaCppServiceBase with Disposable {
 
     final ctx = model.newContext(Context.defaultParams..n_ctx = 2048);
 
-    return LlmService._(model, ctx);
+    return LlamaCppService._(model, ctx);
   }
 
   @override
@@ -39,19 +39,54 @@ class LlmService extends proto.LlamaCppServiceBase with Disposable {
   }
 
   @override
+  Future<proto.Context> newContext(
+      grpc.ServiceCall call, proto.NewContextRequest args) async {
+    checkDisposed();
+    return proto.Context(
+        id: _ctx.hashCode); // TODO(crasm): actually create context
+  }
+
+  @override
+  Future<proto.Void> freeContext(
+      grpc.ServiceCall call, proto.Context ctx) async {
+    checkDisposed();
+    return proto.Void(); // TODO(crasm): actually free context
+  }
+
+  @override
+  Future<proto.TokenList> addText(
+      grpc.ServiceCall call, proto.AddTextRequest args) async {
+    checkDisposed();
+    assert(args.context.id == _ctx.hashCode);
+    final toks = _ctx
+        .add(args.text.text)
+        .map((e) => proto.Token(id: e.id, text: e.text));
+    return proto.TokenList(toks: toks);
+  }
+
+  @override
+  Future<proto.Void> ingest(grpc.ServiceCall call, proto.Context ctx) async {
+    assert(ctx.id == _ctx.hashCode); // TODO(crasm): get real context
+    await _ctx.ingest();
+    return proto.Void();
+  }
+
+  @override
   Stream<proto.Token> generate(
-      grpc.ServiceCall call, proto.Prompt prompt) async* {
+      grpc.ServiceCall call, proto.Context context) async* {
     checkDisposed();
     try {
-      _ctx.add(prompt.text);
-      await _ctx.ingest();
-      await for (final tok in _ctx.generate(samplers: [
-        // RepetitionPenalty(),
+      final tokStream = _ctx.generate(samplers: [
+        RepetitionPenalty(),
         MinP(0.18),
         Temperature(1.0),
-      ])) {
-        yield proto.Token(id: tok.id, text: tok.text);
+      ]).map((tok) => proto.Token(id: tok.id, text: tok.text));
+
+      await for (final tok in tokStream) {
+        yield tok;
       }
+    } catch (e) {
+      _log.severe(e);
     } finally {
       _ctx.clear();
     }
@@ -70,7 +105,7 @@ void main(List<String> arguments) async {
     );
   });
 
-  final server = grpc.Server.create(services: [await LlmService.create()]);
+  final server = grpc.Server.create(services: [await LlamaCppService.create()]);
   await server.serve(
     address: 'brick',
     port: 8888,
