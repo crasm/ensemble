@@ -1,6 +1,9 @@
 // ignore_for_file: prefer_const_literals_to_create_immutables, prefer_const_constructors
 // TODO: delete ^^^
 
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:ensemble_protos/llamacpp.dart' as pb;
@@ -92,7 +95,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   void initState() {
     super.initState();
     _channel = ClientChannel(
-      'brick',
+      // 'brick',
+      '192.168.32.3',
       port: 8888,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
@@ -117,27 +121,54 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   String _contextString() {
     StringBuffer buf = StringBuffer();
     for (final tok in _decodedTokens) {
-      buf.write(tok.text);
+      buf.write(utf8.decode(tok.textUtf8));
     }
     return buf.toString();
   }
 
   Future<void> _startGenerating() async {
-    final newText = _textCtl.text;
+    final newTextUtf8 = utf8.encode(_textCtl.text);
     final ctx = await _ctx;
 
+    //
+    // Figure out if we need to trim the context, and how much text to add
+    var i = 0; // token index
+    var j = 0; // UTF-8 code point index
+    while (i < _decodedTokens.length) {
+      final tokTextUtf8 = _decodedTokens[i].textUtf8;
+
+      if (!listEquals(
+        tokTextUtf8,
+        newTextUtf8.sublist(j, j + tokTextUtf8.length),
+      )) {
+        // The text does not match the decoded token at this index.
+        break;
+      }
+
+      // The text is unchanged, so we can skip decoding this token again.
+      i++;
+      j += tokTextUtf8.length;
+    }
+
+    _log.info("Decoding from token index $i");
+    await _stub.trim(pb.TrimRequest(context: ctx, length: j));
+
+    //
+    // Add needed text, and decode
     final addedTokens = await _stub.addText(pb.AddTextRequest(
       context: ctx,
-      text: pb.Text(text: newText),
+      textUtf8: newTextUtf8.sublist(j),
     ));
 
     _decodedTokens.addAll(addedTokens.toks);
     _stub.ingest(ctx);
 
+    //
+    // Generate new tokens
     _resp = _stub.generate(ctx)
       ..listen(
         (tok) {
-          if (tok.hasText()) {
+          if (tok.hasTextUtf8()) {
             _decodedTokens.add(tok);
             _textCtl.text = _contextString();
             setState(() {/* Added a generated token */});
@@ -177,12 +208,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
         return Stack(
           children: [
-            Positioned(
-                top: 0,
-                height: _divTop,
-                left: 0,
-                right: 0,
-                child: _genArea(context)),
+            Positioned(top: 0, height: _divTop, left: 0, right: 0, child: _genArea(context)),
             Positioned(
                 top: _divTop + _divThickness,
                 bottom: 0,
@@ -190,11 +216,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
                 right: 0,
                 child: _params(context)),
             Positioned(
-                top: _divTop,
-                left: 0,
-                right: 0,
-                height: _divThickness,
-                child: _divBar(context)),
+                top: _divTop, left: 0, right: 0, height: _divThickness, child: _divBar(context)),
           ],
         );
       }),
@@ -222,8 +244,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       const horizontalPadding = 12.0;
 
       final genText = TextSpan(text: _textCtl.text, style: style);
-      final painter =
-          TextPainter(text: genText, textDirection: TextDirection.ltr);
+      final painter = TextPainter(text: genText, textDirection: TextDirection.ltr);
 
       painter.layout(maxWidth: box.maxWidth - 2 * horizontalPadding);
       final textHeightPadded = painter.height + topPadding;
@@ -251,8 +272,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             ),
             SizedBox(
                 height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
-                child: GestureDetector(
-                    onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
+                child: GestureDetector(onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
           ],
         ),
       );
@@ -266,8 +286,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   void _focusGenTail() {
     if (!_genFocusNode.hasPrimaryFocus) {
       _genFocusNode.requestFocus();
-      _textCtl.selection = TextSelection.fromPosition(
-          TextPosition(offset: _textCtl.text.length));
+      _textCtl.selection = TextSelection.fromPosition(TextPosition(offset: _textCtl.text.length));
     } else {
       _genFocusNode.unfocus();
     }
@@ -290,8 +309,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           ),
           Column(children: [
             IconButton.filled(
-              onPressed: () =>
-                  _isGenerating ? _stopGenerating() : _startGenerating(),
+              onPressed: () => _isGenerating ? _stopGenerating() : _startGenerating(),
               iconSize: 48,
               icon: Icon(_isGenerating ? Icons.pause : Icons.play_arrow),
             ),
@@ -306,8 +324,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     return GestureDetector(
       onVerticalDragUpdate: (details) {
         setState(() {
-          _divTop = (_divTop + details.delta.dy)
-              .clamp(0.0, _maxHeight - _divThickness);
+          _divTop = (_divTop + details.delta.dy).clamp(0.0, _maxHeight - _divThickness);
         });
       },
       child: Container(

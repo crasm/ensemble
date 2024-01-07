@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:ensemble_protos/llamacpp.dart' as proto;
@@ -59,9 +60,17 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
     checkDisposed();
     assert(args.context.id == _ctx.hashCode);
     final toks = _ctx
-        .add(args.text.text)
-        .map((e) => proto.Token(id: e.id, text: e.text));
+        .add(utf8.decode(args.textUtf8))
+        .map((e) => proto.Token(id: e.id, textUtf8: utf8.encode(e.text)));
     return proto.TokenList(toks: toks);
+  }
+
+  @override
+  Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimRequest args) async {
+    checkDisposed();
+    assert(args.context.id == _ctx.hashCode);
+    _ctx.trim(args.length);
+    return proto.Void();
   }
 
   @override
@@ -80,7 +89,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
         RepetitionPenalty(),
         MinP(0.18),
         Temperature(1.0),
-      ]).map((tok) => proto.Token(id: tok.id, text: tok.text));
+      ]).map((tok) => proto.Token(id: tok.id, textUtf8: utf8.encode(tok.text)));
 
       await for (final tok in tokStream) {
         yield tok;
@@ -105,9 +114,13 @@ void main(List<String> arguments) async {
     );
   });
 
-  final server = grpc.Server.create(services: [await LlamaCppService.create()]);
+  final server = grpc.Server.create(
+    services: [await LlamaCppService.create()],
+    keepAliveOptions: const grpc.ServerKeepAliveOptions(maxBadPings: 10),
+  );
   await server.serve(
-    address: 'brick',
+    // address: 'brick',
+    address: '192.168.32.3',
     port: 8888,
   );
   print('Server listening on port ${server.port}');

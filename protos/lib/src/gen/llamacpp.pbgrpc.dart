@@ -33,6 +33,10 @@ class LlamaCppClient extends $grpc.Client {
       '/LlamaCpp.LlamaCpp/AddText',
       ($0.AddTextRequest value) => value.writeToBuffer(),
       ($core.List<$core.int> value) => $0.TokenList.fromBuffer(value));
+  static final _$trim = $grpc.ClientMethod<$0.TrimRequest, $0.Void>(
+      '/LlamaCpp.LlamaCpp/Trim',
+      ($0.TrimRequest value) => value.writeToBuffer(),
+      ($core.List<$core.int> value) => $0.Void.fromBuffer(value));
   static final _$ingest = $grpc.ClientMethod<$0.Context, $0.Void>(
       '/LlamaCpp.LlamaCpp/Ingest',
       ($0.Context value) => value.writeToBuffer(),
@@ -58,6 +62,10 @@ class LlamaCppClient extends $grpc.Client {
 
   $grpc.ResponseFuture<$0.TokenList> addText($0.AddTextRequest request, {$grpc.CallOptions? options}) {
     return $createUnaryCall(_$addText, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Void> trim($0.TrimRequest request, {$grpc.CallOptions? options}) {
+    return $createUnaryCall(_$trim, request, options: options);
   }
 
   $grpc.ResponseFuture<$0.Void> ingest($0.Context request, {$grpc.CallOptions? options}) {
@@ -95,6 +103,13 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.AddTextRequest.fromBuffer(value),
         ($0.TokenList value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.TrimRequest, $0.Void>(
+        'Trim',
+        trim_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.TrimRequest.fromBuffer(value),
+        ($0.Void value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.Context, $0.Void>(
         'Ingest',
         ingest_Pre,
@@ -123,6 +138,10 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
     return addText(call, await request);
   }
 
+  $async.Future<$0.Void> trim_Pre($grpc.ServiceCall call, $async.Future<$0.TrimRequest> request) async {
+    return trim(call, await request);
+  }
+
   $async.Future<$0.Void> ingest_Pre($grpc.ServiceCall call, $async.Future<$0.Context> request) async {
     return ingest(call, await request);
   }
@@ -134,6 +153,7 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
   $async.Future<$0.Context> newContext($grpc.ServiceCall call, $0.NewContextRequest request);
   $async.Future<$0.Void> freeContext($grpc.ServiceCall call, $0.Context request);
   $async.Future<$0.TokenList> addText($grpc.ServiceCall call, $0.AddTextRequest request);
+  $async.Future<$0.Void> trim($grpc.ServiceCall call, $0.TrimRequest request);
   $async.Future<$0.Void> ingest($grpc.ServiceCall call, $0.Context request);
   $async.Stream<$0.Token> generate($grpc.ServiceCall call, $0.Context request);
 }

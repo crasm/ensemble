@@ -9,14 +9,20 @@ message NewContextRequest {
 }
 
 message AddTextRequest {
+  Context context   = 1;
+  bytes   text_utf8 = 2;
+}
+
+message TrimRequest {
   Context context = 1;
-  Text    text    = 2;
+  int32   length  = 2;
 }
 
 service LlamaCpp {
   rpc NewContext(NewContextRequest) returns (Context) {};
   rpc FreeContext(Context) returns (Void);
   rpc AddText(AddTextRequest) returns (TokenList);
+  rpc Trim(TrimRequest) returns (Void);
   rpc Ingest(Context) returns (Void); // TODO(crasm): return IngestProgressEvent stream
   rpc Generate(Context) returns (stream Token); // TODO(crasm): samplers
 }
@@ -25,13 +31,9 @@ message Context {
   int32 id = 1;
 }
 
-message Text {
-  string text = 1;
-}
-
 message Token {
   int32 id = 1;
-  optional string text = 2;
+  optional bytes text_utf8 = 2;
 }
 
 message TokenList {

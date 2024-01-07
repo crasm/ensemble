@@ -80,14 +80,14 @@ class NewContextRequest extends $pb.GeneratedMessage {
 class AddTextRequest extends $pb.GeneratedMessage {
   factory AddTextRequest({
     Context? context,
-    Text? text,
+    $core.List<$core.int>? textUtf8,
   }) {
     final $result = create();
     if (context != null) {
       $result.context = context;
     }
-    if (text != null) {
-      $result.text = text;
+    if (textUtf8 != null) {
+      $result.textUtf8 = textUtf8;
     }
     return $result;
   }
@@ -97,7 +97,7 @@ class AddTextRequest extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddTextRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..aOM<Context>(1, _omitFieldNames ? '' : 'context', subBuilder: Context.create)
-    ..aOM<Text>(2, _omitFieldNames ? '' : 'text', subBuilder: Text.create)
+    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'textUtf8', $pb.PbFieldType.OY)
     ..hasRequiredFields = false
   ;
 
@@ -134,15 +134,79 @@ class AddTextRequest extends $pb.GeneratedMessage {
   Context ensureContext() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  Text get text => $_getN(1);
+  $core.List<$core.int> get textUtf8 => $_getN(1);
   @$pb.TagNumber(2)
-  set text(Text v) { setField(2, v); }
+  set textUtf8($core.List<$core.int> v) { $_setBytes(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasText() => $_has(1);
+  $core.bool hasTextUtf8() => $_has(1);
   @$pb.TagNumber(2)
-  void clearText() => clearField(2);
+  void clearTextUtf8() => clearField(2);
+}
+
+class TrimRequest extends $pb.GeneratedMessage {
+  factory TrimRequest({
+    Context? context,
+    $core.int? length,
+  }) {
+    final $result = create();
+    if (context != null) {
+      $result.context = context;
+    }
+    if (length != null) {
+      $result.length = length;
+    }
+    return $result;
+  }
+  TrimRequest._() : super();
+  factory TrimRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TrimRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrimRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..aOM<Context>(1, _omitFieldNames ? '' : 'context', subBuilder: Context.create)
+    ..a<$core.int>(2, _omitFieldNames ? '' : 'length', $pb.PbFieldType.O3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  TrimRequest clone() => TrimRequest()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  TrimRequest copyWith(void Function(TrimRequest) updates) => super.copyWith((message) => updates(message as TrimRequest)) as TrimRequest;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static TrimRequest create() => TrimRequest._();
+  TrimRequest createEmptyInstance() => create();
+  static $pb.PbList<TrimRequest> createRepeated() => $pb.PbList<TrimRequest>();
+  @$core.pragma('dart2js:noInline')
+  static TrimRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrimRequest>(create);
+  static TrimRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Context get context => $_getN(0);
+  @$pb.TagNumber(1)
+  set context(Context v) { setField(1, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasContext() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContext() => clearField(1);
+  @$pb.TagNumber(1)
+  Context ensureContext() => $_ensure(0);
+
   @$pb.TagNumber(2)
-  Text ensureText() => $_ensure(1);
+  $core.int get length => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set length($core.int v) { $_setSignedInt32(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasLength() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLength() => clearField(2);
 }
 
 class Context extends $pb.GeneratedMessage {
@@ -195,67 +259,17 @@ class Context extends $pb.GeneratedMessage {
   void clearId() => clearField(1);
 }
 
-class Text extends $pb.GeneratedMessage {
-  factory Text({
-    $core.String? text,
-  }) {
-    final $result = create();
-    if (text != null) {
-      $result.text = text;
-    }
-    return $result;
-  }
-  Text._() : super();
-  factory Text.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Text.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Text', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
-    ..aOS(1, _omitFieldNames ? '' : 'text')
-    ..hasRequiredFields = false
-  ;
-
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  Text clone() => Text()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  Text copyWith(void Function(Text) updates) => super.copyWith((message) => updates(message as Text)) as Text;
-
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static Text create() => Text._();
-  Text createEmptyInstance() => create();
-  static $pb.PbList<Text> createRepeated() => $pb.PbList<Text>();
-  @$core.pragma('dart2js:noInline')
-  static Text getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Text>(create);
-  static Text? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.String get text => $_getSZ(0);
-  @$pb.TagNumber(1)
-  set text($core.String v) { $_setString(0, v); }
-  @$pb.TagNumber(1)
-  $core.bool hasText() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearText() => clearField(1);
-}
-
 class Token extends $pb.GeneratedMessage {
   factory Token({
     $core.int? id,
-    $core.String? text,
+    $core.List<$core.int>? textUtf8,
   }) {
     final $result = create();
     if (id != null) {
       $result.id = id;
     }
-    if (text != null) {
-      $result.text = text;
+    if (textUtf8 != null) {
+      $result.textUtf8 = textUtf8;
     }
     return $result;
   }
@@ -265,7 +279,7 @@ class Token extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Token', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..a<$core.int>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.O3)
-    ..aOS(2, _omitFieldNames ? '' : 'text')
+    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'textUtf8', $pb.PbFieldType.OY)
     ..hasRequiredFields = false
   ;
 
@@ -300,13 +314,13 @@ class Token extends $pb.GeneratedMessage {
   void clearId() => clearField(1);
 
   @$pb.TagNumber(2)
-  $core.String get text => $_getSZ(1);
+  $core.List<$core.int> get textUtf8 => $_getN(1);
   @$pb.TagNumber(2)
-  set text($core.String v) { $_setString(1, v); }
+  set textUtf8($core.List<$core.int> v) { $_setBytes(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasText() => $_has(1);
+  $core.bool hasTextUtf8() => $_has(1);
   @$pb.TagNumber(2)
-  void clearText() => clearField(2);
+  void clearTextUtf8() => clearField(2);
 }
 
 class TokenList extends $pb.GeneratedMessage {
