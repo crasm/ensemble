@@ -80,14 +80,14 @@ class NewContextRequest extends $pb.GeneratedMessage {
 class AddTextRequest extends $pb.GeneratedMessage {
   factory AddTextRequest({
     Context? context,
-    $core.List<$core.int>? textUtf8,
+    $core.String? text,
   }) {
     final $result = create();
     if (context != null) {
       $result.context = context;
     }
-    if (textUtf8 != null) {
-      $result.textUtf8 = textUtf8;
+    if (text != null) {
+      $result.text = text;
     }
     return $result;
   }
@@ -97,7 +97,7 @@ class AddTextRequest extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddTextRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..aOM<Context>(1, _omitFieldNames ? '' : 'context', subBuilder: Context.create)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'textUtf8', $pb.PbFieldType.OY)
+    ..aOS(2, _omitFieldNames ? '' : 'text')
     ..hasRequiredFields = false
   ;
 
@@ -134,13 +134,13 @@ class AddTextRequest extends $pb.GeneratedMessage {
   Context ensureContext() => $_ensure(0);
 
   @$pb.TagNumber(2)
-  $core.List<$core.int> get textUtf8 => $_getN(1);
+  $core.String get text => $_getSZ(1);
   @$pb.TagNumber(2)
-  set textUtf8($core.List<$core.int> v) { $_setBytes(1, v); }
+  set text($core.String v) { $_setString(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasTextUtf8() => $_has(1);
+  $core.bool hasText() => $_has(1);
   @$pb.TagNumber(2)
-  void clearTextUtf8() => clearField(2);
+  void clearText() => clearField(2);
 }
 
 class TrimRequest extends $pb.GeneratedMessage {
@@ -262,14 +262,14 @@ class Context extends $pb.GeneratedMessage {
 class Token extends $pb.GeneratedMessage {
   factory Token({
     $core.int? id,
-    $core.List<$core.int>? textUtf8,
+    $core.String? text,
   }) {
     final $result = create();
     if (id != null) {
       $result.id = id;
     }
-    if (textUtf8 != null) {
-      $result.textUtf8 = textUtf8;
+    if (text != null) {
+      $result.text = text;
     }
     return $result;
   }
@@ -279,7 +279,7 @@ class Token extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Token', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..a<$core.int>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.O3)
-    ..a<$core.List<$core.int>>(2, _omitFieldNames ? '' : 'textUtf8', $pb.PbFieldType.OY)
+    ..aOS(2, _omitFieldNames ? '' : 'text')
     ..hasRequiredFields = false
   ;
 
@@ -314,13 +314,13 @@ class Token extends $pb.GeneratedMessage {
   void clearId() => clearField(1);
 
   @$pb.TagNumber(2)
-  $core.List<$core.int> get textUtf8 => $_getN(1);
+  $core.String get text => $_getSZ(1);
   @$pb.TagNumber(2)
-  set textUtf8($core.List<$core.int> v) { $_setBytes(1, v); }
+  set text($core.String v) { $_setString(1, v); }
   @$pb.TagNumber(2)
-  $core.bool hasTextUtf8() => $_has(1);
+  $core.bool hasText() => $_has(1);
   @$pb.TagNumber(2)
-  void clearTextUtf8() => clearField(2);
+  void clearText() => clearField(2);
 }
 
 class TokenList extends $pb.GeneratedMessage {

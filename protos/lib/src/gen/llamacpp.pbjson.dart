@@ -36,14 +36,14 @@ const AddTextRequest$json = {
   '1': 'AddTextRequest',
   '2': [
     {'1': 'context', '3': 1, '4': 1, '5': 11, '6': '.LlamaCpp.Context', '10': 'context'},
-    {'1': 'text_utf8', '3': 2, '4': 1, '5': 12, '10': 'textUtf8'},
+    {'1': 'text', '3': 2, '4': 1, '5': 9, '10': 'text'},
   ],
 };
 
 /// Descriptor for `AddTextRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List addTextRequestDescriptor = $convert.base64Decode(
     'Cg5BZGRUZXh0UmVxdWVzdBIrCgdjb250ZXh0GAEgASgLMhEuTGxhbWFDcHAuQ29udGV4dFIHY2'
-    '9udGV4dBIbCgl0ZXh0X3V0ZjgYAiABKAxSCHRleHRVdGY4');
+    '9udGV4dBISCgR0ZXh0GAIgASgJUgR0ZXh0');
 
 @$core.Deprecated('Use trimRequestDescriptor instead')
 const TrimRequest$json = {
@@ -76,17 +76,17 @@ const Token$json = {
   '1': 'Token',
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
-    {'1': 'text_utf8', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'textUtf8', '17': true},
+    {'1': 'text', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'text', '17': true},
   ],
   '8': [
-    {'1': '_text_utf8'},
+    {'1': '_text'},
   ],
 };
 
 /// Descriptor for `Token`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List tokenDescriptor = $convert.base64Decode(
-    'CgVUb2tlbhIOCgJpZBgBIAEoBVICaWQSIAoJdGV4dF91dGY4GAIgASgMSABSCHRleHRVdGY4iA'
-    'EBQgwKCl90ZXh0X3V0Zjg=');
+    'CgVUb2tlbhIOCgJpZBgBIAEoBVICaWQSFwoEdGV4dBgCIAEoCUgAUgR0ZXh0iAEBQgcKBV90ZX'
+    'h0');
 
 @$core.Deprecated('Use tokenListDescriptor instead')
 const TokenList$json = {

@@ -59,14 +59,16 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       grpc.ServiceCall call, proto.AddTextRequest args) async {
     checkDisposed();
     assert(args.context.id == _ctx.hashCode);
-    final toks = _ctx
-        .add(utf8.decode(args.textUtf8))
-        .map((e) => proto.Token(id: e.id, textUtf8: utf8.encode(e.text)));
+    _log.fine('new text: ```\n${args.text}\n```');
+    final toks = _ctx.add(args.text).map((e) {
+      return proto.Token(id: e.id, text: e.text);
+    });
     return proto.TokenList(toks: toks);
   }
 
   @override
   Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimRequest args) async {
+    _log.fine('trim');
     checkDisposed();
     assert(args.context.id == _ctx.hashCode);
     _ctx.trim(args.length);
@@ -84,20 +86,23 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Stream<proto.Token> generate(
       grpc.ServiceCall call, proto.Context context) async* {
     checkDisposed();
-    try {
-      final tokStream = _ctx.generate(samplers: [
-        RepetitionPenalty(),
-        MinP(0.18),
-        Temperature(1.0),
-      ]).map((tok) => proto.Token(id: tok.id, textUtf8: utf8.encode(tok.text)));
+    _log.fine('Generate begin');
 
-      await for (final tok in tokStream) {
+    final tokStream = _ctx.generate(samplers: [
+      RepetitionPenalty(),
+      MinP(0.18),
+      Temperature(1.0),
+    ]).map((tok) => proto.Token(id: tok.id, text: tok.text));
+
+    await for (final tok in tokStream) {
+      if (call.isCanceled) {
+        _log.info('Client canceled generation');
+        return;
+      } else {
+        stderr.write(tok.text);
         yield tok;
+        await Future.delayed(const Duration());
       }
-    } catch (e) {
-      _log.severe(e);
-    } finally {
-      _ctx.clear();
     }
   }
 }
@@ -114,14 +119,7 @@ void main(List<String> arguments) async {
     );
   });
 
-  final server = grpc.Server.create(
-    services: [await LlamaCppService.create()],
-    keepAliveOptions: const grpc.ServerKeepAliveOptions(maxBadPings: 10),
-  );
-  await server.serve(
-    // address: 'brick',
-    address: '192.168.32.3',
-    port: 8888,
-  );
+  final server = grpc.Server.create(services: [await LlamaCppService.create()]);
+  await server.serve(address: 'brick', port: 8888);
   print('Server listening on port ${server.port}');
 }

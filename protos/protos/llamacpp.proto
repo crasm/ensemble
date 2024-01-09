@@ -10,7 +10,7 @@ message NewContextRequest {
 
 message AddTextRequest {
   Context context   = 1;
-  bytes   text_utf8 = 2;
+  string text = 2;
 }
 
 message TrimRequest {
@@ -33,7 +33,7 @@ message Context {
 
 message Token {
   int32 id = 1;
-  optional bytes text_utf8 = 2;
+  optional string text = 2;
 }
 
 message TokenList {
