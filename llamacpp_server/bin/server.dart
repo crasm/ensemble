@@ -15,8 +15,10 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
 
   static Future<LlamaCppService> create() async {
     final model = LlamaCpp.loadModel(
-      '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
+      // '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
+      '/Users/vczf/llm/models/airoboros-l2-70b-gpt4-1.4.1.Q6_K.gguf',
       params: Model.defaultParams..n_gpu_layers = 1,
+      // ..use_mmap = false,
       progressCallback: (p) {
         if (p == 1.0) {
           stderr.writeln('Done!');
@@ -101,6 +103,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       } else {
         stderr.write(tok.text);
         yield tok;
+        // Needed so gRPC has a chance to get the call cancellation
         await Future.delayed(const Duration());
       }
     }

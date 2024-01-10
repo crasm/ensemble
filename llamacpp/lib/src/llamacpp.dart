@@ -319,7 +319,14 @@ final class Context with Disposable {
   List<Token> add(String text) {
     checkDisposed();
     final numToks = tokens.addFromString(model.pointer, text);
-    return tokens.toList(model.pointer, numToks);
+    final newToks = tokens.toList(model.pointer, numToks);
+    _log.finest(() {
+      final buf = StringBuffer('Context.add([\n');
+      newToks.forEach(buf.writeln);
+      buf.write('])');
+      return buf.toString();
+    });
+    return newToks;
   }
 
   void _trimKvCache(int length) {

@@ -123,52 +123,74 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   }
 
   String _contextString() {
-    StringBuffer buf = StringBuffer();
-    for (final tok in _decodedTokens) {
-      buf.write(tok.text);
+    if (_decodedTokens.isNotEmpty) {
+      assert(_decodedTokens.first.id == 1, 'First token should be BOS token');
     }
+
+    StringBuffer buf = StringBuffer();
+    // Trim leading whitespace for the first non-BOS token
+    if (_decodedTokens.length > 1) {
+      buf.write(_decodedTokens[1].text.trimLeft());
+    }
+
+    _decodedTokens.skip(2).forEach((tok) => buf.write(tok.text));
     return buf.toString();
   }
 
+  String _runesToString(Iterable<int> runes) {
+    final buf = StringBuffer();
+    runes.forEach(buf.writeCharCode);
+    return buf.toString().trim();
+  }
+
   Future<void> _startGenerating() async {
-    final buf = _textCtl.text;
+    setState(() => _isGenerating = true);
+
+    final buf = _textCtl.text.trimRight();
     final ctx = await _ctx;
 
     //
     // Figure out if we need to trim the context, and how much text to add
     var i = 0; // token index
     var j = 0; // rune index
-    while (i < _decodedTokens.length) {
-      final bufRunes = buf.runes;
-      final tokRunes = _decodedTokens[i].text.runes;
-
-      if (j + tokRunes.length >= bufRunes.length ||
-          !listEquals(
-            tokRunes.toList(growable: false),
-            bufRunes.toList(growable: false).sublist(j, j + tokRunes.length),
-          )) {
-        // The text does not match the decoded token at this index.
-        break;
-      }
-
-      // The text is unchanged, so we can skip decoding this token again.
+    if (_decodedTokens.isNotEmpty) {
+      assert(_decodedTokens.first.id == 1, 'First token should be BOS token');
+      final bufRunes = buf.runes.toList(growable: false);
       i++;
-      j += tokRunes.length;
+      while (i < _decodedTokens.length) {
+        final tokRunes = i == 1
+            // Trim leading whitespace of first non-BOS token
+            ? _decodedTokens[i].text.trimLeft().runes.toList(growable: false)
+            : _decodedTokens[i].text.runes.toList(growable: false);
+        final bufTokMatch = bufRunes.sublist(j, j + tokRunes.length);
+
+        if (j + tokRunes.length > bufRunes.length ||
+            !listEquals(
+              tokRunes,
+              bufTokMatch,
+            )) {
+          _log.fine(
+              'token that did not match: `${_runesToString(tokRunes)}` != `${_runesToString(bufTokMatch)}`');
+          // The text does not match the decoded token at this index.
+          break;
+        }
+
+        // The text is unchanged, so we can skip decoding this token again.
+        i++;
+        j += tokRunes.length;
+      }
     }
 
     _log.fine('Decoding from token index $i');
     _decodedTokens.length = i;
-    await _client.trim(pb.TrimRequest(context: ctx, length: j));
+    await _client.trim(pb.TrimRequest(context: ctx, length: i));
 
     //
     // Add needed text, and decode
     _log.fine('Adding text');
-    final builder = StringBuffer();
-    buf.runes.skip(j).forEach(builder.writeCharCode);
-
     final addedTokens = await _client.addText(pb.AddTextRequest(
       context: ctx,
-      text: builder.toString(),
+      text: _runesToString(buf.runes.skip(j)),
     ));
 
     _log.fine('Ingesting');
@@ -197,7 +219,6 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
         },
         cancelOnError: true,
       );
-    setState(() => _isGenerating = true);
   }
 
   Future<void> _stopGenerating() async {
