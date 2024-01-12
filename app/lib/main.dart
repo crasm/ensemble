@@ -123,17 +123,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   }
 
   String _contextString() {
-    if (_decodedTokens.isNotEmpty) {
-      assert(_decodedTokens.first.id == 1, 'First token should be BOS token');
-    }
-
     StringBuffer buf = StringBuffer();
-    // Trim leading whitespace for the first non-BOS token
-    if (_decodedTokens.length > 1) {
-      buf.write(_decodedTokens[1].text.trimLeft());
-    }
-
-    _decodedTokens.skip(2).forEach((tok) => buf.write(tok.text));
+    _decodedTokens.forEach((tok) => buf.write(tok.text));
     return buf.toString();
   }
 
@@ -154,30 +145,24 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     var i = 0; // token index
     var j = 0; // rune index
     if (_decodedTokens.isNotEmpty) {
-      assert(_decodedTokens.first.id == 1, 'First token should be BOS token');
       final bufRunes = buf.runes.toList(growable: false);
-      i++;
       while (i < _decodedTokens.length) {
-        final tokRunes = i == 1
-            // Trim leading whitespace of first non-BOS token
-            ? _decodedTokens[i].text.trimLeft().runes.toList(growable: false)
-            : _decodedTokens[i].text.runes.toList(growable: false);
-        final bufTokMatch = bufRunes.sublist(j, j + tokRunes.length);
+        final tokRunes = _decodedTokens[i].text.runes.toList(growable: false);
 
-        if (j + tokRunes.length > bufRunes.length ||
-            !listEquals(
-              tokRunes,
-              bufTokMatch,
-            )) {
-          _log.fine(
-              'token that did not match: `${_runesToString(tokRunes)}` != `${_runesToString(bufTokMatch)}`');
-          // The text does not match the decoded token at this index.
-          break;
+        if (j + tokRunes.length < bufRunes.length) {
+          final bufTokMatch = bufRunes.sublist(j, j + tokRunes.length);
+          if (listEquals(tokRunes, bufTokMatch)) {
+            // The text is unchanged, so we can skip decoding this token again.
+            i++;
+            j += tokRunes.length;
+            continue;
+          } else {
+            _log.fine('token that did not match: `${_runesToString(tokRunes)}`'
+                ' != `${_runesToString(bufTokMatch)}`');
+          }
         }
 
-        // The text is unchanged, so we can skip decoding this token again.
-        i++;
-        j += tokRunes.length;
+        break;
       }
     }
 

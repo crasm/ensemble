@@ -101,7 +101,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
         _log.info('Client canceled generation');
         return;
       } else {
-        stderr.write(tok.text);
+        // stderr.write(tok.text);
         yield tok;
         // Needed so gRPC has a chance to get the call cancellation
         await Future.delayed(const Duration());

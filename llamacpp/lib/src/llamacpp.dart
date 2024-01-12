@@ -321,6 +321,10 @@ final class Context with Disposable {
     final numToks = tokens.addFromString(model.pointer, text);
     final newToks = tokens.toList(model.pointer, numToks);
     _log.finest(() {
+      if (newToks.isEmpty) {
+        return "Context.add([ '' ])";
+      }
+
       final buf = StringBuffer('Context.add([\n');
       newToks.forEach(buf.writeln);
       buf.write('])');
@@ -468,6 +472,7 @@ final class Context with Disposable {
         // // ignore: inference_failure_on_instance_creation
         // await Future.delayed(Duration.zero);
         tokens.add(tok!.id);
+        _log.finer('generated token: $tok');
         yield tok;
 
         // Check if end of stream
