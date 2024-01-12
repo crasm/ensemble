@@ -149,7 +149,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       while (i < _decodedTokens.length) {
         final tokRunes = _decodedTokens[i].text.runes.toList(growable: false);
 
-        if (j + tokRunes.length < bufRunes.length) {
+        if (j + tokRunes.length <= bufRunes.length) {
           final bufTokMatch = bufRunes.sublist(j, j + tokRunes.length);
           if (listEquals(tokRunes, bufTokMatch)) {
             // The text is unchanged, so we can skip decoding this token again.
