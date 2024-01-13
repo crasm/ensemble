@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:ensemble_protos/llamacpp.dart' as proto;
@@ -6,12 +5,14 @@ import 'package:ensemble_llamacpp/ensemble_llamacpp.dart';
 import 'package:grpc/grpc.dart' as grpc;
 import 'package:logging/logging.dart';
 
+final _noContextFoundException =
+    (id) => Exception('no context with id=$id found');
+
 class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   final _log = Logger('LlmService');
 
   final Model _model;
-  final Context _ctx; // TODO(crasm): support multiple contexts
-  LlamaCppService._(this._model, this._ctx);
+  LlamaCppService._(this._model);
 
   static Future<LlamaCppService> create() async {
     final model = LlamaCpp.loadModel(
@@ -29,40 +30,65 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       },
     );
 
-    final ctx = model.newContext(Context.defaultParams..n_ctx = 2048);
-
-    return LlamaCppService._(model, ctx);
+    return LlamaCppService._(model);
   }
 
   @override
   void dispose() async {
     super.dispose();
-    _ctx.dispose();
+    _contexts.forEach((_, ctx) => ctx.dispose());
     _model.dispose();
   }
+
+  Map<int, Context> _contexts = {};
 
   @override
   Future<proto.Context> newContext(
       grpc.ServiceCall call, proto.NewContextRequest args) async {
     checkDisposed();
-    return proto.Context(
-        id: _ctx.hashCode); // TODO(crasm): actually create context
+    final p = Context.defaultParams;
+    if (args.hasSeed()) p.seed = args.seed;
+    if (args.hasNCtx()) p.n_ctx = args.nCtx;
+    if (args.hasNBatch()) p.n_batch = args.nBatch;
+    if (args.hasNThreads()) p.n_threads = args.nThreads;
+    if (args.hasNThreadsBatch()) p.n_threads_batch = args.nThreadsBatch;
+    if (args.hasRopeScalingType()) p.rope_scaling_type = args.ropeScalingType;
+    if (args.hasRopeFreqBase()) p.rope_freq_base = args.ropeFreqBase;
+    if (args.hasRopeFreqScale()) p.rope_freq_scale = args.ropeFreqScale;
+    if (args.hasYarnExtFactor()) p.yarn_ext_factor = args.yarnExtFactor;
+    if (args.hasYarnAttnFactor()) p.yarn_attn_factor = args.yarnAttnFactor;
+    if (args.hasYarnBetaFast()) p.yarn_beta_fast = args.yarnBetaFast;
+    if (args.hasYarnBetaSlow()) p.yarn_beta_slow = args.yarnBetaSlow;
+    if (args.hasYarnOrigCtx()) p.yarn_orig_ctx = args.yarnOrigCtx;
+    if (args.hasTypeK()) p.type_k = args.typeK;
+    if (args.hasTypeV()) p.type_v = args.typeV;
+    if (args.hasEmbedding()) p.embedding = args.embedding;
+    if (args.hasOffloadKqv()) p.offload_kqv = args.offloadKqv;
+    final ctx = _model.newContext(p);
+    _contexts[ctx.id] = ctx;
+    return proto.Context(id: ctx.id);
   }
 
   @override
   Future<proto.Void> freeContext(
-      grpc.ServiceCall call, proto.Context ctx) async {
+      grpc.ServiceCall call, proto.Context pctx) async {
     checkDisposed();
-    return proto.Void(); // TODO(crasm): actually free context
+    final ctx = _contexts.remove(pctx.id);
+    if (ctx == null) throw _noContextFoundException(pctx.id);
+    ctx.dispose();
+    return proto.Void();
   }
 
   @override
   Future<proto.TokenList> addText(
       grpc.ServiceCall call, proto.AddTextRequest args) async {
     checkDisposed();
-    assert(args.context.id == _ctx.hashCode);
+
+    final ctx = _contexts[args.context.id];
+    if (ctx == null) throw _noContextFoundException(args.context.id);
+
     _log.fine('new text: ```\n${args.text}\n```');
-    final toks = _ctx.add(args.text).map((e) {
+    final toks = ctx.add(args.text).map((e) {
       return proto.Token(id: e.id, text: e.text);
     });
     return proto.TokenList(toks: toks);
@@ -72,25 +98,32 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimRequest args) async {
     _log.fine('trim');
     checkDisposed();
-    assert(args.context.id == _ctx.hashCode);
-    _ctx.trim(args.length);
+
+    final ctx = _contexts[args.context.id];
+    if (ctx == null) throw _noContextFoundException(args.context.id);
+
+    ctx.trim(args.length);
     return proto.Void();
   }
 
   @override
-  Future<proto.Void> ingest(grpc.ServiceCall call, proto.Context ctx) async {
-    assert(ctx.id == _ctx.hashCode); // TODO(crasm): get real context
-    await _ctx.ingest();
+  Future<proto.Void> ingest(grpc.ServiceCall call, proto.Context pctx) async {
+    final ctx = _contexts[pctx.id];
+    if (ctx == null) throw _noContextFoundException(pctx.id);
+    await ctx.ingest();
     return proto.Void();
   }
 
   @override
   Stream<proto.Token> generate(
-      grpc.ServiceCall call, proto.Context context) async* {
+      grpc.ServiceCall call, proto.Context pctx) async* {
     checkDisposed();
     _log.fine('Generate begin');
 
-    final tokStream = _ctx.generate(samplers: [
+    final ctx = _contexts[pctx.id];
+    if (ctx == null) throw _noContextFoundException(pctx.id);
+
+    final tokStream = ctx.generate(samplers: [
       RepetitionPenalty(),
       MinP(0.18),
       Temperature(1.0),
@@ -101,7 +134,6 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
         _log.info('Client canceled generation');
         return;
       } else {
-        // stderr.write(tok.text);
         yield tok;
         // Needed so gRPC has a chance to get the call cancellation
         await Future.delayed(const Duration());

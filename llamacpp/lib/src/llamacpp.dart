@@ -263,6 +263,10 @@ final class Context with Disposable {
   static llama_context_params get defaultParams =>
       llama_context_default_params();
 
+  /// The unique ID identifying this context.
+  final int id;
+  static int _nextId = 0;
+
   /// The [Model] this [Context] was created for.
   final Model model;
 
@@ -288,7 +292,8 @@ final class Context with Disposable {
   Context._(this.model, this.params)
       : assert(model.pointer.address != 0),
         assert(params.n_ctx >= 0),
-        assert(params.n_batch >= 0) {
+        assert(params.n_batch >= 0),
+        id = _nextId++ {
     final vocabSize = llama_n_vocab(model.pointer);
     pointer = llama_new_context_with_model(model.pointer, params);
     tokens = ContextTokens._(params.n_ctx);
@@ -302,6 +307,12 @@ final class Context with Disposable {
     super.dispose();
     llama_free(pointer);
   }
+
+  @override
+  bool operator ==(Object other) => (other is Context) && other.id == id;
+
+  @override
+  int get hashCode => id;
 
   /// Tokenize and add [text] to this context.
   ///

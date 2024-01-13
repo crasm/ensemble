@@ -5,17 +5,35 @@ package LlamaCpp;
 message Void {}
 
 message NewContextRequest {
-  // TODO(crasm): model ref and context params
+  reserved 1; // TODO(crasm): model ref
+
+  optional uint32 seed = 2;
+  optional uint32 n_ctx = 3;
+  optional uint32 n_batch = 4;
+  optional uint32 n_threads = 5;
+  optional uint32 n_threads_batch = 6;
+  optional int32 rope_scaling_type = 7;
+  optional float rope_freq_base = 8;
+  optional float rope_freq_scale = 9;
+  optional float yarn_ext_factor = 10;
+  optional float yarn_attn_factor = 11;
+  optional float yarn_beta_fast = 12;
+  optional float yarn_beta_slow = 13;
+  optional uint32 yarn_orig_ctx = 14;
+  optional int32 type_k = 15;
+  optional int32 type_v = 16;
+  optional bool embedding = 17;
+  optional bool offload_kqv = 18;
 }
 
 message AddTextRequest {
-  Context context   = 1;
+  Context context = 1;
   string text = 2;
 }
 
 message TrimRequest {
   Context context = 1;
-  int32   length  = 2;
+  int32 length = 2;
 }
 
 service LlamaCpp {

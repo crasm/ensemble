@@ -2,7 +2,6 @@
 // TODO: delete ^^^
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -111,7 +110,13 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
     _textCtl.text = 'A chat.\nUSER: ';
 
-    _ctx = _client.newContext(pb.NewContextRequest());
+    _ctx = _client.newContext(
+      pb.NewContextRequest(
+        nCtx: 8192,
+        ropeScalingType: 1,
+        ropeFreqScale: 0.50,
+      ),
+    );
   }
 
   @override
@@ -120,6 +125,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     _textCtl.dispose();
     _scrollCtl.dispose();
     _channel.shutdown();
+    // TODO(crasm): how and when to free context?
   }
 
   String _contextString() {

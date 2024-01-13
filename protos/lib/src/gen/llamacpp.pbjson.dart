@@ -25,11 +25,69 @@ final $typed_data.Uint8List voidDescriptor = $convert.base64Decode(
 @$core.Deprecated('Use newContextRequestDescriptor instead')
 const NewContextRequest$json = {
   '1': 'NewContextRequest',
+  '2': [
+    {'1': 'seed', '3': 2, '4': 1, '5': 13, '9': 0, '10': 'seed', '17': true},
+    {'1': 'n_ctx', '3': 3, '4': 1, '5': 13, '9': 1, '10': 'nCtx', '17': true},
+    {'1': 'n_batch', '3': 4, '4': 1, '5': 13, '9': 2, '10': 'nBatch', '17': true},
+    {'1': 'n_threads', '3': 5, '4': 1, '5': 13, '9': 3, '10': 'nThreads', '17': true},
+    {'1': 'n_threads_batch', '3': 6, '4': 1, '5': 13, '9': 4, '10': 'nThreadsBatch', '17': true},
+    {'1': 'rope_scaling_type', '3': 7, '4': 1, '5': 5, '9': 5, '10': 'ropeScalingType', '17': true},
+    {'1': 'rope_freq_base', '3': 8, '4': 1, '5': 2, '9': 6, '10': 'ropeFreqBase', '17': true},
+    {'1': 'rope_freq_scale', '3': 9, '4': 1, '5': 2, '9': 7, '10': 'ropeFreqScale', '17': true},
+    {'1': 'yarn_ext_factor', '3': 10, '4': 1, '5': 2, '9': 8, '10': 'yarnExtFactor', '17': true},
+    {'1': 'yarn_attn_factor', '3': 11, '4': 1, '5': 2, '9': 9, '10': 'yarnAttnFactor', '17': true},
+    {'1': 'yarn_beta_fast', '3': 12, '4': 1, '5': 2, '9': 10, '10': 'yarnBetaFast', '17': true},
+    {'1': 'yarn_beta_slow', '3': 13, '4': 1, '5': 2, '9': 11, '10': 'yarnBetaSlow', '17': true},
+    {'1': 'yarn_orig_ctx', '3': 14, '4': 1, '5': 13, '9': 12, '10': 'yarnOrigCtx', '17': true},
+    {'1': 'type_k', '3': 15, '4': 1, '5': 5, '9': 13, '10': 'typeK', '17': true},
+    {'1': 'type_v', '3': 16, '4': 1, '5': 5, '9': 14, '10': 'typeV', '17': true},
+    {'1': 'embedding', '3': 17, '4': 1, '5': 8, '9': 15, '10': 'embedding', '17': true},
+    {'1': 'offload_kqv', '3': 18, '4': 1, '5': 8, '9': 16, '10': 'offloadKqv', '17': true},
+  ],
+  '8': [
+    {'1': '_seed'},
+    {'1': '_n_ctx'},
+    {'1': '_n_batch'},
+    {'1': '_n_threads'},
+    {'1': '_n_threads_batch'},
+    {'1': '_rope_scaling_type'},
+    {'1': '_rope_freq_base'},
+    {'1': '_rope_freq_scale'},
+    {'1': '_yarn_ext_factor'},
+    {'1': '_yarn_attn_factor'},
+    {'1': '_yarn_beta_fast'},
+    {'1': '_yarn_beta_slow'},
+    {'1': '_yarn_orig_ctx'},
+    {'1': '_type_k'},
+    {'1': '_type_v'},
+    {'1': '_embedding'},
+    {'1': '_offload_kqv'},
+  ],
+  '9': [
+    {'1': 1, '2': 2},
+  ],
 };
 
 /// Descriptor for `NewContextRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List newContextRequestDescriptor = $convert.base64Decode(
-    'ChFOZXdDb250ZXh0UmVxdWVzdA==');
+    'ChFOZXdDb250ZXh0UmVxdWVzdBIXCgRzZWVkGAIgASgNSABSBHNlZWSIAQESGAoFbl9jdHgYAy'
+    'ABKA1IAVIEbkN0eIgBARIcCgduX2JhdGNoGAQgASgNSAJSBm5CYXRjaIgBARIgCgluX3RocmVh'
+    'ZHMYBSABKA1IA1IIblRocmVhZHOIAQESKwoPbl90aHJlYWRzX2JhdGNoGAYgASgNSARSDW5UaH'
+    'JlYWRzQmF0Y2iIAQESLwoRcm9wZV9zY2FsaW5nX3R5cGUYByABKAVIBVIPcm9wZVNjYWxpbmdU'
+    'eXBliAEBEikKDnJvcGVfZnJlcV9iYXNlGAggASgCSAZSDHJvcGVGcmVxQmFzZYgBARIrCg9yb3'
+    'BlX2ZyZXFfc2NhbGUYCSABKAJIB1INcm9wZUZyZXFTY2FsZYgBARIrCg95YXJuX2V4dF9mYWN0'
+    'b3IYCiABKAJICFINeWFybkV4dEZhY3RvcogBARItChB5YXJuX2F0dG5fZmFjdG9yGAsgASgCSA'
+    'lSDnlhcm5BdHRuRmFjdG9yiAEBEikKDnlhcm5fYmV0YV9mYXN0GAwgASgCSApSDHlhcm5CZXRh'
+    'RmFzdIgBARIpCg55YXJuX2JldGFfc2xvdxgNIAEoAkgLUgx5YXJuQmV0YVNsb3eIAQESJwoNeW'
+    'Fybl9vcmlnX2N0eBgOIAEoDUgMUgt5YXJuT3JpZ0N0eIgBARIaCgZ0eXBlX2sYDyABKAVIDVIF'
+    'dHlwZUuIAQESGgoGdHlwZV92GBAgASgFSA5SBXR5cGVWiAEBEiEKCWVtYmVkZGluZxgRIAEoCE'
+    'gPUgllbWJlZGRpbmeIAQESJAoLb2ZmbG9hZF9rcXYYEiABKAhIEFIKb2ZmbG9hZEtxdogBAUIH'
+    'CgVfc2VlZEIICgZfbl9jdHhCCgoIX25fYmF0Y2hCDAoKX25fdGhyZWFkc0ISChBfbl90aHJlYW'
+    'RzX2JhdGNoQhQKEl9yb3BlX3NjYWxpbmdfdHlwZUIRCg9fcm9wZV9mcmVxX2Jhc2VCEgoQX3Jv'
+    'cGVfZnJlcV9zY2FsZUISChBfeWFybl9leHRfZmFjdG9yQhMKEV95YXJuX2F0dG5fZmFjdG9yQh'
+    'EKD195YXJuX2JldGFfZmFzdEIRCg9feWFybl9iZXRhX3Nsb3dCEAoOX3lhcm5fb3JpZ19jdHhC'
+    'CQoHX3R5cGVfa0IJCgdfdHlwZV92QgwKCl9lbWJlZGRpbmdCDgoMX29mZmxvYWRfa3F2SgQIAR'
+    'AC');
 
 @$core.Deprecated('Use addTextRequestDescriptor instead')
 const AddTextRequest$json = {
