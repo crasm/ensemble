@@ -83,7 +83,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   late final ClientChannel _channel;
   late final pb.LlamaCppClient _client;
 
-  late final Future<pb.Context> _ctx;
+  late final Future<int> _ctx;
 
   bool _isGenerating = false;
 
@@ -110,13 +110,18 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
     _textCtl.text = 'A chat.\nUSER: ';
 
-    _ctx = _client.newContext(
-      pb.NewContextRequest(
-        nCtx: 8192,
-        ropeScalingType: 1,
-        ropeFreqScale: 0.50,
-      ),
-    );
+    _ctx = () async {
+      final resp = await _client.newContext(
+        pb.NewContextArgs(
+          nCtx: 8192,
+          ropeScalingType: 1,
+          ropeFreqScale: 0.50,
+        ),
+      );
+
+      assert(resp.hasCtx());
+      return resp.ctx;
+    }();
   }
 
   @override
@@ -174,24 +179,24 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
     _log.fine('Decoding from token index $i');
     _decodedTokens.length = i;
-    await _client.trim(pb.TrimRequest(context: ctx, length: i));
+    await _client.trim(pb.TrimArgs(ctx: ctx, length: i));
 
     //
     // Add needed text, and decode
     _log.fine('Adding text');
-    final addedTokens = await _client.addText(pb.AddTextRequest(
-      context: ctx,
+    final addedTokens = await _client.addText(pb.AddTextArgs(
+      ctx: ctx,
       text: _runesToString(buf.runes.skip(j)),
     ));
 
     _log.fine('Ingesting');
     _decodedTokens.addAll(addedTokens.toks);
-    await _client.ingest(ctx);
+    await _client.ingest(pb.IngestArgs(ctx: ctx));
 
     //
     // Generate new tokens
     _log.fine('Generating');
-    _resp = _client.generate(ctx)
+    _resp = _client.generate(pb.GenerateArgs(ctx: ctx))
       ..listen(
         (tok) {
           if (tok.hasText()) {

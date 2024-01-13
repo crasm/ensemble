@@ -4,7 +4,7 @@ package LlamaCpp;
 
 message Void {}
 
-message NewContextRequest {
+message NewContextArgs {
   reserved 1; // TODO(crasm): model ref
 
   optional uint32 seed = 2;
@@ -26,34 +26,46 @@ message NewContextRequest {
   optional bool offload_kqv = 18;
 }
 
-message AddTextRequest {
-  Context context = 1;
+message FreeContextArgs {
+  int32 ctx = 1;
+}
+
+message AddTextArgs {
+  int32 ctx = 1;
   string text = 2;
 }
 
-message TrimRequest {
-  Context context = 1;
+message TrimArgs {
+  int32 ctx = 1;
   int32 length = 2;
 }
 
-service LlamaCpp {
-  rpc NewContext(NewContextRequest) returns (Context) {};
-  rpc FreeContext(Context) returns (Void);
-  rpc AddText(AddTextRequest) returns (TokenList);
-  rpc Trim(TrimRequest) returns (Void);
-  rpc Ingest(Context) returns (Void); // TODO(crasm): return IngestProgressEvent stream
-  rpc Generate(Context) returns (stream Token); // TODO(crasm): samplers
+message IngestArgs {
+  int32 ctx = 1;
 }
 
-message Context {
-  int32 id = 1;
+message GenerateArgs {
+  int32 ctx = 1;
+}
+
+service LlamaCpp {
+  rpc NewContext(NewContextArgs) returns (NewContextResp) {};
+  rpc FreeContext(FreeContextArgs) returns (Void);
+  rpc AddText(AddTextArgs) returns (AddTextResp);
+  rpc Trim(TrimArgs) returns (Void);
+  rpc Ingest(IngestArgs) returns (Void); // TODO(crasm): return IngestProgressEvent stream
+  rpc Generate(GenerateArgs) returns (stream Token); // TODO(crasm): samplers
+}
+
+message NewContextResp {
+  int32 ctx = 1;
+}
+
+message AddTextResp {
+  repeated Token toks = 1;
 }
 
 message Token {
   int32 id = 1;
   optional string text = 2;
-}
-
-message TokenList {
-  repeated Token toks = 1;
 }

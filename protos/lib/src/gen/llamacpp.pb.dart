@@ -45,8 +45,8 @@ class Void extends $pb.GeneratedMessage {
   static Void? _defaultInstance;
 }
 
-class NewContextRequest extends $pb.GeneratedMessage {
-  factory NewContextRequest({
+class NewContextArgs extends $pb.GeneratedMessage {
+  factory NewContextArgs({
     $core.int? seed,
     $core.int? nCtx,
     $core.int? nBatch,
@@ -119,11 +119,11 @@ class NewContextRequest extends $pb.GeneratedMessage {
     }
     return $result;
   }
-  NewContextRequest._() : super();
-  factory NewContextRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory NewContextRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  NewContextArgs._() : super();
+  factory NewContextArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory NewContextArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'NewContextRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'NewContextArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..a<$core.int>(2, _omitFieldNames ? '' : 'seed', $pb.PbFieldType.OU3)
     ..a<$core.int>(3, _omitFieldNames ? '' : 'nCtx', $pb.PbFieldType.OU3)
     ..a<$core.int>(4, _omitFieldNames ? '' : 'nBatch', $pb.PbFieldType.OU3)
@@ -148,22 +148,22 @@ class NewContextRequest extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  NewContextRequest clone() => NewContextRequest()..mergeFromMessage(this);
+  NewContextArgs clone() => NewContextArgs()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  NewContextRequest copyWith(void Function(NewContextRequest) updates) => super.copyWith((message) => updates(message as NewContextRequest)) as NewContextRequest;
+  NewContextArgs copyWith(void Function(NewContextArgs) updates) => super.copyWith((message) => updates(message as NewContextArgs)) as NewContextArgs;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static NewContextRequest create() => NewContextRequest._();
-  NewContextRequest createEmptyInstance() => create();
-  static $pb.PbList<NewContextRequest> createRepeated() => $pb.PbList<NewContextRequest>();
+  static NewContextArgs create() => NewContextArgs._();
+  NewContextArgs createEmptyInstance() => create();
+  static $pb.PbList<NewContextArgs> createRepeated() => $pb.PbList<NewContextArgs>();
   @$core.pragma('dart2js:noInline')
-  static NewContextRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NewContextRequest>(create);
-  static NewContextRequest? _defaultInstance;
+  static NewContextArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NewContextArgs>(create);
+  static NewContextArgs? _defaultInstance;
 
   @$pb.TagNumber(2)
   $core.int get seed => $_getIZ(0);
@@ -319,26 +319,76 @@ class NewContextRequest extends $pb.GeneratedMessage {
   void clearOffloadKqv() => clearField(18);
 }
 
-class AddTextRequest extends $pb.GeneratedMessage {
-  factory AddTextRequest({
-    Context? context,
+class FreeContextArgs extends $pb.GeneratedMessage {
+  factory FreeContextArgs({
+    $core.int? ctx,
+  }) {
+    final $result = create();
+    if (ctx != null) {
+      $result.ctx = ctx;
+    }
+    return $result;
+  }
+  FreeContextArgs._() : super();
+  factory FreeContextArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory FreeContextArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'FreeContextArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  FreeContextArgs clone() => FreeContextArgs()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  FreeContextArgs copyWith(void Function(FreeContextArgs) updates) => super.copyWith((message) => updates(message as FreeContextArgs)) as FreeContextArgs;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FreeContextArgs create() => FreeContextArgs._();
+  FreeContextArgs createEmptyInstance() => create();
+  static $pb.PbList<FreeContextArgs> createRepeated() => $pb.PbList<FreeContextArgs>();
+  @$core.pragma('dart2js:noInline')
+  static FreeContextArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<FreeContextArgs>(create);
+  static FreeContextArgs? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get ctx => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCtx() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCtx() => clearField(1);
+}
+
+class AddTextArgs extends $pb.GeneratedMessage {
+  factory AddTextArgs({
+    $core.int? ctx,
     $core.String? text,
   }) {
     final $result = create();
-    if (context != null) {
-      $result.context = context;
+    if (ctx != null) {
+      $result.ctx = ctx;
     }
     if (text != null) {
       $result.text = text;
     }
     return $result;
   }
-  AddTextRequest._() : super();
-  factory AddTextRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory AddTextRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  AddTextArgs._() : super();
+  factory AddTextArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory AddTextArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddTextRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
-    ..aOM<Context>(1, _omitFieldNames ? '' : 'context', subBuilder: Context.create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddTextArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
     ..aOS(2, _omitFieldNames ? '' : 'text')
     ..hasRequiredFields = false
   ;
@@ -347,33 +397,31 @@ class AddTextRequest extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  AddTextRequest clone() => AddTextRequest()..mergeFromMessage(this);
+  AddTextArgs clone() => AddTextArgs()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  AddTextRequest copyWith(void Function(AddTextRequest) updates) => super.copyWith((message) => updates(message as AddTextRequest)) as AddTextRequest;
+  AddTextArgs copyWith(void Function(AddTextArgs) updates) => super.copyWith((message) => updates(message as AddTextArgs)) as AddTextArgs;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static AddTextRequest create() => AddTextRequest._();
-  AddTextRequest createEmptyInstance() => create();
-  static $pb.PbList<AddTextRequest> createRepeated() => $pb.PbList<AddTextRequest>();
+  static AddTextArgs create() => AddTextArgs._();
+  AddTextArgs createEmptyInstance() => create();
+  static $pb.PbList<AddTextArgs> createRepeated() => $pb.PbList<AddTextArgs>();
   @$core.pragma('dart2js:noInline')
-  static AddTextRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AddTextRequest>(create);
-  static AddTextRequest? _defaultInstance;
+  static AddTextArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AddTextArgs>(create);
+  static AddTextArgs? _defaultInstance;
 
   @$pb.TagNumber(1)
-  Context get context => $_getN(0);
+  $core.int get ctx => $_getIZ(0);
   @$pb.TagNumber(1)
-  set context(Context v) { setField(1, v); }
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
   @$pb.TagNumber(1)
-  $core.bool hasContext() => $_has(0);
+  $core.bool hasCtx() => $_has(0);
   @$pb.TagNumber(1)
-  void clearContext() => clearField(1);
-  @$pb.TagNumber(1)
-  Context ensureContext() => $_ensure(0);
+  void clearCtx() => clearField(1);
 
   @$pb.TagNumber(2)
   $core.String get text => $_getSZ(1);
@@ -385,26 +433,26 @@ class AddTextRequest extends $pb.GeneratedMessage {
   void clearText() => clearField(2);
 }
 
-class TrimRequest extends $pb.GeneratedMessage {
-  factory TrimRequest({
-    Context? context,
+class TrimArgs extends $pb.GeneratedMessage {
+  factory TrimArgs({
+    $core.int? ctx,
     $core.int? length,
   }) {
     final $result = create();
-    if (context != null) {
-      $result.context = context;
+    if (ctx != null) {
+      $result.ctx = ctx;
     }
     if (length != null) {
       $result.length = length;
     }
     return $result;
   }
-  TrimRequest._() : super();
-  factory TrimRequest.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TrimRequest.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  TrimArgs._() : super();
+  factory TrimArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory TrimArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrimRequest', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
-    ..aOM<Context>(1, _omitFieldNames ? '' : 'context', subBuilder: Context.create)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TrimArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
     ..a<$core.int>(2, _omitFieldNames ? '' : 'length', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
@@ -413,33 +461,31 @@ class TrimRequest extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  TrimRequest clone() => TrimRequest()..mergeFromMessage(this);
+  TrimArgs clone() => TrimArgs()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  TrimRequest copyWith(void Function(TrimRequest) updates) => super.copyWith((message) => updates(message as TrimRequest)) as TrimRequest;
+  TrimArgs copyWith(void Function(TrimArgs) updates) => super.copyWith((message) => updates(message as TrimArgs)) as TrimArgs;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static TrimRequest create() => TrimRequest._();
-  TrimRequest createEmptyInstance() => create();
-  static $pb.PbList<TrimRequest> createRepeated() => $pb.PbList<TrimRequest>();
+  static TrimArgs create() => TrimArgs._();
+  TrimArgs createEmptyInstance() => create();
+  static $pb.PbList<TrimArgs> createRepeated() => $pb.PbList<TrimArgs>();
   @$core.pragma('dart2js:noInline')
-  static TrimRequest getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrimRequest>(create);
-  static TrimRequest? _defaultInstance;
+  static TrimArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TrimArgs>(create);
+  static TrimArgs? _defaultInstance;
 
   @$pb.TagNumber(1)
-  Context get context => $_getN(0);
+  $core.int get ctx => $_getIZ(0);
   @$pb.TagNumber(1)
-  set context(Context v) { setField(1, v); }
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
   @$pb.TagNumber(1)
-  $core.bool hasContext() => $_has(0);
+  $core.bool hasCtx() => $_has(0);
   @$pb.TagNumber(1)
-  void clearContext() => clearField(1);
-  @$pb.TagNumber(1)
-  Context ensureContext() => $_ensure(0);
+  void clearCtx() => clearField(1);
 
   @$pb.TagNumber(2)
   $core.int get length => $_getIZ(1);
@@ -451,22 +497,22 @@ class TrimRequest extends $pb.GeneratedMessage {
   void clearLength() => clearField(2);
 }
 
-class Context extends $pb.GeneratedMessage {
-  factory Context({
-    $core.int? id,
+class IngestArgs extends $pb.GeneratedMessage {
+  factory IngestArgs({
+    $core.int? ctx,
   }) {
     final $result = create();
-    if (id != null) {
-      $result.id = id;
+    if (ctx != null) {
+      $result.ctx = ctx;
     }
     return $result;
   }
-  Context._() : super();
-  factory Context.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory Context.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+  IngestArgs._() : super();
+  factory IngestArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory IngestArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
 
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Context', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
-    ..a<$core.int>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.O3)
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'IngestArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
     ..hasRequiredFields = false
   ;
 
@@ -474,31 +520,175 @@ class Context extends $pb.GeneratedMessage {
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
   'Will be removed in next major version')
-  Context clone() => Context()..mergeFromMessage(this);
+  IngestArgs clone() => IngestArgs()..mergeFromMessage(this);
   @$core.Deprecated(
   'Using this can add significant overhead to your binary. '
   'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
   'Will be removed in next major version')
-  Context copyWith(void Function(Context) updates) => super.copyWith((message) => updates(message as Context)) as Context;
+  IngestArgs copyWith(void Function(IngestArgs) updates) => super.copyWith((message) => updates(message as IngestArgs)) as IngestArgs;
 
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
-  static Context create() => Context._();
-  Context createEmptyInstance() => create();
-  static $pb.PbList<Context> createRepeated() => $pb.PbList<Context>();
+  static IngestArgs create() => IngestArgs._();
+  IngestArgs createEmptyInstance() => create();
+  static $pb.PbList<IngestArgs> createRepeated() => $pb.PbList<IngestArgs>();
   @$core.pragma('dart2js:noInline')
-  static Context getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Context>(create);
-  static Context? _defaultInstance;
+  static IngestArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<IngestArgs>(create);
+  static IngestArgs? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $core.int get id => $_getIZ(0);
+  $core.int get ctx => $_getIZ(0);
   @$pb.TagNumber(1)
-  set id($core.int v) { $_setSignedInt32(0, v); }
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
   @$pb.TagNumber(1)
-  $core.bool hasId() => $_has(0);
+  $core.bool hasCtx() => $_has(0);
   @$pb.TagNumber(1)
-  void clearId() => clearField(1);
+  void clearCtx() => clearField(1);
+}
+
+class GenerateArgs extends $pb.GeneratedMessage {
+  factory GenerateArgs({
+    $core.int? ctx,
+  }) {
+    final $result = create();
+    if (ctx != null) {
+      $result.ctx = ctx;
+    }
+    return $result;
+  }
+  GenerateArgs._() : super();
+  factory GenerateArgs.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory GenerateArgs.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GenerateArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  GenerateArgs clone() => GenerateArgs()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  GenerateArgs copyWith(void Function(GenerateArgs) updates) => super.copyWith((message) => updates(message as GenerateArgs)) as GenerateArgs;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static GenerateArgs create() => GenerateArgs._();
+  GenerateArgs createEmptyInstance() => create();
+  static $pb.PbList<GenerateArgs> createRepeated() => $pb.PbList<GenerateArgs>();
+  @$core.pragma('dart2js:noInline')
+  static GenerateArgs getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<GenerateArgs>(create);
+  static GenerateArgs? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get ctx => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCtx() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCtx() => clearField(1);
+}
+
+class NewContextResp extends $pb.GeneratedMessage {
+  factory NewContextResp({
+    $core.int? ctx,
+  }) {
+    final $result = create();
+    if (ctx != null) {
+      $result.ctx = ctx;
+    }
+    return $result;
+  }
+  NewContextResp._() : super();
+  factory NewContextResp.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory NewContextResp.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'NewContextResp', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  NewContextResp clone() => NewContextResp()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  NewContextResp copyWith(void Function(NewContextResp) updates) => super.copyWith((message) => updates(message as NewContextResp)) as NewContextResp;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NewContextResp create() => NewContextResp._();
+  NewContextResp createEmptyInstance() => create();
+  static $pb.PbList<NewContextResp> createRepeated() => $pb.PbList<NewContextResp>();
+  @$core.pragma('dart2js:noInline')
+  static NewContextResp getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<NewContextResp>(create);
+  static NewContextResp? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get ctx => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set ctx($core.int v) { $_setSignedInt32(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasCtx() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCtx() => clearField(1);
+}
+
+class AddTextResp extends $pb.GeneratedMessage {
+  factory AddTextResp({
+    $core.Iterable<Token>? toks,
+  }) {
+    final $result = create();
+    if (toks != null) {
+      $result.toks.addAll(toks);
+    }
+    return $result;
+  }
+  AddTextResp._() : super();
+  factory AddTextResp.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory AddTextResp.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'AddTextResp', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..pc<Token>(1, _omitFieldNames ? '' : 'toks', $pb.PbFieldType.PM, subBuilder: Token.create)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  AddTextResp clone() => AddTextResp()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  AddTextResp copyWith(void Function(AddTextResp) updates) => super.copyWith((message) => updates(message as AddTextResp)) as AddTextResp;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AddTextResp create() => AddTextResp._();
+  AddTextResp createEmptyInstance() => create();
+  static $pb.PbList<AddTextResp> createRepeated() => $pb.PbList<AddTextResp>();
+  @$core.pragma('dart2js:noInline')
+  static AddTextResp getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AddTextResp>(create);
+  static AddTextResp? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.List<Token> get toks => $_getList(0);
 }
 
 class Token extends $pb.GeneratedMessage {
@@ -563,50 +753,6 @@ class Token extends $pb.GeneratedMessage {
   $core.bool hasText() => $_has(1);
   @$pb.TagNumber(2)
   void clearText() => clearField(2);
-}
-
-class TokenList extends $pb.GeneratedMessage {
-  factory TokenList({
-    $core.Iterable<Token>? toks,
-  }) {
-    final $result = create();
-    if (toks != null) {
-      $result.toks.addAll(toks);
-    }
-    return $result;
-  }
-  TokenList._() : super();
-  factory TokenList.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
-  factory TokenList.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
-
-  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'TokenList', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
-    ..pc<Token>(1, _omitFieldNames ? '' : 'toks', $pb.PbFieldType.PM, subBuilder: Token.create)
-    ..hasRequiredFields = false
-  ;
-
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
-  'Will be removed in next major version')
-  TokenList clone() => TokenList()..mergeFromMessage(this);
-  @$core.Deprecated(
-  'Using this can add significant overhead to your binary. '
-  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
-  'Will be removed in next major version')
-  TokenList copyWith(void Function(TokenList) updates) => super.copyWith((message) => updates(message as TokenList)) as TokenList;
-
-  $pb.BuilderInfo get info_ => _i;
-
-  @$core.pragma('dart2js:noInline')
-  static TokenList create() => TokenList._();
-  TokenList createEmptyInstance() => create();
-  static $pb.PbList<TokenList> createRepeated() => $pb.PbList<TokenList>();
-  @$core.pragma('dart2js:noInline')
-  static TokenList getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TokenList>(create);
-  static TokenList? _defaultInstance;
-
-  @$pb.TagNumber(1)
-  $core.List<Token> get toks => $_getList(0);
 }
 
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ensemble_protos/llamacpp.dart' as proto;
@@ -43,8 +44,8 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Map<int, Context> _contexts = {};
 
   @override
-  Future<proto.Context> newContext(
-      grpc.ServiceCall call, proto.NewContextRequest args) async {
+  Future<proto.NewContextResp> newContext(
+      grpc.ServiceCall call, proto.NewContextArgs args) async {
     checkDisposed();
     final p = Context.defaultParams;
     if (args.hasSeed()) p.seed = args.seed;
@@ -66,62 +67,63 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
     if (args.hasOffloadKqv()) p.offload_kqv = args.offloadKqv;
     final ctx = _model.newContext(p);
     _contexts[ctx.id] = ctx;
-    return proto.Context(id: ctx.id);
+    return proto.NewContextResp(ctx: ctx.id);
   }
 
   @override
   Future<proto.Void> freeContext(
-      grpc.ServiceCall call, proto.Context pctx) async {
+      grpc.ServiceCall call, proto.FreeContextArgs args) async {
     checkDisposed();
-    final ctx = _contexts.remove(pctx.id);
-    if (ctx == null) throw _noContextFoundException(pctx.id);
+    final ctx = _contexts.remove(args.ctx);
+    if (ctx == null) throw _noContextFoundException(args.ctx);
     ctx.dispose();
     return proto.Void();
   }
 
   @override
-  Future<proto.TokenList> addText(
-      grpc.ServiceCall call, proto.AddTextRequest args) async {
+  Future<proto.AddTextResp> addText(
+      grpc.ServiceCall call, proto.AddTextArgs args) async {
     checkDisposed();
 
-    final ctx = _contexts[args.context.id];
-    if (ctx == null) throw _noContextFoundException(args.context.id);
+    final ctx = _contexts[args.ctx];
+    if (ctx == null) throw _noContextFoundException(args.ctx);
 
     _log.fine('new text: ```\n${args.text}\n```');
     final toks = ctx.add(args.text).map((e) {
       return proto.Token(id: e.id, text: e.text);
     });
-    return proto.TokenList(toks: toks);
+    return proto.AddTextResp(toks: toks);
   }
 
   @override
-  Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimRequest args) async {
+  Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimArgs args) async {
     _log.fine('trim');
     checkDisposed();
 
-    final ctx = _contexts[args.context.id];
-    if (ctx == null) throw _noContextFoundException(args.context.id);
+    final ctx = _contexts[args.ctx];
+    if (ctx == null) throw _noContextFoundException(args.ctx);
 
     ctx.trim(args.length);
     return proto.Void();
   }
 
   @override
-  Future<proto.Void> ingest(grpc.ServiceCall call, proto.Context pctx) async {
-    final ctx = _contexts[pctx.id];
-    if (ctx == null) throw _noContextFoundException(pctx.id);
+  Future<proto.Void> ingest(
+      grpc.ServiceCall call, proto.IngestArgs args) async {
+    final ctx = _contexts[args.ctx];
+    if (ctx == null) throw _noContextFoundException(args.ctx);
     await ctx.ingest();
     return proto.Void();
   }
 
   @override
   Stream<proto.Token> generate(
-      grpc.ServiceCall call, proto.Context pctx) async* {
+      grpc.ServiceCall call, proto.GenerateArgs args) async* {
     checkDisposed();
     _log.fine('Generate begin');
 
-    final ctx = _contexts[pctx.id];
-    if (ctx == null) throw _noContextFoundException(pctx.id);
+    final ctx = _contexts[args.ctx];
+    if (ctx == null) throw _noContextFoundException(args.ctx);
 
     final tokStream = ctx.generate(samplers: [
       RepetitionPenalty(),
@@ -129,15 +131,20 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       Temperature(1.0),
     ]).map((tok) => proto.Token(id: tok.id, text: tok.text));
 
-    await for (final tok in tokStream) {
+    await for (final proto.Token tok in tokStream) {
+      // Needed so gRPC has a chance to get the call cancellation
+      await Future.delayed(const Duration());
+
+      // When the call is canceled on the client using gRPC, one token will be
+      // 'wasted' after generation. However, if generation is resumed from this
+      // point, this token will only have to be sampled again from the
+      // candidates, not decoded.
       if (call.isCanceled) {
         _log.info('Client canceled generation');
-        return;
-      } else {
-        yield tok;
-        // Needed so gRPC has a chance to get the call cancellation
-        await Future.delayed(const Duration());
+        break;
       }
+
+      yield tok;
     }
   }
 }
