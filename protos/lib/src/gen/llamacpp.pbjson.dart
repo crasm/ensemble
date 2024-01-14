@@ -195,14 +195,16 @@ const Token$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 5, '10': 'id'},
     {'1': 'text', '3': 2, '4': 1, '5': 9, '9': 0, '10': 'text', '17': true},
+    {'1': 'raw_text', '3': 3, '4': 1, '5': 9, '9': 1, '10': 'rawText', '17': true},
   ],
   '8': [
     {'1': '_text'},
+    {'1': '_raw_text'},
   ],
 };
 
 /// Descriptor for `Token`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List tokenDescriptor = $convert.base64Decode(
-    'CgVUb2tlbhIOCgJpZBgBIAEoBVICaWQSFwoEdGV4dBgCIAEoCUgAUgR0ZXh0iAEBQgcKBV90ZX'
-    'h0');
+    'CgVUb2tlbhIOCgJpZBgBIAEoBVICaWQSFwoEdGV4dBgCIAEoCUgAUgR0ZXh0iAEBEh4KCHJhd1'
+    '90ZXh0GAMgASgJSAFSB3Jhd1RleHSIAQFCBwoFX3RleHRCCwoJX3Jhd190ZXh0');
 

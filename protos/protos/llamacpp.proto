@@ -74,4 +74,5 @@ message IngestProgressResp {
 message Token {
   int32 id = 1;
   optional string text = 2;
+  optional string raw_text = 3;
 }

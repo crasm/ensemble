@@ -80,8 +80,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   bool get wantKeepAlive => true;
 
   late final sm.StateMachine _state;
-  late final sm.State _isViewing, _isEditing, _isIngesting, _isGenerating;
-  late final sm.StateTransition _markIngest, _markGenerate, _markStop;
+  late final sm.State _isViewing, _isEditing, _isPreparing, _isGenerating;
+  late final sm.StateTransition _doPrepare, _doGenerate, _doStopGenerating;
 
   final ScrollController _scrollCtl = ScrollController();
 
@@ -98,26 +98,40 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+
     _state = sm.StateMachine('gen page state');
+
     _isViewing = _state.newState('viewing');
     _isEditing = _state.newState('editing');
-    _isIngesting = _state.newState('ingesting');
+    _isPreparing = _state.newState('preparing');
     _isGenerating = _state.newState('generating');
-    _markIngest = _state.newStateTransition(
-      'ingest',
+
+    _doPrepare = _state.newStateTransition(
+      'prepare',
       [_isViewing, _isEditing],
-      _isIngesting,
-    )..listen((_) => setState(() {}));
-    _markGenerate = _state.newStateTransition(
+      _isPreparing,
+    )..listen((_) {
+        _onPrepare();
+        setState(() {});
+      });
+
+    _doGenerate = _state.newStateTransition(
       'generate',
-      [_isIngesting],
+      [_isPreparing],
       _isGenerating,
-    )..listen((_) => setState(() {}));
-    _markStop = _state.newStateTransition(
-      'stop',
-      [_isIngesting, _isGenerating],
+    )..listen((_) {
+        _onGenerate();
+        setState(() {});
+      });
+
+    _doStopGenerating = _state.newStateTransition(
+      'stop generating',
+      [_isPreparing, _isGenerating],
       _isViewing,
-    )..listen((_) => setState(() {}));
+    )..listen((_) {
+        _onStop();
+        setState(() {});
+      });
 
     _state.start(_isViewing);
 
@@ -126,13 +140,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       port: 8888,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
-    _client = pb.LlamaCppClient(
-      _channel,
-      options: CallOptions(
-        // timeout: const Duration(seconds: 30),
-        timeout: const Duration(minutes: 30),
-      ),
-    );
+    _client = pb.LlamaCppClient(_channel);
 
     _textCtl.text = 'A chat.\nUSER: ';
 
@@ -171,7 +179,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
     return buf.toString().trim();
   }
 
-  Future<void> _startGenerating() async {
+  Future<void> _onPrepare() async {
     final buf = _textCtl.text.trimRight();
     final ctx = await _ctx;
 
@@ -192,7 +200,8 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             j += tokRunes.length;
             continue;
           } else {
-            _log.fine('token that did not match: `${_runesToString(tokRunes)}`'
+            _log.fine('First token that has changed:'
+                ' `${_runesToString(tokRunes)}`'
                 ' != `${_runesToString(bufTokMatch)}`');
           }
         }
@@ -201,31 +210,33 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       }
     }
 
-    _log.fine('Decoding from token index $i');
+    _log.info('Trimming context window to $i tokens');
     _decodedTokens.length = i;
     await _client.trim(pb.TrimArgs(ctx: ctx, length: i));
 
     //
     // Add needed text, and decode
-    _log.fine('Adding text');
+    _log.info('Adding and tokenizing ${buf.runes.length - j} runes');
     final addedTokens = await _client.addText(pb.AddTextArgs(
       ctx: ctx,
       text: _runesToString(buf.runes.skip(j)),
     ));
-
-    _markIngest();
-    _log.fine('Ingesting');
+    _log.info('Added ${addedTokens.toks.length} tokens');
     _decodedTokens.addAll(addedTokens.toks);
+
+    _log.info('Ingesting context');
     await for (final progress in _client.ingest(pb.IngestArgs(ctx: ctx))) {
-      _log.finer('ingest progress: ${progress.done}/${progress.total} '
+      _log.info('Ingesting progress: ${progress.done}/${progress.total} '
           '(batch size: ${progress.batchSize})');
     }
 
-    //
-    // Generate new tokens
-    _markGenerate();
-    _log.fine('Generating');
-    _resp = _client.generate(pb.GenerateArgs(ctx: ctx))
+    _doGenerate();
+  }
+
+  /// Generates new tokens
+  Future<void> _onGenerate() async {
+    _log.info('Generating started');
+    _resp = _client.generate(pb.GenerateArgs(ctx: await _ctx))
       ..listen(
         (tok) {
           if (tok.hasText()) {
@@ -235,20 +246,26 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           }
         },
         onDone: () {
-          _log.fine('Done generating');
-          _markStop();
+          _log.fine('Generating done');
+          _doStopGenerating();
         },
         onError: (e) {
-          _log.fine(e);
-          _markStop();
+          // This is commonly triggered when the call is canceled client-side.
+          if (_isGenerating()) _doStopGenerating();
+          switch (e.code) {
+            case StatusCode.cancelled:
+              _log.info('Generating was cancelled');
+              _log.finest(e);
+            default:
+              _log.severe(e);
+          }
         },
         cancelOnError: true,
       );
   }
 
-  Future<void> _stopGenerating() async {
+  Future<void> _onStop() async {
     await _resp?.cancel();
-    _markStop();
   }
 
   // Reasonable defaults (but should be updated immediately)
@@ -331,7 +348,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           children: [
             SizedBox(height: topPadding),
             GestureDetector(
-              onTap: _stopGenerating,
+              onTap: _doStopGenerating,
               child: _isGenerating()
                   ? Text(_contextString(), style: style)
                   : TextField(
@@ -344,9 +361,13 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             ),
             SizedBox(
               height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
-              child: GestureDetector(
-                onTap: _isGenerating() ? _stopGenerating : _focusGenTail,
-              ),
+              child: GestureDetector(onTap: () {
+                if (_isGenerating()) {
+                  _doStopGenerating();
+                } else {
+                  _focusGenTail();
+                }
+              }),
             ),
           ],
         ),
@@ -385,10 +406,18 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           ),
           Column(children: [
             IconButton.filled(
-              onPressed: () =>
-                  _isGenerating() ? _stopGenerating() : _startGenerating(),
+              onPressed: () {
+                if (_isPreparing()) return;
+                if (_isGenerating()) {
+                  _doStopGenerating();
+                } else {
+                  _doPrepare();
+                }
+              },
               iconSize: 48,
-              icon: Icon(_isGenerating() ? Icons.pause : Icons.play_arrow),
+              icon: Icon(_isPreparing() || _isGenerating()
+                  ? Icons.pause
+                  : Icons.play_arrow),
             ),
             Container(),
           ]),
@@ -417,10 +446,6 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       ),
     );
   }
-}
-
-extension<T> on T {
-  void withas<R>(R Function(T) f) => f(this);
 }
 
 extension on BuildContext {

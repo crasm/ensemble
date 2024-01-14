@@ -10,20 +10,21 @@ final _noContextFoundException =
     (id) => Exception('no context with id=$id found');
 
 class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
-  final _log = Logger('LlmService');
+  final _log = Logger('LlamaCppService');
 
   final Model _model;
   LlamaCppService._(this._model);
 
   static Future<LlamaCppService> create() async {
+    final _log = Logger('LlamaCppService.create');
+    // TODO(crasm): make this a command-line arg
     final model = LlamaCpp.loadModel(
       // '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
       '/Users/vczf/llm/models/airoboros-l2-70b-gpt4-1.4.1.Q6_K.gguf',
       params: Model.defaultParams..n_gpu_layers = 1,
-      // ..use_mmap = false,
       progressCallback: (p) {
         if (p == 1.0) {
-          stderr.writeln('Done!');
+          _log.info('Loaded model');
         } else {
           stderr.writeAll([(100 * p).truncate(), '\r']);
         }
@@ -74,6 +75,8 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Future<proto.Void> freeContext(
       grpc.ServiceCall call, proto.FreeContextArgs args) async {
     checkDisposed();
+    _log.info('Freeing context #${args.ctx}');
+
     final ctx = _contexts.remove(args.ctx);
     if (ctx == null) throw _noContextFoundException(args.ctx);
     ctx.dispose();
@@ -84,21 +87,36 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Future<proto.AddTextResp> addText(
       grpc.ServiceCall call, proto.AddTextArgs args) async {
     checkDisposed();
+    _log.info('Adding text: ```${args.text}```');
 
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
 
-    _log.fine('new text: ```\n${args.text}\n```');
-    final toks = ctx.add(args.text).map((e) {
-      return proto.Token(id: e.id, text: e.text);
+    final toks = ctx.add(args.text);
+    _log.info(() {
+      final buf = StringBuffer('Added ${toks.length} tokens: [\n');
+      for (var i = 0; i < toks.length; i++) {
+        buf.writeln(toks[i].toString(i));
+      }
+      buf.write(']');
+      return buf.toString();
     });
-    return proto.AddTextResp(toks: toks);
+
+    return proto.AddTextResp(
+      toks: toks.map(
+        (e) => proto.Token(
+          id: e.id,
+          text: e.text,
+          rawText: e.rawText,
+        ),
+      ),
+    );
   }
 
   @override
   Future<proto.Void> trim(grpc.ServiceCall call, proto.TrimArgs args) async {
-    _log.fine('trim');
     checkDisposed();
+    _log.info('Trimming to ${args.length} tokens');
 
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
@@ -110,8 +128,12 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   @override
   Stream<proto.IngestProgressResp> ingest(
       grpc.ServiceCall call, proto.IngestArgs args) {
+    checkDisposed();
+    _log.info('Ingesting context');
+
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
+
     return ctx.ingestWithProgress().map((a) {
       return proto.IngestProgressResp(
         done: a.done,
@@ -125,7 +147,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   Stream<proto.Token> generate(
       grpc.ServiceCall call, proto.GenerateArgs args) async* {
     checkDisposed();
-    _log.fine('Generate begin');
+    _log.info('Generating started');
 
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
@@ -134,9 +156,9 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       RepetitionPenalty(),
       MinP(0.18),
       Temperature(1.0),
-    ]).map((tok) => proto.Token(id: tok.id, text: tok.text));
+    ]);
 
-    await for (final proto.Token tok in tokStream) {
+    await for (final tok in tokStream) {
       // Needed so gRPC has a chance to get the call cancellation
       await Future.delayed(const Duration());
 
@@ -145,11 +167,12 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       // point, this token will only have to be sampled again from the
       // candidates, not decoded.
       if (call.isCanceled) {
-        _log.info('Client canceled generation');
+        _log.info('Generating canceled by client');
         break;
       }
 
-      yield tok;
+      _log.fine('Generated token: $tok');
+      yield proto.Token(id: tok.id, text: tok.text, rawText: tok.rawText);
     }
   }
 }
@@ -162,11 +185,14 @@ void main(List<String> arguments) async {
     stderr.writeln(
       '${e.level.name.padRight(7)}: '
       '${diff.inMilliseconds.toString().padLeft(6, '0')}: '
+      '${e.loggerName}: '
       '${e.message}',
     );
   });
 
+  final _log = Logger('main');
+
   final server = grpc.Server.create(services: [await LlamaCppService.create()]);
   await server.serve(address: 'brick', port: 8888);
-  print('Server listening on port ${server.port}');
+  _log.info('Listening on port ${server.port}');
 }

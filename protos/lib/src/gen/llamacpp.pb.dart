@@ -773,6 +773,7 @@ class Token extends $pb.GeneratedMessage {
   factory Token({
     $core.int? id,
     $core.String? text,
+    $core.String? rawText,
   }) {
     final $result = create();
     if (id != null) {
@@ -780,6 +781,9 @@ class Token extends $pb.GeneratedMessage {
     }
     if (text != null) {
       $result.text = text;
+    }
+    if (rawText != null) {
+      $result.rawText = rawText;
     }
     return $result;
   }
@@ -790,6 +794,7 @@ class Token extends $pb.GeneratedMessage {
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'Token', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..a<$core.int>(1, _omitFieldNames ? '' : 'id', $pb.PbFieldType.O3)
     ..aOS(2, _omitFieldNames ? '' : 'text')
+    ..aOS(3, _omitFieldNames ? '' : 'rawText')
     ..hasRequiredFields = false
   ;
 
@@ -831,6 +836,15 @@ class Token extends $pb.GeneratedMessage {
   $core.bool hasText() => $_has(1);
   @$pb.TagNumber(2)
   void clearText() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get rawText => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set rawText($core.String v) { $_setString(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasRawText() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRawText() => clearField(3);
 }
 
 

@@ -106,8 +106,8 @@ final class LlamaCpp {
         throw ArgumentError.value(
             params.progress_callback,
             'params.progress_callback',
-            'you cannot set params.progress_callback, use progressCallback '
-                'instead');
+            'you cannot set params.progress_callback,'
+                ' use progressCallback instead');
       }
 
       if (progressCallback != null) {
@@ -330,18 +330,7 @@ final class Context with Disposable {
   List<Token> add(String text) {
     checkDisposed();
     final numToks = tokens.addFromString(model.pointer, text);
-    final newToks = tokens.toList(model.pointer, numToks);
-    _log.finest(() {
-      if (newToks.isEmpty) {
-        return "Context.add([ '' ])";
-      }
-
-      final buf = StringBuffer('Context.add([\n');
-      newToks.forEach(buf.writeln);
-      buf.write('])');
-      return buf.toString();
-    });
-    return newToks;
+    return tokens.toList(model.pointer, numToks);
   }
 
   void _trimKvCache(int length) {
@@ -385,7 +374,7 @@ final class Context with Disposable {
 
       int tokensToDecode() => tokens.length - i;
 
-      _log.info('Ingesting ${tokensToDecode()} tokens');
+      _log.fine('Ingesting ${tokensToDecode()} tokens');
 
       while ((i = logits.length) + j < tokens.length) {
         final isLastBatch = tokensToDecode() <= batchSize;
@@ -480,10 +469,7 @@ final class Context with Disposable {
 
         tok ??= const _DefaultLastSampler().sample(this);
 
-        // // ignore: inference_failure_on_instance_creation
-        // await Future.delayed(Duration.zero);
         tokens.add(tok!.id);
-        _log.finer('generated token: $tok');
         yield tok;
 
         // Check if end of stream
