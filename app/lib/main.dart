@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:ensemble_protos/llamacpp.dart' as pb;
 import 'package:grpc/grpc.dart';
 import 'package:logging/logging.dart';
+import 'package:state_machine/state_machine.dart' as sm;
 
 Logger _log = Logger('main.dart');
 
@@ -78,14 +79,16 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
+  late final sm.StateMachine _state;
+  late final sm.State _isViewing, _isEditing, _isIngesting, _isGenerating;
+  late final sm.StateTransition _markIngest, _markGenerate, _markStop;
+
   final ScrollController _scrollCtl = ScrollController();
 
   late final ClientChannel _channel;
   late final pb.LlamaCppClient _client;
 
   late final Future<int> _ctx;
-
-  bool _isGenerating = false;
 
   ResponseStream<pb.Token>? _resp;
 
@@ -95,6 +98,29 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   @override
   void initState() {
     super.initState();
+    _state = sm.StateMachine('gen page state');
+    _isViewing = _state.newState('viewing');
+    _isEditing = _state.newState('editing');
+    _isIngesting = _state.newState('ingesting');
+    _isGenerating = _state.newState('generating');
+    _markIngest = _state.newStateTransition(
+      'ingest',
+      [_isViewing, _isEditing],
+      _isIngesting,
+    )..listen((_) => setState(() {}));
+    _markGenerate = _state.newStateTransition(
+      'generate',
+      [_isIngesting],
+      _isGenerating,
+    )..listen((_) => setState(() {}));
+    _markStop = _state.newStateTransition(
+      'stop',
+      [_isIngesting, _isGenerating],
+      _isViewing,
+    )..listen((_) => setState(() {}));
+
+    _state.start(_isViewing);
+
     _channel = ClientChannel(
       'brick',
       port: 8888,
@@ -146,8 +172,6 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   }
 
   Future<void> _startGenerating() async {
-    setState(() => _isGenerating = true);
-
     final buf = _textCtl.text.trimRight();
     final ctx = await _ctx;
 
@@ -189,6 +213,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
       text: _runesToString(buf.runes.skip(j)),
     ));
 
+    _markIngest();
     _log.fine('Ingesting');
     _decodedTokens.addAll(addedTokens.toks);
     await for (final progress in _client.ingest(pb.IngestArgs(ctx: ctx))) {
@@ -198,6 +223,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
     //
     // Generate new tokens
+    _markGenerate();
     _log.fine('Generating');
     _resp = _client.generate(pb.GenerateArgs(ctx: ctx))
       ..listen(
@@ -210,11 +236,11 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
         },
         onDone: () {
           _log.fine('Done generating');
-          setState(() => _isGenerating = false);
+          _markStop();
         },
         onError: (e) {
           _log.fine(e);
-          setState(() => _isGenerating = false);
+          _markStop();
         },
         cancelOnError: true,
       );
@@ -222,7 +248,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
   Future<void> _stopGenerating() async {
     await _resp?.cancel();
-    setState(() => _isGenerating = false);
+    _markStop();
   }
 
   // Reasonable defaults (but should be updated immediately)
@@ -306,7 +332,7 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
             SizedBox(height: topPadding),
             GestureDetector(
               onTap: _stopGenerating,
-              child: _isGenerating
+              child: _isGenerating()
                   ? Text(_contextString(), style: style)
                   : TextField(
                       focusNode: _genFocusNode,
@@ -317,9 +343,11 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
                     ),
             ),
             SizedBox(
-                height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
-                child: GestureDetector(
-                    onTap: _isGenerating ? _stopGenerating : _focusGenTail)),
+              height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
+              child: GestureDetector(
+                onTap: _isGenerating() ? _stopGenerating : _focusGenTail,
+              ),
+            ),
           ],
         ),
       );
@@ -358,9 +386,9 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
           Column(children: [
             IconButton.filled(
               onPressed: () =>
-                  _isGenerating ? _stopGenerating() : _startGenerating(),
+                  _isGenerating() ? _stopGenerating() : _startGenerating(),
               iconSize: 48,
-              icon: Icon(_isGenerating ? Icons.pause : Icons.play_arrow),
+              icon: Icon(_isGenerating() ? Icons.pause : Icons.play_arrow),
             ),
             Container(),
           ]),
