@@ -108,12 +108,17 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   }
 
   @override
-  Future<proto.Void> ingest(
-      grpc.ServiceCall call, proto.IngestArgs args) async {
+  Stream<proto.IngestProgressResp> ingest(
+      grpc.ServiceCall call, proto.IngestArgs args) {
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
-    await ctx.ingest();
-    return proto.Void();
+    return ctx.ingestWithProgress().map((a) {
+      return proto.IngestProgressResp(
+        done: a.done,
+        total: a.total,
+        batchSize: a.batchSize,
+      );
+    });
   }
 
   @override

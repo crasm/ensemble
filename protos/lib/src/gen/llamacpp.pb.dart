@@ -691,6 +691,84 @@ class AddTextResp extends $pb.GeneratedMessage {
   $core.List<Token> get toks => $_getList(0);
 }
 
+class IngestProgressResp extends $pb.GeneratedMessage {
+  factory IngestProgressResp({
+    $core.int? done,
+    $core.int? total,
+    $core.int? batchSize,
+  }) {
+    final $result = create();
+    if (done != null) {
+      $result.done = done;
+    }
+    if (total != null) {
+      $result.total = total;
+    }
+    if (batchSize != null) {
+      $result.batchSize = batchSize;
+    }
+    return $result;
+  }
+  IngestProgressResp._() : super();
+  factory IngestProgressResp.fromBuffer($core.List<$core.int> i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromBuffer(i, r);
+  factory IngestProgressResp.fromJson($core.String i, [$pb.ExtensionRegistry r = $pb.ExtensionRegistry.EMPTY]) => create()..mergeFromJson(i, r);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'IngestProgressResp', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
+    ..a<$core.int>(1, _omitFieldNames ? '' : 'done', $pb.PbFieldType.OU3)
+    ..a<$core.int>(2, _omitFieldNames ? '' : 'total', $pb.PbFieldType.OU3)
+    ..a<$core.int>(3, _omitFieldNames ? '' : 'batchSize', $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false
+  ;
+
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.deepCopy] instead. '
+  'Will be removed in next major version')
+  IngestProgressResp clone() => IngestProgressResp()..mergeFromMessage(this);
+  @$core.Deprecated(
+  'Using this can add significant overhead to your binary. '
+  'Use [GeneratedMessageGenericExtensions.rebuild] instead. '
+  'Will be removed in next major version')
+  IngestProgressResp copyWith(void Function(IngestProgressResp) updates) => super.copyWith((message) => updates(message as IngestProgressResp)) as IngestProgressResp;
+
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static IngestProgressResp create() => IngestProgressResp._();
+  IngestProgressResp createEmptyInstance() => create();
+  static $pb.PbList<IngestProgressResp> createRepeated() => $pb.PbList<IngestProgressResp>();
+  @$core.pragma('dart2js:noInline')
+  static IngestProgressResp getDefault() => _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<IngestProgressResp>(create);
+  static IngestProgressResp? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get done => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set done($core.int v) { $_setUnsignedInt32(0, v); }
+  @$pb.TagNumber(1)
+  $core.bool hasDone() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDone() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get total => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set total($core.int v) { $_setUnsignedInt32(1, v); }
+  @$pb.TagNumber(2)
+  $core.bool hasTotal() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTotal() => clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get batchSize => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set batchSize($core.int v) { $_setUnsignedInt32(2, v); }
+  @$pb.TagNumber(3)
+  $core.bool hasBatchSize() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBatchSize() => clearField(3);
+}
+
 class Token extends $pb.GeneratedMessage {
   factory Token({
     $core.int? id,

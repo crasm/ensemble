@@ -191,7 +191,10 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
 
     _log.fine('Ingesting');
     _decodedTokens.addAll(addedTokens.toks);
-    await _client.ingest(pb.IngestArgs(ctx: ctx));
+    await for (final progress in _client.ingest(pb.IngestArgs(ctx: ctx))) {
+      _log.finer('ingest progress: ${progress.done}/${progress.total} '
+          '(batch size: ${progress.batchSize})');
+    }
 
     //
     // Generate new tokens

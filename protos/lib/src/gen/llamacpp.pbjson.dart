@@ -174,6 +174,21 @@ const AddTextResp$json = {
 final $typed_data.Uint8List addTextRespDescriptor = $convert.base64Decode(
     'CgtBZGRUZXh0UmVzcBIjCgR0b2tzGAEgAygLMg8uTGxhbWFDcHAuVG9rZW5SBHRva3M=');
 
+@$core.Deprecated('Use ingestProgressRespDescriptor instead')
+const IngestProgressResp$json = {
+  '1': 'IngestProgressResp',
+  '2': [
+    {'1': 'done', '3': 1, '4': 1, '5': 13, '10': 'done'},
+    {'1': 'total', '3': 2, '4': 1, '5': 13, '10': 'total'},
+    {'1': 'batch_size', '3': 3, '4': 1, '5': 13, '10': 'batchSize'},
+  ],
+};
+
+/// Descriptor for `IngestProgressResp`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List ingestProgressRespDescriptor = $convert.base64Decode(
+    'ChJJbmdlc3RQcm9ncmVzc1Jlc3ASEgoEZG9uZRgBIAEoDVIEZG9uZRIUCgV0b3RhbBgCIAEoDV'
+    'IFdG90YWwSHQoKYmF0Y2hfc2l6ZRgDIAEoDVIJYmF0Y2hTaXpl');
+
 @$core.Deprecated('Use tokenDescriptor instead')
 const Token$json = {
   '1': 'Token',

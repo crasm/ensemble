@@ -37,10 +37,10 @@ class LlamaCppClient extends $grpc.Client {
       '/LlamaCpp.LlamaCpp/Trim',
       ($0.TrimArgs value) => value.writeToBuffer(),
       ($core.List<$core.int> value) => $0.Void.fromBuffer(value));
-  static final _$ingest = $grpc.ClientMethod<$0.IngestArgs, $0.Void>(
+  static final _$ingest = $grpc.ClientMethod<$0.IngestArgs, $0.IngestProgressResp>(
       '/LlamaCpp.LlamaCpp/Ingest',
       ($0.IngestArgs value) => value.writeToBuffer(),
-      ($core.List<$core.int> value) => $0.Void.fromBuffer(value));
+      ($core.List<$core.int> value) => $0.IngestProgressResp.fromBuffer(value));
   static final _$generate = $grpc.ClientMethod<$0.GenerateArgs, $0.Token>(
       '/LlamaCpp.LlamaCpp/Generate',
       ($0.GenerateArgs value) => value.writeToBuffer(),
@@ -68,8 +68,8 @@ class LlamaCppClient extends $grpc.Client {
     return $createUnaryCall(_$trim, request, options: options);
   }
 
-  $grpc.ResponseFuture<$0.Void> ingest($0.IngestArgs request, {$grpc.CallOptions? options}) {
-    return $createUnaryCall(_$ingest, request, options: options);
+  $grpc.ResponseStream<$0.IngestProgressResp> ingest($0.IngestArgs request, {$grpc.CallOptions? options}) {
+    return $createStreamingCall(_$ingest, $async.Stream.fromIterable([request]), options: options);
   }
 
   $grpc.ResponseStream<$0.Token> generate($0.GenerateArgs request, {$grpc.CallOptions? options}) {
@@ -110,13 +110,13 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.TrimArgs.fromBuffer(value),
         ($0.Void value) => value.writeToBuffer()));
-    $addMethod($grpc.ServiceMethod<$0.IngestArgs, $0.Void>(
+    $addMethod($grpc.ServiceMethod<$0.IngestArgs, $0.IngestProgressResp>(
         'Ingest',
         ingest_Pre,
         false,
-        false,
+        true,
         ($core.List<$core.int> value) => $0.IngestArgs.fromBuffer(value),
-        ($0.Void value) => value.writeToBuffer()));
+        ($0.IngestProgressResp value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.GenerateArgs, $0.Token>(
         'Generate',
         generate_Pre,
@@ -142,8 +142,8 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
     return trim(call, await request);
   }
 
-  $async.Future<$0.Void> ingest_Pre($grpc.ServiceCall call, $async.Future<$0.IngestArgs> request) async {
-    return ingest(call, await request);
+  $async.Stream<$0.IngestProgressResp> ingest_Pre($grpc.ServiceCall call, $async.Future<$0.IngestArgs> request) async* {
+    yield* ingest(call, await request);
   }
 
   $async.Stream<$0.Token> generate_Pre($grpc.ServiceCall call, $async.Future<$0.GenerateArgs> request) async* {
@@ -154,6 +154,6 @@ abstract class LlamaCppServiceBase extends $grpc.Service {
   $async.Future<$0.Void> freeContext($grpc.ServiceCall call, $0.FreeContextArgs request);
   $async.Future<$0.AddTextResp> addText($grpc.ServiceCall call, $0.AddTextArgs request);
   $async.Future<$0.Void> trim($grpc.ServiceCall call, $0.TrimArgs request);
-  $async.Future<$0.Void> ingest($grpc.ServiceCall call, $0.IngestArgs request);
+  $async.Stream<$0.IngestProgressResp> ingest($grpc.ServiceCall call, $0.IngestArgs request);
   $async.Stream<$0.Token> generate($grpc.ServiceCall call, $0.GenerateArgs request);
 }

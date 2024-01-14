@@ -53,7 +53,7 @@ service LlamaCpp {
   rpc FreeContext(FreeContextArgs) returns (Void);
   rpc AddText(AddTextArgs) returns (AddTextResp);
   rpc Trim(TrimArgs) returns (Void);
-  rpc Ingest(IngestArgs) returns (Void); // TODO(crasm): return IngestProgressEvent stream
+  rpc Ingest(IngestArgs) returns (stream IngestProgressResp);
   rpc Generate(GenerateArgs) returns (stream Token); // TODO(crasm): samplers
 }
 
@@ -63,6 +63,12 @@ message NewContextResp {
 
 message AddTextResp {
   repeated Token toks = 1;
+}
+
+message IngestProgressResp {
+  uint32 done = 1;
+  uint32 total = 2;
+  uint32 batch_size = 3;
 }
 
 message Token {
