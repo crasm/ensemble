@@ -62,20 +62,21 @@ class Home extends StatelessWidget {
         ],
       ),
       body: PageView(children: [
-        GenPage(),
-        GenPage(),
+        CompletionsPage(),
+        CompletionsPage(),
       ]),
     );
   }
 }
 
-class GenPage extends StatefulWidget {
-  const GenPage({super.key});
+class CompletionsPage extends StatefulWidget {
+  const CompletionsPage({super.key});
   @override
-  State<StatefulWidget> createState() => _GenPageState();
+  State<StatefulWidget> createState() => _CompletionsPageState();
 }
 
-class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
+class _CompletionsPageState extends State<CompletionsPage>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -176,10 +177,11 @@ class _GenPageState extends State<GenPage> with AutomaticKeepAliveClientMixin {
   String _runesToString(Iterable<int> runes) {
     final buf = StringBuffer();
     runes.forEach(buf.writeCharCode);
-    return buf.toString().trim();
+    return buf.toString();
   }
 
   Future<void> _onPrepare() async {
+    // TODO(crasm): should trimming be a configurable option?
     final buf = _textCtl.text.trimRight();
     final ctx = await _ctx;
 
