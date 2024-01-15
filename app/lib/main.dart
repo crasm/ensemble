@@ -143,6 +143,7 @@ class _CompletionsPageState extends State<CompletionsPage>
     );
     _client = pb.LlamaCppClient(_channel);
 
+    // TODO:(crasm) save prompts
     _textCtl.text = 'A chat.\nUSER: ';
 
     _ctx = () async {
@@ -176,7 +177,21 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   String _runesToString(Iterable<int> runes) {
     final buf = StringBuffer();
-    runes.forEach(buf.writeCharCode);
+    // runes.forEach(buf.writeCharCode);
+
+    if (runes.isNotEmpty) {
+      final runesList = runes.toList(growable: false);
+      // Write every rune except for the last one.
+      for (int i = 0; i < runesList.length - 1; i++) {
+        buf.writeCharCode(runesList[i]);
+      }
+
+      // Skip a trailing space.
+      if (runesList.last != ' ') {
+        buf.writeCharCode(runesList.last);
+      }
+    }
+
     return buf.toString();
   }
 
@@ -191,6 +206,9 @@ class _CompletionsPageState extends State<CompletionsPage>
     var j = 0; // rune index
     if (_decodedTokens.isNotEmpty) {
       final bufRunes = buf.runes.toList(growable: false);
+
+      // Match the completions buffer against our prior decoded tokens to see
+      // what has already been decoded.
       while (i < _decodedTokens.length) {
         final tokRunes = _decodedTokens[i].text.runes.toList(growable: false);
 
@@ -209,6 +227,20 @@ class _CompletionsPageState extends State<CompletionsPage>
         }
 
         break;
+      }
+
+      // Backtrack until we hit whitespace. Without backtracking, editing '_a'
+      // to '_an' becomes '_a_n'. With backtracking, we trim the '_a' token
+      // entirely and later re-add and tokenize '_an' into a single token.
+      while (i - 1 > 0) {
+        final tok = _decodedTokens[i - 1];
+        if (tok.rawText.startsWith('▁') || tok.rawText.startsWith('<0x0A>')) {
+          break;
+        }
+
+        // Go back one token
+        i--;
+        j -= tok.text.runes.length;
       }
     }
 
