@@ -177,27 +177,13 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   String _runesToString(Iterable<int> runes) {
     final buf = StringBuffer();
-    // runes.forEach(buf.writeCharCode);
-
-    if (runes.isNotEmpty) {
-      final runesList = runes.toList(growable: false);
-      // Write every rune except for the last one.
-      for (int i = 0; i < runesList.length - 1; i++) {
-        buf.writeCharCode(runesList[i]);
-      }
-
-      // Skip a trailing space.
-      if (runesList.last != ' ') {
-        buf.writeCharCode(runesList.last);
-      }
-    }
-
+    runes.forEach(buf.writeCharCode);
     return buf.toString();
   }
 
   Future<void> _onPrepare() async {
     // TODO(crasm): should trimming be a configurable option?
-    final buf = _textCtl.text.trimRight();
+    final buf = _textCtl.text;
     final ctx = await _ctx;
 
     //
