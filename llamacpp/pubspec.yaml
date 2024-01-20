@@ -49,3 +49,5 @@ ffigen:
   macros:
     include:
       - 'GGML_DEFAULT_N_THREADS'
+  compiler-opts:
+    - '-Wno-nullability-completeness'
