@@ -165,8 +165,10 @@ class _CompletionsPageState extends State<CompletionsPage>
     super.dispose();
     _textCtl.dispose();
     _scrollCtl.dispose();
-    _channel.shutdown();
-    // TODO(crasm): how and when to free context?
+    () async {
+      _client.freeContext(pb.FreeContextArgs(ctx: await _ctx));
+      _channel.shutdown();
+    }();
   }
 
   String _contextString() {
@@ -213,20 +215,6 @@ class _CompletionsPageState extends State<CompletionsPage>
         }
 
         break;
-      }
-
-      // Backtrack until we hit whitespace. Without backtracking, editing '_a'
-      // to '_an' becomes '_a_n'. With backtracking, we trim the '_a' token
-      // entirely and later re-add and tokenize '_an' into a single token.
-      while (i - 1 > 0) {
-        final tok = _decodedTokens[i - 1];
-        if (tok.rawText.startsWith('▁') || tok.rawText.startsWith('<0x0A>')) {
-          break;
-        }
-
-        // Go back one token
-        i--;
-        j -= tok.text.runes.length;
       }
     }
 
