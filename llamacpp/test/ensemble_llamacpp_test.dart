@@ -172,6 +172,25 @@ void main() {
       assert(false, 'no error thrown');
     });
 
+    // 0:     1 = <s>
+    // 1:   739 = ▁It
+    // 2: 29915 = '
+    // 3: 29879 = s
+    // 4:   278 = ▁the
+    // 5:  1095 = ▁end
+    // 6:   310 = ▁of
+    // 7:   278 = ▁the
+    // 8:  3186 = ▁world
+    // 9:   408 = ▁as
+    // 10:   591 = ▁we
+    // 11:  1073 = ▁know
+    // 12:   372 = ▁it
+    // 13: 29892 = ,
+    // 14:   322 = ▁and
+    // 15:   306 = ▁I
+    // 16:  4459 = ▁feel
+    // 17:  2691 = ▁fine
+    // 18: 29889 = .
     test('tokenize multiple add/ingest generate', () async {
       final ctx = model.newContext(
         Context.defaultParams
@@ -179,12 +198,11 @@ void main() {
           ..n_ctx = 19
           ..n_batch = 19,
       );
-      ctx.add("It's the end");
+      stderr.writeln(ctx.add("It's the end"));
       await ctx.ingest();
-      // NOTE: need to drop leading space oddly enough
-      ctx.add('of the world');
+      stderr.writeln(ctx.add(' of the world'));
       await ctx.ingest();
-      ctx.add('as we know it, and');
+      stderr.writeln(ctx.add(' as we know it, and'));
       await ctx.ingest();
 
       final gen =

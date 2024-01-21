@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:math';
 
@@ -279,6 +280,7 @@ final class Context with Disposable {
 
   /// The current tokens in this context's window.
   late final ContextTokens tokens;
+  late final Pointer<Int32> _tokenizeBuf;
 
   /// The logit sets for potential tokens for each position of this context's
   /// window, pending decoding.
@@ -297,6 +299,9 @@ final class Context with Disposable {
     final vocabSize = llama_n_vocab(model.pointer);
     pointer = llama_new_context_with_model(model.pointer, params);
     tokens = ContextTokens._(params.n_ctx);
+    // Have to +1 for the extra space that gets added!
+    _tokenizeBuf = calloc.allocate(
+        sizeOf<Int32>() * (params.n_ctx + utf8.encode("🙂").length + 1));
     logits = ContextLogits._(params.n_ctx, vocabSize);
     _candidates = Candidates(vocabSize);
     _batch = llama_batch_init(params.n_batch, 0, 1);
@@ -329,8 +334,55 @@ final class Context with Disposable {
   /// * `ctx.add(' Sam')` => `[ '<s>' '_' '_Sam' ]`
   List<Token> add(String text) {
     checkDisposed();
-    final numToks = tokens.addFromString(model.pointer, text);
-    return tokens.toList(model.pointer, numToks);
+    Pointer<Utf8>? utf;
+    try {
+      if (tokens.isEmpty) {
+        utf = text.toNativeUtf8(allocator: calloc);
+        final numTokens = llama_tokenize(
+          model.pointer,
+          utf.cast<Char>(),
+          utf.length,
+          _tokenizeBuf,
+          params.n_ctx,
+          true, // add Beginning-Of-Stream token
+          false, // tokenize meta tokens (like BOS/EOS)
+        );
+        for (var i = 0; i < numTokens; i++) {
+          tokens.add(_tokenizeBuf[i]);
+        }
+        return tokens.toList(model.pointer, numTokens);
+      } else {
+        // Need to prepend a 🙂 token to work around automatic space insertion.
+        // This does not get added to the context or decoded, but is purely for
+        // working around the SentencePiece tokenizer behavior.
+        // 🙂 becomes:
+        //            29871 = ▁
+        //              243 = <0xF0>
+        //              162 = <0x9F>
+        //              156 = <0x99>
+        //              133 = <0x82>
+        // ref: https://github.com/ggerganov/llama.cpp/issues/3664
+        // ref: https://github.com/facebookresearch/codellama/blob/6acfb714c174708bcf806f4612caa62f53c30e46/llama/tokenizer.py#L52
+        utf = "🙂$text".toNativeUtf8(allocator: calloc);
+        // Have to +1 for the extra space that still gets added!
+        final skipLen = utf8.encode("🙂").length + 1;
+        final numTokens = llama_tokenize(
+          model.pointer,
+          utf.cast<Char>(),
+          utf.length,
+          _tokenizeBuf,
+          params.n_ctx,
+          false,
+          false,
+        );
+        for (var i = skipLen; i < numTokens; i++) {
+          tokens.add(_tokenizeBuf[i]);
+        }
+        return tokens.toList(model.pointer, numTokens - skipLen);
+      }
+    } finally {
+      if (utf != null) calloc.free(utf);
+    }
   }
 
   void _trimKvCache(int length) {
