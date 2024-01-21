@@ -2,8 +2,6 @@ part of 'llamacpp.dart';
 
 /// Stores the token IDs for each token of a context window.
 final class ContextTokens with Disposable {
-  static final _log = Logger('ContextTokens');
-
   int _length = 0;
 
   /// The number of stored tokens.
@@ -51,40 +49,6 @@ final class ContextTokens with Disposable {
           'tried to store $_length tokens in $capacity token buffer');
     }
     _buf[_length++] = tokId;
-  }
-
-  /// Tokenizes [text], adds each token, and returns the number of new tokens.
-  int addFromString(Pointer<llama_model> model, String text) {
-    checkDisposed();
-    final remainingCapacity = capacity - _length;
-    Pointer<Utf8>? utf;
-    try {
-      utf = text.toNativeUtf8(allocator: calloc);
-
-      final addBos = isEmpty;
-      final numTokens = llama_tokenize(
-        model,
-        utf.cast<Char>(),
-        utf.length,
-        _buf + _length,
-        remainingCapacity,
-        addBos, // add Beginning-Of-Stream token
-        false, // tokenize meta tokens (like BOS/EOS)
-      );
-
-      if (addBos) _log.fine(() => 'Added BOS token to context');
-
-      if (numTokens < 0) {
-        throw Exception('llama_tokenize failed with $numTokens');
-      } else if (numTokens >= remainingCapacity) {
-        throw Exception('prompt too large: $numTokens >= $remainingCapacity');
-      }
-
-      _length += numTokens;
-      return numTokens;
-    } finally {
-      if (utf != null) calloc.free(utf);
-    }
   }
 
   /// Produce a list of tokens from a slice of the stored tokens.
