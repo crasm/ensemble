@@ -21,7 +21,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
     final model = LlamaCpp.loadModel(
       // '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
       '/Users/vczf/llm/models/airoboros-l2-70b-gpt4-1.4.1.Q6_K.gguf',
-      params: Model.defaultParams..n_gpu_layers = 1,
+      params: Model.defaultParams..n_gpu_layers = 100000,
       progressCallback: (p) {
         if (p == 1.0) {
           _log.info('Loaded model');
