@@ -212,7 +212,7 @@ final class RepetitionPenalty implements Sampler {
   Token? sample(Context ctx) {
     final toks = ctx.tokens;
     final cands = ctx._candidates;
-    if (!cands.pointer.ref.sorted) {
+    if (!penalizeNewline && !cands.pointer.ref.sorted) {
       throw UnsortedError('RepetitionPenalty');
     }
 
