@@ -138,7 +138,7 @@ class _CompletionsPageState extends State<CompletionsPage>
 
     _channel = ClientChannel(
       'brick',
-      port: 8888,
+      port: 8227,
       options: const ChannelOptions(credentials: ChannelCredentials.insecure()),
     );
     _client = pb.LlamaCppClient(_channel);
@@ -244,7 +244,22 @@ class _CompletionsPageState extends State<CompletionsPage>
   /// Generates new tokens
   Future<void> _onGenerate() async {
     _log.info('Generating started');
-    _resp = _client.generate(pb.GenerateArgs(ctx: await _ctx))
+    _resp = _client.generate(pb.GenerateArgs(
+      ctx: await _ctx,
+      samplers: [
+        pb.Sampler(logitBias: pb.LogitBias(bias: {2: double.negativeInfinity})),
+        pb.Sampler(
+          repetitionPenalty: pb.RepetitionPenalty(
+            lastN: -1,
+            penalty: 1.1,
+            presencePenalty: 0.0,
+            frequencyPenalty: 0.0,
+          ),
+        ),
+        pb.Sampler(minP: pb.MinP(minP: 0.07)),
+        pb.Sampler(temperature: pb.Temperature(temp: 0.64)),
+      ],
+    ))
       ..listen(
         (tok) {
           if (tok.hasText()) {

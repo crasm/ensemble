@@ -143,12 +143,14 @@ const GenerateArgs$json = {
   '1': 'GenerateArgs',
   '2': [
     {'1': 'ctx', '3': 1, '4': 1, '5': 5, '10': 'ctx'},
+    {'1': 'samplers', '3': 2, '4': 3, '5': 11, '6': '.LlamaCpp.Sampler', '10': 'samplers'},
   ],
 };
 
 /// Descriptor for `GenerateArgs`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List generateArgsDescriptor = $convert.base64Decode(
-    'CgxHZW5lcmF0ZUFyZ3MSEAoDY3R4GAEgASgFUgNjdHg=');
+    'CgxHZW5lcmF0ZUFyZ3MSEAoDY3R4GAEgASgFUgNjdHgSLQoIc2FtcGxlcnMYAiADKAsyES5MbG'
+    'FtYUNwcC5TYW1wbGVyUghzYW1wbGVycw==');
 
 @$core.Deprecated('Use newContextRespDescriptor instead')
 const NewContextResp$json = {

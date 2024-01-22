@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package LlamaCpp;
 
+import 'llamacpp_samplers.proto';
+
 message Void {}
 
 message NewContextArgs {
@@ -46,6 +48,7 @@ message IngestArgs {
 
 message GenerateArgs {
   int32 ctx = 1;
+  repeated Sampler samplers = 2;
 }
 
 service LlamaCpp {

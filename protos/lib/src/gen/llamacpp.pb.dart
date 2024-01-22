@@ -13,6 +13,8 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+import 'llamacpp_samplers.pb.dart' as $1;
+
 class Void extends $pb.GeneratedMessage {
   factory Void() => create();
   Void._() : super();
@@ -550,10 +552,14 @@ class IngestArgs extends $pb.GeneratedMessage {
 class GenerateArgs extends $pb.GeneratedMessage {
   factory GenerateArgs({
     $core.int? ctx,
+    $core.Iterable<$1.Sampler>? samplers,
   }) {
     final $result = create();
     if (ctx != null) {
       $result.ctx = ctx;
+    }
+    if (samplers != null) {
+      $result.samplers.addAll(samplers);
     }
     return $result;
   }
@@ -563,6 +569,7 @@ class GenerateArgs extends $pb.GeneratedMessage {
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(_omitMessageNames ? '' : 'GenerateArgs', package: const $pb.PackageName(_omitMessageNames ? '' : 'LlamaCpp'), createEmptyInstance: create)
     ..a<$core.int>(1, _omitFieldNames ? '' : 'ctx', $pb.PbFieldType.O3)
+    ..pc<$1.Sampler>(2, _omitFieldNames ? '' : 'samplers', $pb.PbFieldType.PM, subBuilder: $1.Sampler.create)
     ..hasRequiredFields = false
   ;
 
@@ -595,6 +602,9 @@ class GenerateArgs extends $pb.GeneratedMessage {
   $core.bool hasCtx() => $_has(0);
   @$pb.TagNumber(1)
   void clearCtx() => clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$1.Sampler> get samplers => $_getList(1);
 }
 
 class NewContextResp extends $pb.GeneratedMessage {

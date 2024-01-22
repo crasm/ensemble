@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package LlamaCpp;
+
+message Sampler {
+  oneof sampler {
+    Temperature temperature = 1;
+    TopK top_k = 2;
+    TopP top_p = 3;
+    MinP min_p = 4;
+    TailFree tail_free = 5;
+    LocallyTypical locally_typical = 6;
+    RepetitionPenalty repetition_penalty = 7;
+    MirostatV1 mirostat_v1 = 8;
+    MirostatV2 mirostat_v2 = 9;
+    LogitBias logit_bias = 10;
+  }
+}
+
+message Temperature {
+  float temp = 1;
+}
+
+message TopK {
+  int32 top_k = 1;
+}
+
+message TopP {
+  float top_p = 1;
+}
+
+message MinP {
+  float min_p = 1;
+}
+
+message TailFree {
+  float z = 1;
+}
+
+message LocallyTypical {
+  float p = 1;
+}
+
+message RepetitionPenalty {
+  int32 last_n = 1;
+  float penalty = 2;
+  float frequency_penalty = 3;
+  float presence_penalty = 4;
+  bool penalizeNewline = 5;
+}
+
+message MirostatV1 {
+  float tau = 1;
+  float eta = 2;
+}
+
+message MirostatV2 {
+  float tau = 1;
+  float eta = 2;
+}
+
+message LogitBias {
+  map<int32, float> bias = 1;
+}

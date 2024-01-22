@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:args/args.dart';
 import 'package:ensemble_protos/llamacpp.dart' as proto;
 import 'package:ensemble_llamacpp/ensemble_llamacpp.dart';
 import 'package:grpc/grpc.dart' as grpc;
 import 'package:logging/logging.dart';
+
+late final String modelFilePath;
 
 final _noContextFoundException =
     (id) => Exception('no context with id=$id found');
@@ -19,8 +22,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
     final _log = Logger('LlamaCppService.create');
     // TODO(crasm): make this a command-line arg
     final model = LlamaCpp.loadModel(
-      // '/Users/vczf/models/gguf-hf/TheBloke_Llama-2-7B-GGUF/llama-2-7b.Q2_K.gguf',
-      '/Users/vczf/llm/models/airoboros-l2-70b-gpt4-1.4.1.Q6_K.gguf',
+      modelFilePath,
       params: Model.defaultParams..n_gpu_layers = 100000,
       progressCallback: (p) {
         if (p == 1.0) {
@@ -152,12 +154,40 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
 
-    final tokStream = ctx.generate(samplers: [
-      RepetitionPenalty(),
-      MinP(0.18),
-      Temperature(1.0),
-    ]);
+    final sl = <Sampler>[];
+    for (final s in args.samplers) {
+      if (s.hasTemperature()) {
+        sl.add(Temperature(s.temperature.temp));
+      } else if (s.hasTopK()) {
+        sl.add(TopK(s.topK.topK));
+      } else if (s.hasTopP()) {
+        sl.add(TopP(s.topP.topP));
+      } else if (s.hasMinP()) {
+        sl.add(MinP(s.minP.minP));
+      } else if (s.hasTailFree()) {
+        sl.add(TailFree(s.tailFree.z));
+      } else if (s.hasLocallyTypical()) {
+        sl.add(LocallyTypical(s.locallyTypical.p));
+      } else if (s.hasRepetitionPenalty()) {
+        sl.add(RepetitionPenalty(
+          lastN: s.repetitionPenalty.lastN,
+          penalty: s.repetitionPenalty.penalty,
+          frequencyPenalty: s.repetitionPenalty.frequencyPenalty,
+          presencePenalty: s.repetitionPenalty.presencePenalty,
+          penalizeNewline: s.repetitionPenalty.penalizeNewline,
+        ));
+      } else if (s.hasMirostatV1()) {
+        sl.add(MirostatV1(s.mirostatV1.tau, s.mirostatV1.eta));
+      } else if (s.hasMirostatV2()) {
+        sl.add(MirostatV2(s.mirostatV2.tau, s.mirostatV2.eta));
+      } else if (s.hasLogitBias()) {
+        sl.add(LogitBias(s.logitBias.bias));
+      } else {
+        assert(false, 'Invalid sampler received');
+      }
+    }
 
+    final tokStream = ctx.generate(samplers: sl);
     await for (final tok in tokStream) {
       // Needed so gRPC has a chance to get the call cancellation
       await Future.delayed(const Duration());
@@ -177,7 +207,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
   }
 }
 
-void main(List<String> arguments) async {
+void main(List<String> args) async {
   final startTime = DateTime.now();
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((e) {
@@ -192,7 +222,35 @@ void main(List<String> arguments) async {
 
   final _log = Logger('main');
 
+  final parser = ArgParser(usageLineLength: 80);
+  late final String host;
+  late final int port;
+  parser.addOption(
+    'host',
+    help: 'The hostname or IP address to listen on.',
+    defaultsTo: 'localhost',
+    callback: (a) => host = a!,
+  );
+  parser.addOption(
+    'port',
+    help: 'The port to listen on.',
+    defaultsTo: '8227',
+    callback: (a) => port = int.parse(a!),
+  );
+  parser.addOption(
+    'model',
+    help: 'The model file to use for inference.',
+    callback: (a) => modelFilePath = a!,
+    mandatory: true,
+  );
+
+  final argResults = parser.parse(args);
+  if (argResults.rest.isNotEmpty) {
+    stderr.writeln(parser.usage);
+    exit(1);
+  }
+
   final server = grpc.Server.create(services: [await LlamaCppService.create()]);
-  await server.serve(address: 'brick', port: 8888);
-  _log.info('Listening on port ${server.port}');
+  await server.serve(address: host, port: port);
+  _log.info('listening on $host:$port');
 }
