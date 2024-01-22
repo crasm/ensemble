@@ -1,5 +1,13 @@
 part of 'llamacpp.dart';
 
+final class UnsortedError extends Error {
+  final String sampler;
+  UnsortedError(this.sampler);
+  @override
+  String toString() =>
+      "UnsortedError: Can't apply $sampler to unsorted candidates.";
+}
+
 /// Samplers implement different ways to alter potential [Candidates], such as
 /// [Temperature], [TopK], and [MinP].
 abstract interface class Sampler {
@@ -204,10 +212,13 @@ final class RepetitionPenalty implements Sampler {
   Token? sample(Context ctx) {
     final toks = ctx.tokens;
     final cands = ctx._candidates;
+    if (!cands.pointer.ref.sorted) {
+      throw UnsortedError('RepetitionPenalty');
+    }
 
-    // TODO(crasm): fix RepetitionPenalty newline ignore to work for arbitrary sampler order
     final nlId = llama_token_nl(ctx.model.pointer);
     final nlData = cands[nlId];
+    assert(nlData.id == nlId);
 
     var lastN = this.lastN;
     if (lastN == -1) {
@@ -233,11 +244,6 @@ final class RepetitionPenalty implements Sampler {
     );
 
     if (!penalizeNewline) {
-      // llama/common/sampling.cpp uses a loop here, because it's possible for
-      // the candidates to be sorted (and therefore newline logit not at index
-      // nlId).
-      assert(!cands.pointer.ref.sorted);
-      assert(nlData.id == nlId);
       cands[nlId] = nlData;
     }
     return null;
@@ -303,5 +309,27 @@ final class MirostatV2 extends Mirostat {
     final tokId = llama_sample_token_mirostat_v2(
         ctx.pointer, ctx._candidates.pointer, tau, eta, _mu);
     return Token._fromId(ctx.model.pointer, tokId);
+  }
+}
+
+final class LogitBias implements Sampler {
+  final Map<int, double> biasMap;
+  const LogitBias(this.biasMap);
+
+  @override
+  Token? sample(Context ctx) {
+    final cands = ctx._candidates;
+    if (!cands.pointer.ref.sorted) {
+      throw UnsortedError('LogitBias');
+    }
+
+    biasMap.forEach((tokId, bias) {
+      final c = cands[tokId];
+      assert(c.id == tokId);
+      c.logit += bias;
+      cands[tokId] = c;
+    });
+
+    return null;
   }
 }

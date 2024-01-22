@@ -155,7 +155,7 @@ final class Candidates with Disposable {
   void _reset() {
     pointer.ref.data = candidates;
     pointer.ref.size = _vocabSize;
-    pointer.ref.sorted = false;
+    pointer.ref.sorted = true;
   }
 
   /// Create and allocate a [Candidates] of size [vocabSize].

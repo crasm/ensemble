@@ -144,11 +144,11 @@ void main() {
       ctx.add('a a a a a a a');
       await ctx.ingest();
       final tokStream = ctx.generate(samplers: const [
-        RepetitionPenalty(lastN: -1, penalty: 1.0 + tinyFloat),
+        RepetitionPenalty(lastN: -1, penalty: 0.5),
         Temperature(tinyFloat),
       ]);
       await for (final tok in tokStream) {
-        expect(tok.id, 263); // 263 = ▁a
+        expect(tok.text, ' a'); // 263 = ▁a
       }
     });
 
@@ -248,6 +248,18 @@ void main() {
           .map((a) => a.text)
           .reduce((a, b) => a + b);
       expect(nextTwoTokens, ' slices');
+    });
+
+    test('logit bias map', () async {
+      final ctx = model.newContext(Context.defaultParams..seed = 1);
+      ctx.add('Four score');
+      ctx.ingest();
+      final tok = await ctx.generate(
+        samplers: [
+          LogitBias(const {322: double.negativeInfinity}),
+        ],
+      ).first;
+      expect(tok.text, isNot(' and'));
     });
   });
 }
