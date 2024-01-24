@@ -151,7 +151,7 @@ class _CompletionsPageState extends State<CompletionsPage>
     _ctx = () async {
       final resp = await _client.newContext(
         pb.NewContextArgs(
-          nCtx: 32768,
+          nCtx: 2048,
           nBatch: 512,
           // ropeScalingType: 1,
           // ropeFreqScale: 0.50,
@@ -402,39 +402,36 @@ class _CompletionsPageState extends State<CompletionsPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(height: topPadding),
-            GestureDetector(
-              onTap: _doStop,
-              child: _isGenerating()
-                  ? Listener(
-                      onPointerDown: (_) => _fingerTouchingScrollArea = true,
-                      onPointerUp: (_) => _fingerTouchingScrollArea = false,
-                      child: Text(_contextString(), style: style),
-                    )
-                  : TextField(
-                      focusNode: _genFocusNode,
-                      controller: _textCtl,
-                      style: style,
-                      maxLines: null,
-                      decoration: null,
-                    ),
-            ),
+            _isGenerating()
+                ? Text(_contextString(), style: style)
+                : TextField(
+                    focusNode: _genFocusNode,
+                    controller: _textCtl,
+                    style: style,
+                    maxLines: null,
+                    decoration: null,
+                  ),
+            // ),
             SizedBox(
               height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
-              child: GestureDetector(onTap: () {
-                if (_isGenerating()) {
-                  _doStop();
-                } else {
-                  _focusGenTail();
-                }
-              }),
+              child: GestureDetector(
+                onTap: () => _isGenerating() ? _doStop() : _focusGenTail(),
+              ),
             ),
           ],
         ),
       );
 
-      return mustScroll
-          ? SingleChildScrollView(controller: _scrollCtl, child: mainColumn)
-          : mainColumn;
+      return Listener(
+        onPointerDown: (_) => _fingerTouchingScrollArea = true,
+        onPointerUp: (_) => _fingerTouchingScrollArea = false,
+        child: GestureDetector(
+          onTap: () => _isGenerating() ? _doStop() : null,
+          child: mustScroll
+              ? SingleChildScrollView(controller: _scrollCtl, child: mainColumn)
+              : mainColumn,
+        ),
+      );
     });
   }
 
