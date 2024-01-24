@@ -427,9 +427,8 @@ class _CompletionsPageState extends State<CompletionsPage>
         onPointerUp: (_) => _fingerTouchingScrollArea = false,
         child: GestureDetector(
           onTap: () => _isGenerating() ? _doStop() : null,
-          child: mustScroll
-              ? SingleChildScrollView(controller: _scrollCtl, child: mainColumn)
-              : mainColumn,
+          child:
+              SingleChildScrollView(controller: _scrollCtl, child: mainColumn),
         ),
       );
     });
