@@ -62,7 +62,7 @@ class Home extends StatelessWidget {
         ],
       ),
       body: PageView(children: [
-        CompletionsPage(),
+        // CompletionsPage(),
         CompletionsPage(),
       ]),
     );
