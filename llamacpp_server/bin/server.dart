@@ -129,20 +129,28 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
 
   @override
   Stream<proto.IngestProgressResp> ingest(
-      grpc.ServiceCall call, proto.IngestArgs args) {
+      grpc.ServiceCall call, proto.IngestArgs args) async* {
     checkDisposed();
     _log.info('Ingesting context');
 
     final ctx = _contexts[args.ctx];
     if (ctx == null) throw _noContextFoundException(args.ctx);
 
-    return ctx.ingestWithProgress().map((a) {
-      return proto.IngestProgressResp(
-        done: a.done,
-        total: a.total,
-        batchSize: a.batchSize,
+    final ingestStream = ctx.ingestWithProgress();
+    await for (final progressEvent in ingestStream) {
+      await Future.delayed(const Duration());
+
+      if (call.isCanceled) {
+        _log.info('Ingestion cancelled by client');
+        break;
+      }
+
+      yield proto.IngestProgressResp(
+        done: progressEvent.done,
+        total: progressEvent.total,
+        batchSize: progressEvent.batchSize,
       );
-    });
+    }
   }
 
   @override
@@ -197,7 +205,7 @@ class LlamaCppService extends proto.LlamaCppServiceBase with Disposable {
       // point, this token will only have to be sampled again from the
       // candidates, not decoded.
       if (call.isCanceled) {
-        _log.info('Generating canceled by client');
+        _log.info('Generation cancelled by client');
         break;
       }
 

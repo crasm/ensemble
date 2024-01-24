@@ -82,16 +82,18 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   late final sm.StateMachine _state;
   late final sm.State _isViewing, _isEditing, _isPreparing, _isGenerating;
-  late final sm.StateTransition _doPrepare, _doGenerate, _doStopGenerating;
+  late final sm.StateTransition _doPrepare, _doGenerate, _doStop;
 
   final ScrollController _scrollCtl = ScrollController();
+  bool _fingerTouchingScrollArea = false;
 
   late final ClientChannel _channel;
   late final pb.LlamaCppClient _client;
 
   late final Future<int> _ctx;
 
-  ResponseStream<pb.Token>? _resp;
+  ResponseStream<pb.Token>? _generateResp;
+  ResponseStream<pb.IngestProgressResp>? _ingestResp;
 
   final TextEditingController _textCtl = TextEditingController();
   List<pb.Token> _decodedTokens = [];
@@ -125,8 +127,8 @@ class _CompletionsPageState extends State<CompletionsPage>
         setState(() {});
       });
 
-    _doStopGenerating = _state.newStateTransition(
-      'stop generating',
+    _doStop = _state.newStateTransition(
+      'stop preparing or generating',
       [_isPreparing, _isGenerating],
       _isViewing,
     )..listen((_) {
@@ -149,9 +151,10 @@ class _CompletionsPageState extends State<CompletionsPage>
     _ctx = () async {
       final resp = await _client.newContext(
         pb.NewContextArgs(
-          nCtx: 8192,
-          ropeScalingType: 1,
-          ropeFreqScale: 0.50,
+          nCtx: 32768,
+          nBatch: 512,
+          // ropeScalingType: 1,
+          // ropeFreqScale: 0.50,
         ),
       );
 
@@ -181,6 +184,21 @@ class _CompletionsPageState extends State<CompletionsPage>
     final buf = StringBuffer();
     runes.forEach(buf.writeCharCode);
     return buf.toString();
+  }
+
+  void Function(Object) _onGrpcError(String task) {
+    return (Object o) {
+      // This is commonly triggered when the call is canceled client-side.
+      final GrpcError e = o as GrpcError;
+      if (_isPreparing() || _isGenerating()) _doStop();
+      switch (e.code) {
+        case StatusCode.cancelled:
+          _log.info('$task was cancelled');
+          _log.finest(e);
+        default:
+          _log.severe(e);
+      }
+    };
   }
 
   Future<void> _onPrepare() async {
@@ -233,18 +251,27 @@ class _CompletionsPageState extends State<CompletionsPage>
     _decodedTokens.addAll(addedTokens.toks);
 
     _log.info('Ingesting context');
-    await for (final progress in _client.ingest(pb.IngestArgs(ctx: ctx))) {
-      _log.info('Ingesting progress: ${progress.done}/${progress.total} '
-          '(batch size: ${progress.batchSize})');
-    }
-
-    _doGenerate();
+    bool wasInterrupted = false;
+    _ingestResp = _client.ingest(pb.IngestArgs(ctx: ctx))
+      ..listen(
+        (progress) {
+          _log.info('Ingesting progress: ${progress.done}/${progress.total} '
+              '(batch size: ${progress.batchSize})');
+        },
+        onError: (e) {
+          wasInterrupted = true;
+          _onGrpcError('Ingestion')(e);
+        },
+        onDone: () {
+          if (!wasInterrupted) _doGenerate();
+        },
+      );
   }
 
   /// Generates new tokens
   Future<void> _onGenerate() async {
     _log.info('Generating started');
-    _resp = _client.generate(pb.GenerateArgs(
+    _generateResp = _client.generate(pb.GenerateArgs(
       ctx: await _ctx,
       samplers: [
         pb.Sampler(logitBias: pb.LogitBias(bias: {2: double.negativeInfinity})),
@@ -265,30 +292,35 @@ class _CompletionsPageState extends State<CompletionsPage>
           if (tok.hasText()) {
             _decodedTokens.add(tok);
             _textCtl.text = _contextString();
+
+            final s = _scrollCtl;
+            if (s.hasClients) {
+              final max = s.position.maxScrollExtent;
+              final delta = max - s.offset;
+              // _log.finer('scroll distance to end: $delta');
+              // Noticed 18.0 delta in log files
+              if (!_fingerTouchingScrollArea && delta <= 36.0) {
+                s.jumpTo(max);
+              }
+            }
+
             setState(() {/* Added a generated token */});
           }
         },
         onDone: () {
           _log.fine('Generating done');
-          _doStopGenerating();
+          _doStop();
         },
-        onError: (e) {
-          // This is commonly triggered when the call is canceled client-side.
-          if (_isGenerating()) _doStopGenerating();
-          switch (e.code) {
-            case StatusCode.cancelled:
-              _log.info('Generating was cancelled');
-              _log.finest(e);
-            default:
-              _log.severe(e);
-          }
-        },
+        onError: _onGrpcError('Generation'),
         cancelOnError: true,
       );
   }
 
   Future<void> _onStop() async {
-    await _resp?.cancel();
+    await _ingestResp?.cancel();
+    await _generateResp?.cancel();
+    _ingestResp = null;
+    _generateResp = null;
   }
 
   // Reasonable defaults (but should be updated immediately)
@@ -371,9 +403,13 @@ class _CompletionsPageState extends State<CompletionsPage>
           children: [
             SizedBox(height: topPadding),
             GestureDetector(
-              onTap: _doStopGenerating,
+              onTap: _doStop,
               child: _isGenerating()
-                  ? Text(_contextString(), style: style)
+                  ? Listener(
+                      onPointerDown: (_) => _fingerTouchingScrollArea = true,
+                      onPointerUp: (_) => _fingerTouchingScrollArea = false,
+                      child: Text(_contextString(), style: style),
+                    )
                   : TextField(
                       focusNode: _genFocusNode,
                       controller: _textCtl,
@@ -386,7 +422,7 @@ class _CompletionsPageState extends State<CompletionsPage>
               height: mustScroll ? _divTop / 2 : _divTop - textHeightPadded,
               child: GestureDetector(onTap: () {
                 if (_isGenerating()) {
-                  _doStopGenerating();
+                  _doStop();
                 } else {
                   _focusGenTail();
                 }
@@ -430,9 +466,8 @@ class _CompletionsPageState extends State<CompletionsPage>
           Column(children: [
             IconButton.filled(
               onPressed: () {
-                if (_isPreparing()) return;
-                if (_isGenerating()) {
-                  _doStopGenerating();
+                if (_isPreparing() || _isGenerating()) {
+                  _doStop();
                 } else {
                   _doPrepare();
                 }
