@@ -13,6 +13,9 @@ import 'package:state_machine/state_machine.dart' as sm;
 
 Logger _log = Logger('main.dart');
 
+late final sm.State _isViewing, _isEditing, _isPreparing, _isGenerating;
+late final sm.StateTransition _doPrepare, _doGenerate, _doStop;
+
 void main() {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
@@ -20,6 +23,31 @@ void main() {
         '${record.loggerName}: '
         '${record.message}');
   });
+
+  final state = sm.StateMachine('gen page state');
+
+  _isViewing = state.newState('viewing');
+  _isEditing = state.newState('editing');
+  _isPreparing = state.newState('preparing');
+  _isGenerating = state.newState('generating');
+
+  _doPrepare = state.newStateTransition(
+    'prepare',
+    [_isViewing, _isEditing],
+    _isPreparing,
+  );
+  _doGenerate = state.newStateTransition(
+    'generate',
+    [_isPreparing],
+    _isGenerating,
+  );
+  _doStop = state.newStateTransition(
+    'stop preparing or generating',
+    [_isPreparing, _isGenerating],
+    _isViewing,
+  );
+
+  state.start(_isViewing);
 
   runApp(const EnsembleApp());
 }
@@ -80,10 +108,6 @@ class _CompletionsPageState extends State<CompletionsPage>
   @override
   bool get wantKeepAlive => true;
 
-  late final sm.StateMachine _state;
-  late final sm.State _isViewing, _isEditing, _isPreparing, _isGenerating;
-  late final sm.StateTransition _doPrepare, _doGenerate, _doStop;
-
   final ScrollController _scrollCtl = ScrollController();
   bool _fingerTouchingScrollArea = false;
 
@@ -102,41 +126,18 @@ class _CompletionsPageState extends State<CompletionsPage>
   void initState() {
     super.initState();
 
-    _state = sm.StateMachine('gen page state');
-
-    _isViewing = _state.newState('viewing');
-    _isEditing = _state.newState('editing');
-    _isPreparing = _state.newState('preparing');
-    _isGenerating = _state.newState('generating');
-
-    _doPrepare = _state.newStateTransition(
-      'prepare',
-      [_isViewing, _isEditing],
-      _isPreparing,
-    )..listen((_) {
-        _onPrepare();
-        setState(() {});
-      });
-
-    _doGenerate = _state.newStateTransition(
-      'generate',
-      [_isPreparing],
-      _isGenerating,
-    )..listen((_) {
-        _onGenerate();
-        setState(() {});
-      });
-
-    _doStop = _state.newStateTransition(
-      'stop preparing or generating',
-      [_isPreparing, _isGenerating],
-      _isViewing,
-    )..listen((_) {
-        _onStop();
-        setState(() {});
-      });
-
-    _state.start(_isViewing);
+    _doPrepare.stream.listen((_) {
+      _onPrepare();
+      setState(() {});
+    });
+    _doGenerate.stream.listen((_) {
+      _onGenerate();
+      setState(() {});
+    });
+    _doStop.stream.listen((_) {
+      _onStop();
+      setState(() {});
+    });
 
     _channel = ClientChannel(
       'brick',
@@ -353,7 +354,7 @@ class _CompletionsPageState extends State<CompletionsPage>
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _params(context)),
+                child: _ControlPane()),
             Positioned(
                 top: _divTop,
                 left: 0,
@@ -444,7 +445,33 @@ class _CompletionsPageState extends State<CompletionsPage>
     }
   }
 
-  Widget _params(BuildContext context) {
+  Widget _divBar(BuildContext context) {
+    return GestureDetector(
+      onVerticalDragUpdate: (details) {
+        setState(() {
+          _divTop = (_divTop + details.delta.dy)
+              .clamp(0.0, _maxHeight - _divThickness);
+        });
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: context.color.surfaceVariant,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(20.0),
+            topRight: Radius.circular(20.0),
+          ),
+        ),
+        child: Icon(Icons.drag_handle, color: context.color.onSurfaceVariant),
+      ),
+    );
+  }
+}
+
+class _ControlPane extends StatelessWidget {
+  const _ControlPane();
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       color: context.color.surfaceVariant,
       padding: EdgeInsets.symmetric(horizontal: 12.0),
@@ -476,27 +503,6 @@ class _CompletionsPageState extends State<CompletionsPage>
             Container(),
           ]),
         ],
-      ),
-    );
-  }
-
-  Widget _divBar(BuildContext context) {
-    return GestureDetector(
-      onVerticalDragUpdate: (details) {
-        setState(() {
-          _divTop = (_divTop + details.delta.dy)
-              .clamp(0.0, _maxHeight - _divThickness);
-        });
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: context.color.surfaceVariant,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20.0),
-            topRight: Radius.circular(20.0),
-          ),
-        ),
-        child: Icon(Icons.drag_handle, color: context.color.onSurfaceVariant),
       ),
     );
   }
