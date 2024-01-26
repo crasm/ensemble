@@ -467,42 +467,67 @@ class _CompletionsPageState extends State<CompletionsPage>
   }
 }
 
-class _ControlPane extends StatelessWidget {
-  const _ControlPane();
+class _ControlPane extends StatefulWidget {
+  @override
+  State<_ControlPane> createState() => _ControlPaneState();
+}
+
+class _ControlPaneState extends State<_ControlPane> {
+  bool _doFlip = false;
 
   @override
   Widget build(BuildContext context) {
+    final contextDirection = Directionality.of(context);
+    final flipBar = GestureDetector(
+      onTap: () => setState(() => _doFlip = !_doFlip),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chevron_left, size: 16.0),
+          Icon(Icons.chevron_right, size: 16.0),
+        ],
+      ),
+    );
     return Container(
       color: context.color.surfaceVariant,
-      padding: EdgeInsets.symmetric(horizontal: 12.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ReorderableListView(
-              onReorder: (oldIndex, newIndex) {},
-              children: ['Temperature', 'Top K', 'Top P', 'Min P'].map((p) {
-                return ListTile(key: Key(p), title: Text(p));
-              }).toList(),
+      padding: EdgeInsets.symmetric(horizontal: 3.0),
+      child: Directionality(
+        textDirection: _doFlip
+            ? TextDirection.values[(contextDirection.index + 1) % 2]
+            : contextDirection,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            flipBar,
+            Expanded(
+              child: ReorderableListView(
+                onReorder: (oldIndex, newIndex) {},
+                children: ['Temperature', 'Top K', 'Top P', 'Min P'].map((p) {
+                  return ListTile(key: Key(p), title: Text(p));
+                }).toList(),
+              ),
             ),
-          ),
-          Column(children: [
-            IconButton.filled(
-              onPressed: () {
-                if (_isPreparing() || _isGenerating()) {
-                  _doStop();
-                } else {
-                  _doPrepare();
-                }
-              },
-              iconSize: 48,
-              icon: Icon(_isPreparing() || _isGenerating()
-                  ? Icons.pause
-                  : Icons.play_arrow),
-            ),
-            Container(),
-          ]),
-        ],
+            Column(children: [
+              IconButton.filled(
+                onPressed: () {
+                  if (_isPreparing() || _isGenerating()) {
+                    _doStop();
+                  } else {
+                    _doPrepare();
+                  }
+                },
+                iconSize: 48,
+                icon: Icon(_isPreparing() || _isGenerating()
+                    ? Icons.pause
+                    : Icons.play_arrow),
+              ),
+            ]),
+            flipBar,
+          ]
+              .map((a) =>
+                  Directionality(textDirection: contextDirection, child: a))
+              .toList(growable: false),
+        ),
       ),
     );
   }
