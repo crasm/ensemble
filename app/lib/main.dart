@@ -581,8 +581,8 @@ class _ControlPaneState extends State<_ControlPane> {
                   IconButton(
                     onPressed: withSetState(widget._completionsCtl.pin),
                     icon: Icon(widget._completionsCtl.isPinned
-                        ? Icons.star
-                        : Icons.star_outline),
+                        ? Icons.push_pin
+                        : Icons.push_pin_outlined),
                   ),
                   IconButton(
                     onPressed: withSetState(widget._completionsCtl.goToPin),
