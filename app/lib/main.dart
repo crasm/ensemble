@@ -104,28 +104,49 @@ class CompletionsPage extends StatefulWidget {
 }
 
 class _CompletionsController extends TextEditingController {
-  int i = 0;
+  int _i = 0;
+  int _pin = 0;
   final List<({DateTime datetime, String text})> _history = [];
   _CompletionsController() : super(text: 'A chat.\nUSER: ');
 
+  /// Get the datetime of the currently selected completion snapshot.
+  DateTime get datetime => _history[_i].datetime;
+
   /// Save the value of the current text to a new slot and change position to
   /// that slot.
-  void save() {
-    _history.add((datetime: DateTime.now(), text: text));
-    i = _history.length - 1;
+  void save({bool force = false}) {
+    if (force ||
+        _history.isEmpty ||
+        _history.isNotEmpty && text != _history.last.text) {
+      _history.add((datetime: DateTime.now(), text: text));
+    }
+    _i = _history.length - 1;
   }
+
+  /// Remove the most recently added item.
+  void pop() => _i = --_history.length - 1;
+
+  /// True if the current item is the pinned item.
+  bool get isPinned => _i == _pin;
+
+  /// Mark the current slot as the "pinned" slot, so that [goToPin] navigates to it.
+  void pin() => _pin = _i;
+
+  /// Navigate to the pinned history item.
+  void goToPin() => text = _history[_i = _pin].text;
 
   /// Navigate forward in history.
-  DateTime? forward() {
-    if (i + 1 >= _history.length) return null;
-    text = _history[++i].text;
-    return _history[i].datetime;
+  void goForward() {
+    if (_i + 1 < _history.length) {
+      text = _history[++_i].text;
+    }
   }
 
-  DateTime? backward() {
-    if (i <= 0) return null;
-    text = _history[--i].text;
-    return _history[i].datetime;
+  /// Navigate backward in history.
+  void goBackward() {
+    if (_i > 0) {
+      text = _history[--_i].text;
+    }
   }
 }
 
@@ -228,6 +249,7 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   Future<void> _onPrepare() async {
     // TODO(crasm): should trimming be a configurable option?
+    _completionsCtl.save();
     final buf = _completionsCtl.text;
     final ctx = await _ctx;
 
@@ -285,6 +307,7 @@ class _CompletionsPageState extends State<CompletionsPage>
         },
         onError: (e) {
           wasInterrupted = true;
+          setState(() => _completionsCtl.pop());
           _onGrpcError('Ingestion')(e);
         },
         onDone: () {
@@ -296,7 +319,6 @@ class _CompletionsPageState extends State<CompletionsPage>
   /// Generates new tokens
   Future<void> _onGenerate() async {
     _log.info('Generating started');
-    _completionsCtl.save();
     _generateResp = _client.generate(pb.GenerateArgs(
       ctx: await _ctx,
       samplers: [
@@ -335,11 +357,11 @@ class _CompletionsPageState extends State<CompletionsPage>
         },
         onDone: () {
           _log.fine('Generating done');
-          _completionsCtl.save();
+          _completionsCtl.save(force: true);
           _doStop();
         },
         onError: (e) {
-          _completionsCtl.save();
+          _completionsCtl.save(force: true);
           _onGrpcError('Generation')(e);
         },
         cancelOnError: true,
@@ -512,7 +534,7 @@ class _ControlPaneState extends State<_ControlPane> {
   Widget build(BuildContext context) {
     final contextDirection = Directionality.of(context);
     final flipBar = GestureDetector(
-      onTap: () => setState(() => _doFlip = !_doFlip),
+      onTap: withSetState(() => _doFlip = !_doFlip),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -557,27 +579,35 @@ class _ControlPaneState extends State<_ControlPane> {
               Row(
                 children: [
                   IconButton(
-                      onPressed: widget._undoCtl.undo, icon: Icon(Icons.undo)),
+                    onPressed: withSetState(widget._completionsCtl.pin),
+                    icon: Icon(widget._completionsCtl.isPinned
+                        ? Icons.star
+                        : Icons.star_outline),
+                  ),
                   IconButton(
-                      onPressed: widget._undoCtl.redo, icon: Icon(Icons.redo)),
+                    onPressed: withSetState(widget._completionsCtl.goToPin),
+                    icon: Icon(Icons.refresh),
+                  )
                 ],
               ),
               Row(
                 children: [
                   IconButton(
-                    onPressed: () {
-                      _log.fine(widget._completionsCtl.backward());
-                      setState(() {});
-                    },
+                    onPressed: withSetState(widget._completionsCtl.goBackward),
                     icon: Icon(Icons.arrow_back),
                   ),
                   IconButton(
-                    onPressed: () {
-                      _log.fine(widget._completionsCtl.forward());
-                      setState(() {});
-                    },
+                    onPressed: withSetState(widget._completionsCtl.goForward),
                     icon: Icon(Icons.arrow_forward),
                   ),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                      onPressed: widget._undoCtl.undo, icon: Icon(Icons.undo)),
+                  IconButton(
+                      onPressed: widget._undoCtl.redo, icon: Icon(Icons.redo)),
                 ],
               ),
             ]),
@@ -589,6 +619,15 @@ class _ControlPaneState extends State<_ControlPane> {
         ),
       ),
     );
+  }
+}
+
+extension on State {
+  VoidCallback withSetState(VoidCallback cb) {
+    return () {
+      cb();
+      setState(() {}); // ignore: invalid_use_of_protected_member
+    };
   }
 }
 
