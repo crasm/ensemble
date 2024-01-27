@@ -103,12 +103,40 @@ class CompletionsPage extends StatefulWidget {
   State<StatefulWidget> createState() => _CompletionsPageState();
 }
 
+class _CompletionsController extends TextEditingController {
+  int i = 0;
+  final List<({DateTime datetime, String text})> _history = [];
+  _CompletionsController() : super(text: 'A chat.\nUSER: ');
+
+  /// Save the value of the current text to a new slot and change position to
+  /// that slot.
+  void save() {
+    _history.add((datetime: DateTime.now(), text: text));
+    i = _history.length - 1;
+  }
+
+  /// Navigate forward in history.
+  DateTime? forward() {
+    if (i + 1 >= _history.length) return null;
+    text = _history[++i].text;
+    return _history[i].datetime;
+  }
+
+  DateTime? backward() {
+    if (i <= 0) return null;
+    text = _history[--i].text;
+    return _history[i].datetime;
+  }
+}
+
 class _CompletionsPageState extends State<CompletionsPage>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
   final ScrollController _scrollCtl = ScrollController();
+  final UndoHistoryController _undoCtl = UndoHistoryController();
+  final _CompletionsController _completionsCtl = _CompletionsController();
   bool _fingerTouchingScrollArea = false;
 
   late final ClientChannel _channel;
@@ -119,7 +147,6 @@ class _CompletionsPageState extends State<CompletionsPage>
   ResponseStream<pb.Token>? _generateResp;
   ResponseStream<pb.IngestProgressResp>? _ingestResp;
 
-  final TextEditingController _textCtl = TextEditingController();
   List<pb.Token> _decodedTokens = [];
 
   @override
@@ -146,9 +173,6 @@ class _CompletionsPageState extends State<CompletionsPage>
     );
     _client = pb.LlamaCppClient(_channel);
 
-    // TODO:(crasm) save prompts
-    _textCtl.text = 'A chat.\nUSER: ';
-
     _ctx = () async {
       final resp = await _client.newContext(
         pb.NewContextArgs(
@@ -167,7 +191,7 @@ class _CompletionsPageState extends State<CompletionsPage>
   @override
   void dispose() {
     super.dispose();
-    _textCtl.dispose();
+    _completionsCtl.dispose();
     _scrollCtl.dispose();
     () async {
       _client.freeContext(pb.FreeContextArgs(ctx: await _ctx));
@@ -204,7 +228,7 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   Future<void> _onPrepare() async {
     // TODO(crasm): should trimming be a configurable option?
-    final buf = _textCtl.text;
+    final buf = _completionsCtl.text;
     final ctx = await _ctx;
 
     //
@@ -272,6 +296,7 @@ class _CompletionsPageState extends State<CompletionsPage>
   /// Generates new tokens
   Future<void> _onGenerate() async {
     _log.info('Generating started');
+    _completionsCtl.save();
     _generateResp = _client.generate(pb.GenerateArgs(
       ctx: await _ctx,
       samplers: [
@@ -292,7 +317,7 @@ class _CompletionsPageState extends State<CompletionsPage>
         (tok) {
           if (tok.hasText()) {
             _decodedTokens.add(tok);
-            _textCtl.text = _contextString();
+            _completionsCtl.text = _contextString();
 
             final s = _scrollCtl;
             if (s.hasClients) {
@@ -310,9 +335,13 @@ class _CompletionsPageState extends State<CompletionsPage>
         },
         onDone: () {
           _log.fine('Generating done');
+          _completionsCtl.save();
           _doStop();
         },
-        onError: _onGrpcError('Generation'),
+        onError: (e) {
+          _completionsCtl.save();
+          _onGrpcError('Generation')(e);
+        },
         cancelOnError: true,
       );
   }
@@ -354,7 +383,7 @@ class _CompletionsPageState extends State<CompletionsPage>
                 bottom: 0,
                 left: 0,
                 right: 0,
-                child: _ControlPane()),
+                child: _ControlPane(_completionsCtl, _undoCtl)),
             Positioned(
                 top: _divTop,
                 left: 0,
@@ -387,7 +416,7 @@ class _CompletionsPageState extends State<CompletionsPage>
       const topPadding = 12.0;
       const horizontalPadding = 12.0;
 
-      final genText = TextSpan(text: _textCtl.text, style: style);
+      final genText = TextSpan(text: _completionsCtl.text, style: style);
       final painter =
           TextPainter(text: genText, textDirection: TextDirection.ltr);
 
@@ -407,7 +436,8 @@ class _CompletionsPageState extends State<CompletionsPage>
                 ? Text(_contextString(), style: style)
                 : TextField(
                     focusNode: _genFocusNode,
-                    controller: _textCtl,
+                    controller: _completionsCtl,
+                    undoController: _undoCtl,
                     style: style,
                     maxLines: null,
                     decoration: null,
@@ -438,8 +468,8 @@ class _CompletionsPageState extends State<CompletionsPage>
   void _focusGenTail() {
     if (!_genFocusNode.hasPrimaryFocus) {
       _genFocusNode.requestFocus();
-      _textCtl.selection = TextSelection.fromPosition(
-          TextPosition(offset: _textCtl.text.length));
+      _completionsCtl.selection = TextSelection.fromPosition(
+          TextPosition(offset: _completionsCtl.text.length));
     } else {
       _genFocusNode.unfocus();
     }
@@ -468,6 +498,9 @@ class _CompletionsPageState extends State<CompletionsPage>
 }
 
 class _ControlPane extends StatefulWidget {
+  final _CompletionsController _completionsCtl;
+  final UndoHistoryController _undoCtl;
+  const _ControlPane(this._completionsCtl, this._undoCtl);
   @override
   State<_ControlPane> createState() => _ControlPaneState();
 }
@@ -520,6 +553,32 @@ class _ControlPaneState extends State<_ControlPane> {
                 icon: Icon(_isPreparing() || _isGenerating()
                     ? Icons.pause
                     : Icons.play_arrow),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                      onPressed: widget._undoCtl.undo, icon: Icon(Icons.undo)),
+                  IconButton(
+                      onPressed: widget._undoCtl.redo, icon: Icon(Icons.redo)),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      _log.fine(widget._completionsCtl.backward());
+                      setState(() {});
+                    },
+                    icon: Icon(Icons.arrow_back),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      _log.fine(widget._completionsCtl.forward());
+                      setState(() {});
+                    },
+                    icon: Icon(Icons.arrow_forward),
+                  ),
+                ],
               ),
             ]),
             flipBar,
