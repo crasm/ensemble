@@ -2,6 +2,7 @@
 // TODO: delete ^^^
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -104,22 +105,21 @@ class CompletionsPage extends StatefulWidget {
 }
 
 class _CompletionsController extends TextEditingController {
+  static const _prompt = 'A chat.\nUSER:';
   int _i = 0;
   int _pin = 0;
-  final List<({DateTime datetime, String text})> _history = [];
-  _CompletionsController() : super(text: 'A chat.\nUSER: ');
+  final List<({DateTime datetime, String text})> _history = [
+    (datetime: DateTime.now(), text: _prompt),
+  ];
+  _CompletionsController() : super(text: _prompt);
 
   /// Get the datetime of the currently selected completion snapshot.
   DateTime get datetime => _history[_i].datetime;
 
   /// Save the value of the current text to a new slot and change position to
   /// that slot.
-  void save({bool force = false}) {
-    if (force ||
-        _history.isEmpty ||
-        _history.isNotEmpty && text != _history.last.text) {
-      _history.add((datetime: DateTime.now(), text: text));
-    }
+  void save() {
+    _history.add((datetime: DateTime.now(), text: text));
     _i = _history.length - 1;
   }
 
@@ -175,14 +175,17 @@ class _CompletionsPageState extends State<CompletionsPage>
     super.initState();
 
     _doPrepare.stream.listen((_) {
+      setState(() {});
       _onPrepare();
       setState(() {});
     });
     _doGenerate.stream.listen((_) {
+      setState(() {});
       _onGenerate();
       setState(() {});
     });
     _doStop.stream.listen((_) {
+      setState(() {});
       _onStop();
       setState(() {});
     });
@@ -212,8 +215,9 @@ class _CompletionsPageState extends State<CompletionsPage>
   @override
   void dispose() {
     super.dispose();
-    _completionsCtl.dispose();
     _scrollCtl.dispose();
+    _undoCtl.dispose();
+    _completionsCtl.dispose();
     () async {
       _client.freeContext(pb.FreeContextArgs(ctx: await _ctx));
       _channel.shutdown();
@@ -249,7 +253,6 @@ class _CompletionsPageState extends State<CompletionsPage>
 
   Future<void> _onPrepare() async {
     // TODO(crasm): should trimming be a configurable option?
-    _completionsCtl.save();
     final buf = _completionsCtl.text;
     final ctx = await _ctx;
 
@@ -357,11 +360,11 @@ class _CompletionsPageState extends State<CompletionsPage>
         },
         onDone: () {
           _log.fine('Generating done');
-          _completionsCtl.save(force: true);
+          _completionsCtl.save();
           _doStop();
         },
         onError: (e) {
-          _completionsCtl.save(force: true);
+          _completionsCtl.save();
           _onGrpcError('Generation')(e);
         },
         cancelOnError: true,
@@ -527,8 +530,44 @@ class _ControlPane extends StatefulWidget {
   State<_ControlPane> createState() => _ControlPaneState();
 }
 
+enum _Sampler {
+  logitBias,
+  repetitionPenalty,
+  minP,
+  temperature;
+
+  @override
+  String toString() {
+    return switch (this) {
+      logitBias => 'Logit Bias',
+      repetitionPenalty => 'Repetition Penalty',
+      minP => 'Min P',
+      temperature => 'Temperature',
+    };
+  }
+}
+
 class _ControlPaneState extends State<_ControlPane> {
   bool _doFlip = false;
+  List<(_Sampler, Map)> _samplers = [
+    (
+      _Sampler.logitBias,
+      {
+        'bias': {2: double.negativeInfinity}
+      }
+    ),
+    (
+      _Sampler.repetitionPenalty,
+      {
+        'lastN': -1,
+        'penalty': 1.1,
+        // 'presencePenalty': 0.0,
+        // 'frequencyPenalty': 0.0,
+      }
+    ),
+    (_Sampler.minP, {'minP': 0.07}),
+    (_Sampler.temperature, {'temp': 0.64}),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -556,10 +595,36 @@ class _ControlPaneState extends State<_ControlPane> {
             flipBar,
             Expanded(
               child: ReorderableListView(
-                onReorder: (oldIndex, newIndex) {},
-                children: ['Temperature', 'Top K', 'Top P', 'Min P'].map((p) {
-                  return ListTile(key: Key(p), title: Text(p));
-                }).toList(),
+                onReorder: (oldIndex, newIndex) {
+                  if (oldIndex < newIndex) newIndex--;
+                  _samplers.insert(newIndex, _samplers.removeAt(oldIndex));
+                  setState(() {});
+                },
+                children: _samplers
+                    .map((p) => switch (p.$1) {
+                          _ => Card(
+                              key: Key(p.$1.name),
+                              child: ListTile(
+                                title: Text(p.$1.toString()),
+                                trailing: Container(
+                                  child: Text(() {
+                                    final buf = StringBuffer();
+                                    var i = 0;
+                                    p.$2.forEach((key, value) {
+                                      buf.write(key);
+                                      buf.write(': ');
+                                      buf.write(value);
+                                      if (++i < p.$2.length) {
+                                        buf.writeCharCode(0x0A);
+                                      }
+                                    });
+                                    return buf.toString();
+                                  }()),
+                                ),
+                              ),
+                            ),
+                        })
+                    .toList(),
               ),
             ),
             Column(children: [
@@ -580,7 +645,9 @@ class _ControlPaneState extends State<_ControlPane> {
                 children: [
                   IconButton(
                     onPressed: withSetState(widget._completionsCtl.pin),
-                    icon: Icon(widget._completionsCtl.isPinned
+                    icon: Icon(!_isPreparing() &&
+                            !_isGenerating() &&
+                            widget._completionsCtl.isPinned
                         ? Icons.push_pin
                         : Icons.push_pin_outlined),
                   ),
