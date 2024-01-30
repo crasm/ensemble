@@ -530,43 +530,146 @@ class _ControlPane extends StatefulWidget {
   State<_ControlPane> createState() => _ControlPaneState();
 }
 
-enum _Sampler {
-  logitBias,
-  repetitionPenalty,
-  minP,
-  temperature;
+sealed class Sampler {
+  String get name;
+  pb.Sampler get pbSampler;
+  Widget buildListChild(BuildContext context);
+  Dialog buildDialog(BuildContext context);
+}
+
+abstract class SamplerWithSingleValue<T> extends Sampler {
+  T value;
+  SamplerWithSingleValue(this.value);
+
+  Widget buildListChild(BuildContext context) {
+    return Card(
+      key: Key(name),
+      child: ListTile(
+        title: Text(name),
+        trailing: Container(child: Text(value.toString())),
+        onTap: () => showDialog(
+          context: context,
+          builder: buildDialog,
+        ),
+      ),
+    );
+  }
+
+  Dialog buildDialog(BuildContext context) {
+    return Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(name),
+        ]),
+      ),
+    );
+  }
+}
+
+final class SamplerLogitBias extends SamplerWithSingleValue<Map<int, double>> {
+  SamplerLogitBias(Map<int, double> bias) : super(bias);
+  @override
+  String get name => 'Logit Bias';
 
   @override
-  String toString() {
-    return switch (this) {
-      logitBias => 'Logit Bias',
-      repetitionPenalty => 'Repetition Penalty',
-      minP => 'Min P',
-      temperature => 'Temperature',
-    };
+  pb.Sampler get pbSampler => pb.Sampler(logitBias: pb.LogitBias(bias: value));
+}
+
+final class SamplerRepetitionPenalty extends Sampler {
+  int lastN;
+  double penalty;
+  double presencePenalty;
+  double frequencyPenalty;
+  SamplerRepetitionPenalty({
+    required this.lastN,
+    required this.penalty,
+    required this.presencePenalty,
+    required this.frequencyPenalty,
+  });
+
+  @override
+  String get name => 'Repetition Penalty';
+
+  @override
+  pb.Sampler get pbSampler {
+    return pb.Sampler(
+      repetitionPenalty: pb.RepetitionPenalty(
+        lastN: lastN,
+        penalty: penalty,
+        presencePenalty: presencePenalty,
+        frequencyPenalty: frequencyPenalty,
+      ),
+    );
   }
+
+  @override
+  Widget buildListChild(BuildContext context) {
+    return Card(
+      key: Key(name),
+      child: ListTile(
+        title: Text(name),
+        trailing: Container(
+          child: Text(
+            'lastN=$lastN, penalty=$penalty\n'
+            'presencePenalty=$presencePenalty\n'
+            'frequencyPenalty=$frequencyPenalty',
+          ),
+        ),
+        onTap: () => showDialog(
+          context: context,
+          builder: buildDialog,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Dialog buildDialog(BuildContext context) {
+    return Dialog(
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(name),
+        ]),
+      ),
+    );
+  }
+}
+
+class SamplerMinP extends SamplerWithSingleValue<double> {
+  SamplerMinP(double minP) : super(minP);
+
+  @override
+  String get name => 'Min P';
+
+  @override
+  pb.Sampler get pbSampler => pb.Sampler(minP: pb.MinP(minP: value));
+}
+
+class SamplerTemperature extends SamplerWithSingleValue<double> {
+  SamplerTemperature(double temp) : super(temp);
+
+  @override
+  String get name => 'Temperature';
+
+  @override
+  pb.Sampler get pbSampler =>
+      pb.Sampler(temperature: pb.Temperature(temp: value));
 }
 
 class _ControlPaneState extends State<_ControlPane> {
   bool _doFlip = false;
-  List<(_Sampler, Map)> _samplers = [
-    (
-      _Sampler.logitBias,
-      {
-        'bias': {2: double.negativeInfinity}
-      }
+  List<Sampler> _samplers = [
+    SamplerLogitBias({2: double.negativeInfinity}),
+    SamplerRepetitionPenalty(
+      lastN: -1,
+      penalty: 1.1,
+      presencePenalty: 0.0,
+      frequencyPenalty: 0.0,
     ),
-    (
-      _Sampler.repetitionPenalty,
-      {
-        'lastN': -1,
-        'penalty': 1.1,
-        // 'presencePenalty': 0.0,
-        // 'frequencyPenalty': 0.0,
-      }
-    ),
-    (_Sampler.minP, {'minP': 0.07}),
-    (_Sampler.temperature, {'temp': 0.64}),
+    SamplerMinP(0.07),
+    SamplerTemperature(0.64),
   ];
 
   @override
@@ -600,31 +703,8 @@ class _ControlPaneState extends State<_ControlPane> {
                   _samplers.insert(newIndex, _samplers.removeAt(oldIndex));
                   setState(() {});
                 },
-                children: _samplers
-                    .map((p) => switch (p.$1) {
-                          _ => Card(
-                              key: Key(p.$1.name),
-                              child: ListTile(
-                                title: Text(p.$1.toString()),
-                                trailing: Container(
-                                  child: Text(() {
-                                    final buf = StringBuffer();
-                                    var i = 0;
-                                    p.$2.forEach((key, value) {
-                                      buf.write(key);
-                                      buf.write(': ');
-                                      buf.write(value);
-                                      if (++i < p.$2.length) {
-                                        buf.writeCharCode(0x0A);
-                                      }
-                                    });
-                                    return buf.toString();
-                                  }()),
-                                ),
-                              ),
-                            ),
-                        })
-                    .toList(),
+                children:
+                    _samplers.map((a) => a.buildListChild(context)).toList(),
               ),
             ),
             Column(children: [
