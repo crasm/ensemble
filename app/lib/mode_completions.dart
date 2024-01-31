@@ -102,16 +102,19 @@ class _CompletionsController extends TextEditingController {
   /// Navigate to the pinned history item.
   void goToPin() => text = _history[_i = _pin].text;
 
+  bool get hasNext => _i + 1 < _history.length;
+  bool get hasPrev => _i > 0;
+
   /// Navigate forward in history.
   void goForward() {
-    if (_i + 1 < _history.length) {
+    if (hasNext) {
       text = _history[++_i].text;
     }
   }
 
   /// Navigate backward in history.
   void goBackward() {
-    if (_i > 0) {
+    if (hasPrev) {
       text = _history[--_i].text;
     }
   }
@@ -123,7 +126,7 @@ class _CompletionsPageState extends State<CompletionsPage>
   bool get wantKeepAlive => true;
 
   final ScrollController _scrollCtl = ScrollController();
-  final UndoHistoryController _undoCtl = UndoHistoryController();
+  UndoHistoryController _undoCtl = UndoHistoryController();
   final _CompletionsController _completionsCtl = _CompletionsController();
   bool _fingerTouchingScrollArea = false;
 
@@ -291,6 +294,9 @@ class _CompletionsPageState extends State<CompletionsPage>
   /// Generates new tokens
   Future<void> _onGenerate() async {
     _log.info('Generating started');
+    // Discard undo and start over.
+    _undoCtl.dispose();
+    _undoCtl = UndoHistoryController();
     _generateResp = _client.generate(pb.GenerateArgs(
       ctx: await _ctx,
       samplers: _samplers.map((a) => a.pbSampler).toList(),
@@ -489,6 +495,8 @@ class _ControlPane extends StatefulWidget {
 
 class _ControlPaneState extends State<_ControlPane> {
   bool _doFlip = false;
+  _CompletionsController get _completions => widget._completionsCtl;
+
   @override
   Widget build(BuildContext context) {
     final contextDirection = Directionality.of(context);
@@ -541,15 +549,17 @@ class _ControlPaneState extends State<_ControlPane> {
               Row(
                 children: [
                   IconButton(
-                    onPressed: withSetState(widget._completionsCtl.pin),
+                    onPressed: withSetState(_completions.pin),
                     icon: Icon(!_isPreparing() &&
                             !_isGenerating() &&
-                            widget._completionsCtl.isPinned
+                            _completions.isPinned
                         ? Icons.push_pin
                         : Icons.push_pin_outlined),
                   ),
                   IconButton(
-                    onPressed: withSetState(widget._completionsCtl.goToPin),
+                    onPressed: _completions.isPinned
+                        ? null
+                        : withSetState(_completions.goToPin),
                     icon: Icon(Icons.refresh),
                   )
                 ],
@@ -557,11 +567,15 @@ class _ControlPaneState extends State<_ControlPane> {
               Row(
                 children: [
                   IconButton(
-                    onPressed: withSetState(widget._completionsCtl.goBackward),
+                    onPressed: _completions.hasPrev
+                        ? withSetState(_completions.goBackward)
+                        : null,
                     icon: Icon(Icons.arrow_back),
                   ),
                   IconButton(
-                    onPressed: withSetState(widget._completionsCtl.goForward),
+                    onPressed: _completions.hasNext
+                        ? withSetState(_completions.goForward)
+                        : null,
                     icon: Icon(Icons.arrow_forward),
                   ),
                 ],
@@ -569,9 +583,15 @@ class _ControlPaneState extends State<_ControlPane> {
               Row(
                 children: [
                   IconButton(
-                      onPressed: widget._undoCtl.undo, icon: Icon(Icons.undo)),
+                      onPressed: widget._undoCtl.value.canUndo
+                          ? withSetState(widget._undoCtl.undo)
+                          : null,
+                      icon: Icon(Icons.undo)),
                   IconButton(
-                      onPressed: widget._undoCtl.redo, icon: Icon(Icons.redo)),
+                      onPressed: widget._undoCtl.value.canRedo
+                          ? withSetState(widget._undoCtl.redo)
+                          : null,
+                      icon: Icon(Icons.redo)),
                 ],
               ),
             ]),
