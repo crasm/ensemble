@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:grpc/grpc.dart';
 import 'package:logging/logging.dart';
@@ -55,12 +56,6 @@ final List<Sampler> _samplers = [
   SamplerMinP(0.07),
   SamplerTemperature(0.64),
 ];
-
-class CompletionsPage extends StatefulWidget {
-  const CompletionsPage({super.key});
-  @override
-  State<StatefulWidget> createState() => _CompletionsPageState();
-}
 
 class _CompletionsController extends TextEditingController {
   static const _prompt = 'A chat.\nUSER:';
@@ -118,6 +113,12 @@ class _CompletionsController extends TextEditingController {
       text = _history[--_i].text;
     }
   }
+}
+
+class CompletionsPage extends StatefulWidget {
+  const CompletionsPage({super.key});
+  @override
+  State<StatefulWidget> createState() => _CompletionsPageState();
 }
 
 class _CompletionsPageState extends State<CompletionsPage>
@@ -592,6 +593,26 @@ class _ControlPaneState extends State<_ControlPane> {
                           ? withSetState(widget._undoCtl.redo)
                           : null,
                       icon: Icon(Icons.redo)),
+                ],
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: _completions.text));
+                    },
+                    icon: Icon(Icons.copy_all),
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      final data = await Clipboard.getData('text/plain');
+                      if (data?.text != null && data?.text != '') {
+                        _completions.text = data!.text!;
+                        _completions.saveIfChanged();
+                      }
+                    },
+                    icon: Icon(Icons.paste),
+                  ),
                 ],
               ),
             ]),
