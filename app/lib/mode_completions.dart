@@ -74,6 +74,15 @@ class _CompletionsController extends TextEditingController {
   /// Get the datetime of the currently selected completion snapshot.
   DateTime get datetime => _history[_i].datetime;
 
+  bool saveIfChanged() {
+    if (_history[_i].text != text) {
+      save();
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   /// Save the value of the current text to a new slot and change position to
   /// that slot.
   void save() {
@@ -210,6 +219,8 @@ class _CompletionsPageState extends State<CompletionsPage>
   }
 
   Future<void> _onPrepare() async {
+    final didSave = _completionsCtl.saveIfChanged();
+
     // TODO(crasm): should trimming be a configurable option?
     final buf = _completionsCtl.text;
     final ctx = await _ctx;
@@ -268,7 +279,7 @@ class _CompletionsPageState extends State<CompletionsPage>
         },
         onError: (e) {
           wasInterrupted = true;
-          setState(() => _completionsCtl.pop());
+          if (didSave) setState(() => _completionsCtl.pop());
           _onGrpcError('Ingestion')(e);
         },
         onDone: () {
