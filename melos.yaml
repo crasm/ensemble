@@ -4,5 +4,6 @@ packages:
   - protos
   - llamacpp
   - llamacpp_server
+  - reif
   # - app_desktop
   # - app_common
