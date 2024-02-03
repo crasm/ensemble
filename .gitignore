@@ -1,6 +1,7 @@
 *.exe
 *.iml
 *.log
+.DS_Store
 .cache/
 .idea/
 Session.vim
