@@ -14,8 +14,6 @@ import 'package:reif/reif.dart';
 
 final class TextAppendReif extends Reif {
   StringBuffer _buf = StringBuffer();
-  TextAppendReif(super.filePath);
-
   String get text => _buf.toString();
 
   @override
@@ -28,8 +26,8 @@ final class TextAppendReif extends Reif {
     _buf.write(utf8.decode(data));
   }
 
-  Future<void> init() => addCheckpoint(utf8.encode(''));
   Future<void> append(String value) async {
+    if (_buf.isEmpty) await addCheckpoint(utf8.encode(''));
     _buf.write(value);
     await addDelta(utf8.encode(value));
   }
@@ -39,11 +37,8 @@ Future<void> makeReif() async {
   try {
     File('./text-append.reif').deleteSync();
   } on Exception catch (_) {}
-  final reif = TextAppendReif('./text-append.reif');
-  // TODO(crasm): do loading and reifying in a separate method
-  // reif.open('./text-append.reif')
-  // But it should work in-memory even if there is no backing file
-  await reif.init();
+  final reif = TextAppendReif();
+  await reif.open('./text-append.reif');
   for (final str in ['My name', ' is Bob.', ' What is your ', 'name? ']) {
     await reif.append(str);
     print(reif.text);
@@ -53,8 +48,8 @@ Future<void> makeReif() async {
 }
 
 Future<void> printReif() async {
-  final reif = TextAppendReif('./text-append.reif');
-  await reif.reify();
+  final reif = TextAppendReif();
+  await reif.open('./text-append.reif');
   print(reif.text);
 }
 

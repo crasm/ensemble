@@ -13,23 +13,26 @@ const _magicNumber = [0x52, 0x45, 0x49, 0x46];
 abstract class Reif {
   static final _log = Logger('Reif');
 
-  final String file;
-  late final RandomAccessFile _file;
+  RandomAccessFile? _file;
   late final Pointer<ReifHeader> _headerPointer;
   late final Pointer<EntryHeader> _entryPointer;
   late final ReifHeader _header;
   late final EntryHeader _entry;
 
   /// Create a Reif, initializing the file if it does not exist.
-  Reif(this.file) {
+  Reif() {
     _headerPointer = malloc.allocate(ReifHeader.size).cast<ReifHeader>()
       ..zero();
     _entryPointer = malloc.allocate(EntryHeader.size).cast<EntryHeader>()
       ..zero();
     _header = _headerPointer.ref;
     _entry = _entryPointer.ref;
+  }
 
-    _file = File(file).openSync(mode: FileMode.append);
+  Future<void> open(String file) async {
+    this._file = File(file).openSync(mode: FileMode.append);
+    final _file = this._file!; // so we don't need ! everywhere
+
     final fileLength = _file.lengthSync();
     if (fileLength == 0) {
       _log.info('Initializing $file as Reif file');
@@ -50,62 +53,20 @@ abstract class Reif {
         throw Exception("File at $file doesn't contain the REIF magic number");
       }
     }
-  }
 
-  @mustCallSuper
-  Future<void> dispose() async {
-    // Save the header before freeing
-    _file.setPositionSync(0);
-    _file.writeFromSync(_headerPointer.asBytes);
-    malloc.free(_headerPointer);
-    await _file.close();
-
-    malloc.free(_entryPointer);
-  }
-
-  Future<void> addCheckpoint(Uint8List data) =>
-      _addEntry(data, EntryType.checkpoint);
-  Future<void> addDelta(Uint8List data) => _addEntry(data, EntryType.delta);
-
-  Future<void> _addEntry(Uint8List data, EntryType entryType) async {
-    _log.info('Adding a $entryType');
-    switch (entryType) {
-      case EntryType.checkpoint:
-        _header.lastCheckpointOffset = _header.nextEntryOffset;
-      case EntryType.delta:
-        _header.lastDeltaOffset = _header.nextEntryOffset;
-      default:
-        assert(false, '_entryType $entryType is not a valid EntryType');
-    }
-
-    _file.setPositionSync(_header.nextEntryOffset);
-
-    _entryPointer.zero();
-    _entry.type = entryType.index;
-    _entry.payloadSize = data.length;
-
-    final remainder = _entry.payloadSize % 4;
-    _entry.payloadPadding = remainder > 0 ? 4 - remainder : 0;
-
-    _header.nextEntryOffset = _header.nextEntryOffset + _entry.totalSize;
-
-    _file.writeFromSync(_entryPointer.asBytes);
-    _log.info('Writing ${data.length} bytes of data');
-    await _file.writeFrom(data);
-    _log.finer('Writing ${_entry.payloadPadding} bytes of padding');
-    for (var i = 0; i < _entry.payloadPadding; i++) {
-      await _file.writeByte(0);
-    }
+    if (_header.lastCheckpointOffset != 0) await _reify();
   }
 
   /// Reify ("make an abstraction concrete") the state. Begins by replaying
   /// the last checkpoint, and then replays each delta in turn until the
   /// last delta is reached.
-  Future<void> reify() async {
+  Future<void> _reify() async {
     // TODO(crasm): what if the last entry is a checkpoint? What if there are
     // no checkpoints? What if there are checkpoints after checkpoints?
     int pos;
     Uint8List data;
+
+    final _file = this._file!; // so we don't need ! everywhere
 
     //
     // Replay the last checkpoint
@@ -133,6 +94,54 @@ abstract class Reif {
       pos = pos + _entry.totalSize;
     }
     assert(pos == _header.nextEntryOffset);
+  }
+
+  @mustCallSuper
+  Future<void> dispose() async {
+    // Save the header before freeing
+    _file?.setPositionSync(0);
+    _file?.writeFromSync(_headerPointer.asBytes);
+    await _file?.close();
+
+    malloc.free(_headerPointer);
+    malloc.free(_entryPointer);
+  }
+
+  Future<void> addCheckpoint(Uint8List data) =>
+      _addEntry(data, EntryType.checkpoint);
+  Future<void> addDelta(Uint8List data) => _addEntry(data, EntryType.delta);
+
+  Future<void> _addEntry(Uint8List data, EntryType entryType) async {
+    _log.info('Adding a $entryType');
+    switch (entryType) {
+      case EntryType.checkpoint:
+        _header.lastCheckpointOffset = _header.nextEntryOffset;
+      case EntryType.delta:
+        _header.lastDeltaOffset = _header.nextEntryOffset;
+      default:
+        assert(false, '_entryType $entryType is not a valid EntryType');
+    }
+
+    _file?.setPositionSync(_header.nextEntryOffset);
+
+    _entryPointer.zero();
+    _entry.type = entryType.index;
+    _entry.payloadSize = data.length;
+
+    final remainder = _entry.payloadSize % 4;
+    _entry.payloadPadding = remainder > 0 ? 4 - remainder : 0;
+
+    _header.nextEntryOffset = _header.nextEntryOffset + _entry.totalSize;
+
+    if (_file != null) {
+      _file!.writeFromSync(_entryPointer.asBytes);
+      _log.info('Writing ${data.length} bytes of data');
+      await _file!.writeFrom(data);
+      _log.finer('Writing ${_entry.payloadPadding} bytes of padding');
+      for (var i = 0; i < _entry.payloadPadding; i++) {
+        await _file!.writeByte(0);
+      }
+    }
   }
 
   Future<void> replayCheckpoint(Uint8List data);
