@@ -3,11 +3,14 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:logging/logging.dart';
-import 'package:reif/src/reif_base.dart';
+
+import 'package:reif/reif.dart';
 
 // Reif future requirements
 // * Isolate for doing background IO and maintenance tasks.
 // * Cache deltas in memory and commit them in background
+// * Designed to accomodate replication, synchronization, and transparent
+//   partial caching (all state on remote, less state locally) over network
 
 final class TextAppendReif extends Reif {
   StringBuffer _buf = StringBuffer();
@@ -33,8 +36,13 @@ final class TextAppendReif extends Reif {
 }
 
 Future<void> makeReif() async {
-  File('./text-append.reif').deleteSync();
+  try {
+    File('./text-append.reif').deleteSync();
+  } on Exception catch (_) {}
   final reif = TextAppendReif('./text-append.reif');
+  // TODO(crasm): do loading and reifying in a separate method
+  // reif.open('./text-append.reif')
+  // But it should work in-memory even if there is no backing file
   await reif.init();
   for (final str in ['My name', ' is Bob.', ' What is your ', 'name? ']) {
     await reif.append(str);

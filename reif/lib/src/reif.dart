@@ -6,6 +6,8 @@ import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
+import 'package:reif/reif.dart';
+
 const _magicNumber = [0x52, 0x45, 0x49, 0x46];
 
 abstract class Reif {
@@ -186,50 +188,4 @@ extension on Pointer<EntryHeader> {
       bp[0] = i;
     }
   }
-}
-
-// We also assume little-endian
-final class ReifHeader extends Struct {
-  static int get size => sizeOf<ReifHeader>();
-
-  @Array(4)
-  external Array<Uint8> magicNumber; // should be 'REIF' in ASCII;
-
-  @Uint32()
-  external int version;
-
-  @Uint32()
-  external int lastCheckpointOffset;
-
-  @Uint32()
-  external int lastDeltaOffset;
-
-  // The offset to begin writing the EntryHeader for the next Entry. This is
-  // typically the length of the file.
-  @Uint32()
-  external int nextEntryOffset;
-
-  @Array(11)
-  external Array<Uint32> reserved;
-}
-
-enum EntryType { checkpoint, delta }
-
-// Payload is aligned/padded for 4-bytes alignment
-// TODO: this might be unnecessary but was fun to think about
-final class EntryHeader extends Struct {
-  static int get size => sizeOf<EntryHeader>();
-  int get totalSize => EntryHeader.size + payloadSize + payloadPadding;
-
-  @Uint8()
-  external int type;
-
-  @Uint8()
-  external int payloadPadding; // Padding in bytes after payload ends
-
-  @Uint16()
-  external int reserved;
-
-  @Uint32()
-  external int payloadSize;
 }

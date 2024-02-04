@@ -3,6 +3,7 @@
 /// More dartdocs go here.
 library;
 
-export 'src/reif_base.dart';
+export 'src/reif.dart';
+export 'src/structs.dart';
 
 // TODO: Export any libraries intended for clients of this package.
