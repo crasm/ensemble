@@ -30,6 +30,7 @@ abstract class Reif {
     _file = File(file).openSync(mode: FileMode.append);
     final fileLength = _file.lengthSync();
     if (fileLength == 0) {
+      _log.info('Initializing $file as Reif file');
       // Initialize file with Reif header
       for (var i = 0; i < _magicNumber.length; i++) {
         _header.magicNumber[i] = _magicNumber[i];
@@ -37,13 +38,9 @@ abstract class Reif {
       _header.version = 1;
       _header.nextEntryOffset = ReifHeader.size;
       _file.writeFromSync(_headerPointer.asBytes);
-    }
-
-    _file.setPositionSync(0);
-    var bytesRead = _file.readIntoSync(_headerPointer.asBytes);
-    if (bytesRead != ReifHeader.size) {
-      throw Exception(
-          "Couldn't read entire header from $file, only read $bytesRead bytes");
+    } else {
+      _log.info('Loading header from Reif file');
+      _file.readReifHeader(_headerPointer);
     }
 
     for (var i = 0; i < _magicNumber.length; i++) {
@@ -55,7 +52,7 @@ abstract class Reif {
 
   @mustCallSuper
   Future<void> dispose() async {
-    // Save the header
+    // Save the header before freeing
     _file.setPositionSync(0);
     _file.writeFromSync(_headerPointer.asBytes);
     malloc.free(_headerPointer);
@@ -64,11 +61,12 @@ abstract class Reif {
     malloc.free(_entryPointer);
   }
 
-  Future<void> addCheckpoint(Uint8List bytes) =>
-      _addEntry(bytes, EntryType.checkpoint);
-  Future<void> addDelta(Uint8List bytes) => _addEntry(bytes, EntryType.delta);
+  Future<void> addCheckpoint(Uint8List data) =>
+      _addEntry(data, EntryType.checkpoint);
+  Future<void> addDelta(Uint8List data) => _addEntry(data, EntryType.delta);
 
-  Future<void> _addEntry(Uint8List bytes, int entryType) async {
+  Future<void> _addEntry(Uint8List data, EntryType entryType) async {
+    _log.info('Adding a $entryType');
     switch (entryType) {
       case EntryType.checkpoint:
         _header.lastCheckpointOffset = _header.nextEntryOffset;
@@ -81,24 +79,88 @@ abstract class Reif {
     _file.setPositionSync(_header.nextEntryOffset);
 
     _entryPointer.zero();
-    _entry.type = entryType;
-    _entry.payloadSize = bytes.length;
+    _entry.type = entryType.index;
+    _entry.payloadSize = data.length;
 
     final remainder = _entry.payloadSize % 4;
     _entry.payloadPadding = remainder > 0 ? 4 - remainder : 0;
 
-    _header.nextEntryOffset = _header.nextEntryOffset +
-        EntryHeader.size +
-        _entry.payloadSize +
-        _entry.payloadPadding;
+    _header.nextEntryOffset = _header.nextEntryOffset + _entry.totalSize;
 
     _file.writeFromSync(_entryPointer.asBytes);
-    await _file.writeFrom(bytes);
+    _log.info('Writing ${data.length} bytes of data');
+    await _file.writeFrom(data);
+    _log.finer('Writing ${_entry.payloadPadding} bytes of padding');
     for (var i = 0; i < _entry.payloadPadding; i++) {
       await _file.writeByte(0);
     }
-    // TODO(crasm): sync?
-    // await _file.flush();
+  }
+
+  /// Reify ("make an abstraction concrete") the state. Begins by replaying
+  /// the last checkpoint, and then replays each delta in turn until the
+  /// last delta is reached.
+  Future<void> reify() async {
+    // TODO(crasm): what if the last entry is a checkpoint? What if there are
+    // no checkpoints? What if there are checkpoints after checkpoints?
+    int pos;
+    Uint8List data;
+
+    //
+    // Replay the last checkpoint
+    _log.fine(
+        'Loading lastCheckPointOffset from ${_header.lastCheckpointOffset}');
+    pos = _header.lastCheckpointOffset;
+    _file.setPositionSync(pos);
+    _file.readEntryHeader(_entryPointer);
+
+    data = await _file.readData(_entry.payloadSize);
+    _log.info('Replaying ${data.length} bytes of checkpoint data');
+    await replayCheckpoint(data);
+
+    //
+    // Replay all deltas until we reach the end
+    pos = _header.lastCheckpointOffset + _entry.totalSize;
+
+    while (pos < _header.nextEntryOffset) {
+      _file.setPositionSync(pos);
+      _file.readEntryHeader(_entryPointer);
+      data = await _file.readData(_entry.payloadSize);
+      _log.info('Replaying ${data.length} bytes of delta data');
+      await replayDelta(data);
+
+      pos = pos + _entry.totalSize;
+    }
+    assert(pos == _header.nextEntryOffset);
+  }
+
+  Future<void> replayCheckpoint(Uint8List data);
+  Future<void> replayDelta(Uint8List data);
+}
+
+extension on RandomAccessFile {
+  void readReifHeader(Pointer<ReifHeader> header) {
+    setPositionSync(0);
+    final bytesRead = readIntoSync(header.asBytes);
+    if (bytesRead != ReifHeader.size) {
+      throw Exception(
+          'Expected to read ${ReifHeader.size} bytes, got $bytesRead bytes');
+    }
+  }
+
+  void readEntryHeader(Pointer<EntryHeader> entry) {
+    final bytesRead = readIntoSync(entry.asBytes);
+    if (bytesRead != EntryHeader.size) {
+      throw Exception(
+          'Expected to read ${EntryHeader.size} bytes, got $bytesRead bytes');
+    }
+  }
+
+  Future<Uint8List> readData(int size) async {
+    final data = await read(size);
+    if (data.length < size) {
+      throw Exception('Expected to read $size bytes, got ${data.length} bytes');
+    }
+    return data;
   }
 }
 
@@ -151,15 +213,13 @@ final class ReifHeader extends Struct {
   external Array<Uint32> reserved;
 }
 
-abstract final class EntryType {
-  static const int checkpoint = 0;
-  static const int delta = 1;
-}
+enum EntryType { checkpoint, delta }
 
 // Payload is aligned/padded for 4-bytes alignment
 // TODO: this might be unnecessary but was fun to think about
 final class EntryHeader extends Struct {
   static int get size => sizeOf<EntryHeader>();
+  int get totalSize => EntryHeader.size + payloadSize + payloadPadding;
 
   @Uint8()
   external int type;
