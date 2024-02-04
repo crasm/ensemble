@@ -33,12 +33,22 @@ final class TextAppendReif extends Reif {
   }
 }
 
+Future<void> makeSeries() async {
+  final reif = TextAppendReif();
+  for (final str in ['My name', ' is Bob.', ' What is your ', 'name? ']) {
+    await reif.append(str);
+    print(reif.text);
+  }
+
+  await reif.dispose();
+}
+
 Future<void> makeReif() async {
   try {
     File('./text-append.reif').deleteSync();
   } on Exception catch (_) {}
   final reif = TextAppendReif();
-  await reif.open('./text-append.reif');
+  await reif.openFile('./text-append.reif');
   for (final str in ['My name', ' is Bob.', ' What is your ', 'name? ']) {
     await reif.append(str);
     print(reif.text);
@@ -49,7 +59,7 @@ Future<void> makeReif() async {
 
 Future<void> printReif() async {
   final reif = TextAppendReif();
-  await reif.open('./text-append.reif');
+  await reif.openFile('./text-append.reif');
   print(reif.text);
 }
 
@@ -66,10 +76,14 @@ Future<void> main(List<String> arguments) async {
     );
   });
 
-  switch (arguments.first) {
-    case 'make':
-      await makeReif();
-    case 'print':
-      await printReif();
-  }
+  await printReif();
+
+  // switch (arguments.first) {
+  //   case 'make':
+  //     await makeReif();
+  //   case 'print':
+  //     await printReif();
+  //   case 'series':
+  //     await makeSeries();
+  // }
 }

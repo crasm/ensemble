@@ -1,6 +1,6 @@
-// We also assume little-endian
 import 'dart:ffi';
 
+// We also assume little-endian
 final class ReifHeader extends Struct {
   static int get size => sizeOf<ReifHeader>();
 
