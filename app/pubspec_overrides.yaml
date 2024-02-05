@@ -1,4 +1,6 @@
-# melos_managed_dependency_overrides: ensemble_protos
+# melos_managed_dependency_overrides: ensemble_protos,reif
 dependency_overrides:
   ensemble_protos:
     path: ../protos
+  reif:
+    path: ../reif

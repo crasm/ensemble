@@ -4,6 +4,8 @@ import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 import 'package:logging/logging.dart';
+
+import 'package:reif/src/reif.dart' show SerializableMap;
 import 'package:reif/src/structs.dart';
 
 const _magicNumber = [0x52, 0x45, 0x49, 0x46];
@@ -126,11 +128,12 @@ final class ReifFile {
     assert(pos == _header.nextEntryOffset);
   }
 
-  Future<void> addCheckpoint(Uint8List data) =>
+  Future<void> addCheckpoint(SerializableMap data) =>
       _addEntry(data, EntryType.checkpoint);
-  Future<void> addDelta(Uint8List data) => _addEntry(data, EntryType.delta);
+  Future<void> addDelta(SerializableMap data) =>
+      _addEntry(data, EntryType.delta);
 
-  Future<void> _addEntry(Uint8List data, EntryType entryType) async {
+  Future<void> _addEntry(SerializableMap data, EntryType entryType) async {
     _log.info('Adding a $entryType');
     switch (entryType) {
       case EntryType.checkpoint:
@@ -145,7 +148,7 @@ final class ReifFile {
 
     _entryPointer.zero();
     _entry.type = entryType.index;
-    _entry.payloadSize = data.length;
+    _entry.payloadSize = data.length; // TODO(crasm): get this value in bytes
 
     final remainder = _entry.payloadSize % 4;
     _entry.payloadPadding = remainder > 0 ? 4 - remainder : 0;
@@ -211,4 +214,8 @@ extension on RandomAccessFile {
     }
     return data;
   }
+}
+
+extension SerializableMapAsBytes on SerializableMap {
+  Uint8List asBytes() {}
 }

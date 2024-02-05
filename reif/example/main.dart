@@ -17,12 +17,12 @@ final class TextAppendReif extends Reif {
   String get text => _buf.toString();
 
   @override
-  Future<void> replayCheckpoint(Uint8List data) async {
+  Future<void> replayCheckpoint(Map<String, Serializable> data) async {
     _buf = StringBuffer(utf8.decode(data));
   }
 
   @override
-  Future<void> replayDelta(Uint8List data) async {
+  Future<void> replayDelta(Map<String, Serializable> data) async {
     _buf.write(utf8.decode(data));
   }
 

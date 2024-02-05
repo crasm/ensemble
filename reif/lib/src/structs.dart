@@ -49,3 +49,10 @@ final class EntryHeader extends Struct {
   @Uint32()
   external int payloadSize;
 }
+
+final class PayloadHeader extends Struct {
+  static int get size => sizeOf<PayloadHeader>();
+
+  @Uint16()
+  external int indexSize;
+}

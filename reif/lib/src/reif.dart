@@ -5,9 +5,15 @@ import 'package:meta/meta.dart';
 
 import 'package:reif/src/reif_file.dart';
 
+abstract interface class Serializable {
+  Uint8List asBytes();
+}
+
+typedef SerializableMap = Map<String, Serializable>;
+
 final class Series {
-  final Uint8List checkpoint;
-  final List<Uint8List> deltas = [];
+  final SerializableMap checkpoint;
+  final List<SerializableMap> deltas = [];
   Series(this.checkpoint);
 }
 
@@ -31,29 +37,29 @@ abstract class Reif {
     await _file?.close();
   }
 
-  Future<void> addCheckpoint(Uint8List data) async {
+  Future<void> addCheckpoint(SerializableMap data) async {
     _seriesList.add(Series(data));
     await _file?.addCheckpoint(data);
   }
 
-  Future<void> addDelta(Uint8List data) async {
+  Future<void> addDelta(SerializableMap data) async {
     _seriesList.last.deltas.add(data);
     await _file?.addDelta(data);
   }
 
-  Future<void> _replayCheckpoint(Uint8List data) async {
+  Future<void> _replayCheckpoint(SerializableMap data) async {
     _seriesList.clear();
     _seriesList.add(Series(data));
     await replayCheckpoint(data);
   }
 
-  Future<void> _replayDelta(Uint8List data) async {
+  Future<void> _replayDelta(SerializableMap data) async {
     _seriesList.last.deltas.add(data);
     await replayDelta(data);
   }
 
   @protected
-  Future<void> replayCheckpoint(Uint8List data);
+  Future<void> replayCheckpoint(SerializableMap data);
   @protected
-  Future<void> replayDelta(Uint8List data);
+  Future<void> replayDelta(SerializableMap data);
 }

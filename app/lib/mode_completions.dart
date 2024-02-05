@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import 'package:grpc/grpc.dart';
 import 'package:logging/logging.dart';
+import 'package:reif/reif.dart';
 import 'package:state_machine/state_machine.dart' as sm;
 
 import 'package:ensemble_protos/llamacpp.dart' as pb;
@@ -57,13 +59,39 @@ final List<Sampler> _samplers = [
   SamplerTemperature(0.64),
 ];
 
-class _CompletionsController extends TextEditingController {
-  static const _prompt = 'A chat.\nUSER:';
-  int _i = 0;
-  int _pin = 0;
-  final List<({DateTime datetime, String text})> _history = [
+const _prompt = 'A chat.\nUSER:';
+typedef _CompletionsEntry = ({DateTime datetime, String text});
+
+class _CompletionsHistoryReif extends Reif {
+  final List<_CompletionsEntry> _completions = [
     (datetime: DateTime.now(), text: _prompt),
   ];
+
+  _CompletionsEntry operator [](int i) => _completions[i];
+  void operator []=(int i, _CompletionsEntry value) {
+    if (_completions.isEmpty) {
+      addCheckpoint({1: value);
+    }
+    _completions.add(value);
+  }
+
+  @override
+  Future<void> replayCheckpoint(Uint8List data) {
+    // TODO: implement replayCheckpoint
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> replayDelta(Uint8List data) {
+    // TODO: implement replayDelta
+    throw UnimplementedError();
+  }
+}
+
+class _CompletionsController extends TextEditingController {
+  int _i = 0;
+  int _pin = 0;
+  final _history = _CompletionsHistoryReif();
   _CompletionsController() : super(text: _prompt);
 
   /// Get the datetime of the currently selected completion snapshot.
